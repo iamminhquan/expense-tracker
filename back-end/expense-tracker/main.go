@@ -22,7 +22,7 @@ func main() {
 	}
 	defer sqlDB.Close()
 
-	router := routes.Setup(db)
+	router := routes.Setup(db, cfg)
 
 	if err := router.Run(":" + cfg.AppPort); err != nil {
 		log.Fatalf("failed to start server: %v", err)
