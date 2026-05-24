@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/iamminhquan/expense-tracker/internal/auth"
 	"github.com/iamminhquan/expense-tracker/internal/models"
+	"github.com/iamminhquan/expense-tracker/internal/services"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -55,9 +56,9 @@ func (r *fakeUserRepository) FindByID(_ context.Context, id uint) (*models.User,
 
 func TestRegisterCreatesUserAndToken(t *testing.T) {
 	repo := newFakeUserRepository()
-	service := NewUserService(repo, "test-secret")
+	service := services.NewUserService(repo, "test-secret")
 
-	result, err := service.Register(context.Background(), RegisterInput{
+	result, err := service.Register(context.Background(), services.RegisterInput{
 		Name:     " Minh Quan ",
 		Email:    "Quan@Example.COM ",
 		Password: "strong-password",
@@ -91,42 +92,42 @@ func TestRegisterCreatesUserAndToken(t *testing.T) {
 }
 
 func TestRegisterRejectsInvalidInput(t *testing.T) {
-	service := NewUserService(newFakeUserRepository(), "test-secret")
+	service := services.NewUserService(newFakeUserRepository(), "test-secret")
 
 	tests := []struct {
 		name  string
-		input RegisterInput
+		input services.RegisterInput
 	}{
-		{name: "missing name", input: RegisterInput{Email: "a@example.com", Password: "strong-password"}},
-		{name: "invalid email", input: RegisterInput{Name: "Quan", Email: "invalid", Password: "strong-password"}},
-		{name: "short password", input: RegisterInput{Name: "Quan", Email: "a@example.com", Password: "short"}},
+		{name: "missing name", input: services.RegisterInput{Email: "a@example.com", Password: "strong-password"}},
+		{name: "invalid email", input: services.RegisterInput{Name: "Quan", Email: "invalid", Password: "strong-password"}},
+		{name: "short password", input: services.RegisterInput{Name: "Quan", Email: "a@example.com", Password: "short"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := service.Register(context.Background(), tt.input)
-			if !errors.Is(err, ErrInvalidUserInput) {
-				t.Fatalf("Register() error = %v, want %v", err, ErrInvalidUserInput)
+			if !errors.Is(err, services.ErrInvalidUserInput) {
+				t.Fatalf("Register() error = %v, want %v", err, services.ErrInvalidUserInput)
 			}
 		})
 	}
 }
 
 func TestRegisterRejectsDuplicateEmail(t *testing.T) {
-	service := NewUserService(newFakeUserRepository(), "test-secret")
-	input := RegisterInput{Name: "Quan", Email: "quan@example.com", Password: "strong-password"}
+	service := services.NewUserService(newFakeUserRepository(), "test-secret")
+	input := services.RegisterInput{Name: "Quan", Email: "quan@example.com", Password: "strong-password"}
 
 	if _, err := service.Register(context.Background(), input); err != nil {
 		t.Fatalf("first Register() error = %v", err)
 	}
-	if _, err := service.Register(context.Background(), input); !errors.Is(err, ErrEmailAlreadyExists) {
-		t.Fatalf("second Register() error = %v, want %v", err, ErrEmailAlreadyExists)
+	if _, err := service.Register(context.Background(), input); !errors.Is(err, services.ErrEmailAlreadyExists) {
+		t.Fatalf("second Register() error = %v, want %v", err, services.ErrEmailAlreadyExists)
 	}
 }
 
 func TestLoginReturnsTokenForValidCredentials(t *testing.T) {
-	service := NewUserService(newFakeUserRepository(), "test-secret")
-	registered, err := service.Register(context.Background(), RegisterInput{
+	service := services.NewUserService(newFakeUserRepository(), "test-secret")
+	registered, err := service.Register(context.Background(), services.RegisterInput{
 		Name:     "Quan",
 		Email:    "quan@example.com",
 		Password: "strong-password",
@@ -135,7 +136,7 @@ func TestLoginReturnsTokenForValidCredentials(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	result, err := service.Login(context.Background(), LoginInput{
+	result, err := service.Login(context.Background(), services.LoginInput{
 		Email:    "QUAN@example.com",
 		Password: "strong-password",
 	})
@@ -151,13 +152,13 @@ func TestLoginReturnsTokenForValidCredentials(t *testing.T) {
 }
 
 func TestLoginRejectsInvalidCredentials(t *testing.T) {
-	service := NewUserService(newFakeUserRepository(), "test-secret")
+	service := services.NewUserService(newFakeUserRepository(), "test-secret")
 
-	_, err := service.Login(context.Background(), LoginInput{
+	_, err := service.Login(context.Background(), services.LoginInput{
 		Email:    "missing@example.com",
 		Password: "strong-password",
 	})
-	if !errors.Is(err, ErrInvalidCredentials) {
-		t.Fatalf("Login() error = %v, want %v", err, ErrInvalidCredentials)
+	if !errors.Is(err, services.ErrInvalidCredentials) {
+		t.Fatalf("Login() error = %v, want %v", err, services.ErrInvalidCredentials)
 	}
 }
