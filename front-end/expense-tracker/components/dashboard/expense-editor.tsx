@@ -19,12 +19,6 @@ const paymentMethodOptions = [
 
 const currencyOptions = ["VND", "USD", "EUR", "GBP", "JPY", "SGD"];
 
-const statusOptions = [
-  { value: "completed", label: "Đã thanh toán" },
-  { value: "pending", label: "Chờ thanh toán" },
-  { value: "cancelled", label: "Đã hủy" },
-];
-
 const recurringPeriodOptions = [
   { value: "daily", label: "Hàng ngày" },
   { value: "weekly", label: "Hàng tuần" },
@@ -146,17 +140,6 @@ export function ExpenseEditor({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <Field label="Cửa hàng / Người nhận">
-            <input
-              className={inputCls}
-              disabled={disabled}
-              onChange={onFieldChange("merchant")}
-              placeholder="Grab, Shopee..."
-              type="text"
-              value={form.merchant}
-            />
-          </Field>
-
           <Field label="Phương thức">
             <select
               className={inputCls}
@@ -169,32 +152,6 @@ export function ExpenseEditor({
                 <option key={method} value={method}>{method}</option>
               ))}
             </select>
-          </Field>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <Field label="Trạng thái">
-            <select
-              className={inputCls}
-              disabled={disabled}
-              onChange={onFieldChange("status")}
-              value={form.status}
-            >
-              {statusOptions.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Nhãn">
-            <input
-              className={inputCls}
-              disabled={disabled}
-              onChange={onFieldChange("tags")}
-              placeholder="công tác, nhóm..."
-              type="text"
-              value={form.tags}
-            />
           </Field>
         </div>
 
@@ -230,17 +187,6 @@ export function ExpenseEditor({
             </select>
           </Field>
         )}
-
-        <Field label="Đính kèm (URL hóa đơn)">
-          <input
-            className={inputCls}
-            disabled={disabled}
-            onChange={onFieldChange("attachmentUrl")}
-            placeholder="https://..."
-            type="url"
-            value={form.attachmentUrl}
-          />
-        </Field>
 
         <Field label="Ghi chú">
           <textarea

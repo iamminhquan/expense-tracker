@@ -32,14 +32,10 @@ type ExpenseInput struct {
 	Currency        string
 	Description     string
 	Category        string
-	Merchant        string
 	Date            time.Time
 	PaymentMethod   string
-	Status          string
-	Tags            string
 	IsRecurring     bool
 	RecurringPeriod string
-	AttachmentURL   string
 	Note            string
 }
 
@@ -59,14 +55,10 @@ func (s *ExpenseService) Create(ctx context.Context, userID uint, input ExpenseI
 		Currency:        normalized.Currency,
 		Description:     normalized.Description,
 		Category:        normalized.Category,
-		Merchant:        normalized.Merchant,
 		Date:            normalized.Date,
 		PaymentMethod:   normalized.PaymentMethod,
-		Status:          normalized.Status,
-		Tags:            normalized.Tags,
 		IsRecurring:     normalized.IsRecurring,
 		RecurringPeriod: normalized.RecurringPeriod,
-		AttachmentURL:   normalized.AttachmentURL,
 		Note:            normalized.Note,
 	}
 
@@ -99,14 +91,10 @@ func (s *ExpenseService) Update(ctx context.Context, userID uint, id uint, input
 	expense.Currency = normalized.Currency
 	expense.Description = normalized.Description
 	expense.Category = normalized.Category
-	expense.Merchant = normalized.Merchant
 	expense.Date = normalized.Date
 	expense.PaymentMethod = normalized.PaymentMethod
-	expense.Status = normalized.Status
-	expense.Tags = normalized.Tags
 	expense.IsRecurring = normalized.IsRecurring
 	expense.RecurringPeriod = normalized.RecurringPeriod
-	expense.AttachmentURL = normalized.AttachmentURL
 	expense.Note = normalized.Note
 
 	if err := s.repo.Save(ctx, expense); err != nil {
@@ -133,24 +121,16 @@ func normalizeExpenseInput(input ExpenseInput) (ExpenseInput, error) {
 	if currency == "" {
 		currency = "VND"
 	}
-	status := strings.TrimSpace(input.Status)
-	if status == "" {
-		status = "completed"
-	}
 
 	normalized := ExpenseInput{
 		Amount:          input.Amount,
 		Currency:        currency,
 		Description:     strings.TrimSpace(input.Description),
 		Category:        strings.TrimSpace(input.Category),
-		Merchant:        strings.TrimSpace(input.Merchant),
 		Date:            input.Date,
 		PaymentMethod:   strings.TrimSpace(input.PaymentMethod),
-		Status:          status,
-		Tags:            strings.TrimSpace(input.Tags),
 		IsRecurring:     input.IsRecurring,
 		RecurringPeriod: strings.TrimSpace(input.RecurringPeriod),
-		AttachmentURL:   strings.TrimSpace(input.AttachmentURL),
 		Note:            strings.TrimSpace(input.Note),
 	}
 
