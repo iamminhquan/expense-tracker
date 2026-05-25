@@ -25,11 +25,25 @@ func Connect(cfg config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	if err := dropLegacyExpenseColumns(db); err != nil {
+		return nil, err
+	}
+
 	if err := seedDefaultCategories(db); err != nil {
 		return nil, err
 	}
 
 	return db, nil
+}
+
+func dropLegacyExpenseColumns(db *gorm.DB) error {
+	return db.Exec(`
+		ALTER TABLE expenses
+		DROP COLUMN IF EXISTS merchant,
+		DROP COLUMN IF EXISTS status,
+		DROP COLUMN IF EXISTS tags,
+		DROP COLUMN IF EXISTS attachment_url
+	`).Error
 }
 
 func seedDefaultCategories(db *gorm.DB) error {

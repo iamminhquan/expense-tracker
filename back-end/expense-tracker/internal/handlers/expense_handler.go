@@ -24,14 +24,10 @@ type expenseRequest struct {
 	Currency        string  `json:"currency"`
 	Description     string  `json:"description"`
 	Category        string  `json:"category"`
-	Merchant        string  `json:"merchant"`
 	Date            string  `json:"date"`
 	PaymentMethod   string  `json:"payment_method"`
-	Status          string  `json:"status"`
-	Tags            string  `json:"tags"`
 	IsRecurring     bool    `json:"is_recurring"`
 	RecurringPeriod string  `json:"recurring_period"`
-	AttachmentURL   string  `json:"attachment_url"`
 	Note            string  `json:"note"`
 }
 
@@ -41,14 +37,10 @@ type expenseResponse struct {
 	Currency        string  `json:"currency"`
 	Description     string  `json:"description"`
 	Category        string  `json:"category"`
-	Merchant        string  `json:"merchant"`
 	Date            string  `json:"date"`
 	PaymentMethod   string  `json:"payment_method"`
-	Status          string  `json:"status"`
-	Tags            string  `json:"tags"`
 	IsRecurring     bool    `json:"is_recurring"`
 	RecurringPeriod string  `json:"recurring_period"`
-	AttachmentURL   string  `json:"attachment_url"`
 	Note            string  `json:"note"`
 }
 
@@ -168,14 +160,10 @@ func expenseInputFromRequest(c *gin.Context) (services.ExpenseInput, bool) {
 		Currency:        req.Currency,
 		Description:     req.Description,
 		Category:        req.Category,
-		Merchant:        req.Merchant,
 		Date:            date,
 		PaymentMethod:   req.PaymentMethod,
-		Status:          req.Status,
-		Tags:            req.Tags,
 		IsRecurring:     req.IsRecurring,
 		RecurringPeriod: req.RecurringPeriod,
-		AttachmentURL:   req.AttachmentURL,
 		Note:            req.Note,
 	}, true
 }
@@ -216,14 +204,10 @@ func expenseResponseFromModel(expense models.Expense) expenseResponse {
 		Currency:        expense.Currency,
 		Description:     expense.Description,
 		Category:        expense.Category,
-		Merchant:        expense.Merchant,
 		Date:            expense.Date.Format("2006-01-02"),
 		PaymentMethod:   expense.PaymentMethod,
-		Status:          expense.Status,
-		Tags:            expense.Tags,
 		IsRecurring:     expense.IsRecurring,
 		RecurringPeriod: expense.RecurringPeriod,
-		AttachmentURL:   expense.AttachmentURL,
 		Note:            expense.Note,
 	}
 }
