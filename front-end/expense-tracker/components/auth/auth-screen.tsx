@@ -32,8 +32,8 @@ export const initialAuthForm: AuthForm = {
 };
 
 const modes: Array<{ label: string; value: AuthMode }> = [
-  { label: "Login", value: "login" },
-  { label: "Register", value: "register" },
+  { label: "Đăng nhập", value: "login" },
+  { label: "Đăng ký", value: "register" },
 ];
 
 const inputClassName =
@@ -142,12 +142,12 @@ function AuthPanelHeader({ mode }: { mode: AuthMode }) {
         </div>
         <div>
           <h1 className="text-lg font-semibold tracking-normal">
-            {mode === "login" ? "Sign in" : "Create account"}
+            {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
           </h1>
           <p className="text-sm text-muted-foreground">
             {mode === "login"
-              ? "Continue to your expense workspace."
-              : "Start tracking budgets with a secure account."}
+              ? "Tiếp tục vào không gian quản lý chi tiêu."
+              : "Bắt đầu theo dõi chi tiêu bằng tài khoản bảo mật."}
           </p>
         </div>
       </div>
@@ -193,11 +193,11 @@ function AuthFormFields({
       <TextField
         autoComplete={mode === "login" ? "current-password" : "new-password"}
         disabled={isLoading}
-        hint={mode === "register" ? "Use at least 8 characters." : undefined}
+        hint={mode === "register" ? "Mật khẩu cần ít nhất 8 ký tự." : undefined}
         icon={LockKeyhole}
-        label="Password"
+        label="Mật khẩu"
         onChange={onFieldChange("password")}
-        placeholder="Enter your password"
+        placeholder="Nhập mật khẩu"
         type="password"
         value={form.password}
       />
@@ -224,18 +224,18 @@ function AuthIntro() {
 
       <div className="max-w-2xl space-y-4">
         <h2 className="text-4xl font-semibold tracking-normal sm:text-5xl">
-          Your expenses, budgets, and cash flow in one place.
+          Quản lý chi tiêu, ngân sách và dòng tiền cá nhân.
         </h2>
         <p className="max-w-xl text-base leading-7 text-muted-foreground">
-          Sign in to review spending, create budgets, and keep personal finance
-          activity organized without extra noise.
+          Đăng nhập để xem chi tiêu, tạo ngân sách và giữ mọi hoạt động tài
+          chính cá nhân trong một nơi gọn gàng.
         </p>
       </div>
 
       <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
-        <IntroItem label="Secure login" />
-        <IntroItem label="Budget overview" />
-        <IntroItem label="Expense history" />
+        <IntroItem label="Đăng nhập an toàn" />
+        <IntroItem label="Tổng quan ngân sách" />
+        <IntroItem label="Lịch sử chi tiêu" />
       </div>
     </section>
   );
@@ -311,9 +311,9 @@ function NameField({
         autoComplete="name"
         disabled={disabled || !isVisible}
         icon={User}
-        label="Name"
+        label="Họ tên"
         onChange={onChange}
-        placeholder="Your full name"
+        placeholder="Họ tên của bạn"
         tabIndex={isVisible ? 0 : -1}
         value={value}
         wrapperClassName="min-h-0 overflow-hidden"
@@ -404,14 +404,14 @@ function ModePrompt({
 }) {
   return (
     <p className="mt-5 text-center text-sm text-muted-foreground">
-      {mode === "login" ? "New to the app?" : "Already have an account?"}{" "}
+      {mode === "login" ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
       <button
         className="font-medium text-foreground underline-offset-4 hover:underline"
         disabled={disabled}
         onClick={() => onModeChange(mode === "login" ? "register" : "login")}
         type="button"
       >
-        {mode === "login" ? "Create an account" : "Sign in instead"}
+        {mode === "login" ? "Tạo tài khoản" : "Đăng nhập"}
       </button>
     </p>
   );
@@ -419,12 +419,12 @@ function ModePrompt({
 
 function submitLabel(mode: AuthMode, isLoading: boolean) {
   if (isLoading) {
-    return "Please wait";
+    return "Vui lòng chờ";
   }
 
   return (
     <>
-      {mode === "login" ? "Sign in" : "Create account"}
+      {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
       <ArrowRight className="size-4" />
     </>
   );
