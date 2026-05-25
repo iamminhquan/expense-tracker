@@ -8,6 +8,8 @@ type Expense struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 	DeletedAt       *time.Time `gorm:"index" json:"deleted_at,omitempty"`
 	UserID          uint       `gorm:"not null;index" json:"user_id"`
+	AccountID       *uint      `gorm:"index" json:"account_id"`
+	CategoryID      *uint      `gorm:"index" json:"category_id"`
 	Amount          float64    `gorm:"not null" json:"amount"`
 	Currency        string     `gorm:"size:3;not null;default:'USD'" json:"currency"`
 	Description     string     `gorm:"size:255;not null" json:"description"`
