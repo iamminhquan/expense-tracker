@@ -6,14 +6,10 @@ export type Expense = {
   currency: string;
   description: string;
   category: string;
-  merchant: string;
   date: string;
   payment_method: string;
-  status: string;
-  tags: string;
   is_recurring: boolean;
   recurring_period: string;
-  attachment_url: string;
   note: string;
 };
 
@@ -22,14 +18,10 @@ export type ExpenseForm = {
   currency: string;
   description: string;
   category: string;
-  merchant: string;
   date: string;
   paymentMethod: string;
-  status: string;
-  tags: string;
   isRecurring: string;
   recurringPeriod: string;
-  attachmentUrl: string;
   note: string;
 };
 
@@ -48,14 +40,10 @@ export const initialExpenseForm: ExpenseForm = {
   currency: "VND",
   description: "",
   category: "",
-  merchant: "",
   date: new Date().toISOString().slice(0, 10),
   paymentMethod: "",
-  status: "completed",
-  tags: "",
   isRecurring: "false",
   recurringPeriod: "",
-  attachmentUrl: "",
   note: "",
 };
 
@@ -113,14 +101,10 @@ export function formFromExpense(expense: Expense): ExpenseForm {
     currency: expense.currency,
     description: expense.description,
     category: expense.category,
-    merchant: expense.merchant,
     date: expense.date,
     paymentMethod: expense.payment_method,
-    status: expense.status,
-    tags: expense.tags,
     isRecurring: String(expense.is_recurring),
     recurringPeriod: expense.recurring_period,
-    attachmentUrl: expense.attachment_url,
     note: expense.note,
   };
 }
@@ -131,14 +115,10 @@ function payloadFromForm(form: ExpenseForm) {
     currency: form.currency,
     description: form.description,
     category: form.category,
-    merchant: form.merchant,
     date: form.date,
     payment_method: form.paymentMethod,
-    status: form.status,
-    tags: form.tags,
     is_recurring: form.isRecurring === "true",
     recurring_period: form.recurringPeriod,
-    attachment_url: form.attachmentUrl,
     note: form.note,
   };
 }
