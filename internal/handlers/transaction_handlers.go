@@ -71,14 +71,12 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			}
 		}
 
-		now := time.Now()
-		from := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-		to := from.AddDate(0, 1, 0)
+		from, to := currentMonthRange()
 
 		transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{
 			UserID:       userID,
-			OccurredOn:   pgDate(from),
-			OccurredOn_2: pgDate(to),
+			OccurredOn:   from,
+			OccurredOn_2: to,
 		})
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
@@ -91,7 +89,7 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		deps.Templates["transactions"].ExecuteTemplate(w, "layout", map[string]any{
+		render(w, deps, "transactions", map[string]any{
 			"Transactions": transactions,
 			"Categories":   categories,
 			"Error":        formErr,

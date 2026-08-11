@@ -2,13 +2,18 @@ package handlers_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"expensetracker/internal/handlers"
+	"expensetracker/internal/sqlcgen"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func loginAndGetCookie(t *testing.T, router http.Handler, deps handlers.Deps, email, password string) *http.Cookie {
@@ -57,5 +62,65 @@ func TestCreateAndListCategories(t *testing.T) {
 	}
 	if !strings.Contains(listRec.Body.String(), "Ăn uống") {
 		t.Fatal("expected default category to appear in list page")
+	}
+}
+
+// TestDeleteCategoryInUseShowsFriendlyError covers Finding 7 from the final
+// whole-branch review: transactions.category_id has no ON DELETE clause
+// (RESTRICT by default), so deleting a category that still has transactions
+// referencing it raises a foreign-key violation. Before the fix this
+// surfaced as a bare 500; it should instead re-render the categories page
+// with a friendly Vietnamese message via the existing {{.Error}} slot.
+func TestDeleteCategoryInUseShowsFriendlyError(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "cat-inuse@example.com", "s3cret-pass")
+
+	ctx := context.Background()
+	user, err := deps.Queries.GetUserByEmail(ctx, "cat-inuse@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+
+	category, err := deps.Queries.CreateCategory(ctx, sqlcgen.CreateCategoryParams{
+		UserID: pgtype.Int8{Int64: user.ID, Valid: true},
+		Name:   "Sẽ bị khóa",
+		Type:   "expense",
+		Color:  "#654321",
+	})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+
+	txn, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID:      user.ID,
+		CategoryID:  category.ID,
+		Amount:      1000,
+		Type:        "expense",
+		Description: "blocks delete",
+		OccurredOn:  pgtype.Date{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	t.Cleanup(func() {
+		deps.Queries.DeleteTransaction(ctx, sqlcgen.DeleteTransactionParams{ID: txn.ID, UserID: user.ID})
+		deps.Queries.DeleteCategory(ctx, sqlcgen.DeleteCategoryParams{ID: category.ID, UserID: pgtype.Int8{Int64: user.ID, Valid: true}})
+	})
+
+	deleteReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/categories/%d/delete", category.ID), nil)
+	deleteReq.AddCookie(cookie)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 re-rendering categories page with a friendly error, got %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
+	if !strings.Contains(deleteRec.Body.String(), "Không thể xóa danh mục") {
+		t.Fatalf("expected friendly FK-violation error message in body, got: %s", deleteRec.Body.String())
+	}
+	// The category and its blocking transaction must both still exist.
+	if !strings.Contains(deleteRec.Body.String(), "Sẽ bị khóa") {
+		t.Fatal("expected the in-use category to remain listed after the failed delete")
 	}
 }

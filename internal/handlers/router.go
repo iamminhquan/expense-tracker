@@ -19,6 +19,10 @@ func NewRouter(deps Deps) http.Handler {
 		w.Write([]byte("ok"))
 	})
 
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	})
+
 	r.Get("/register", registerPage(deps))
 	r.Post("/register", registerPage(deps))
 	r.Get("/login", loginPage(deps))

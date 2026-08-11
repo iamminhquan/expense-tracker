@@ -1,11 +1,15 @@
 package handlers
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/sqlcgen"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func categoriesPage(deps Deps) http.HandlerFunc {
@@ -31,7 +35,7 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		deps.Templates["categories"].ExecuteTemplate(w, "layout", map[string]any{"Categories": categories})
+		render(w, deps, "categories", map[string]any{"Categories": categories})
 	}
 }
 
@@ -49,6 +53,25 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			ID:     id,
 			UserID: pgInt64(userID),
 		}); err != nil {
+			// transactions.category_id has no ON DELETE clause (RESTRICT by
+			// default), so deleting a category still referenced by existing
+			// transactions raises a foreign-key violation (23503). Surface
+			// that as a friendly message on the categories page instead of
+			// a bare 500.
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+				categories, listErr := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+				if listErr != nil {
+					http.Error(w, "could not load categories", http.StatusInternalServerError)
+					return
+				}
+				render(w, deps, "categories", map[string]any{
+					"Categories": categories,
+					"Error":      "Không thể xóa danh mục đang được sử dụng bởi các giao dịch",
+				})
+				return
+			}
+			log.Printf("delete category: %v", err)
 			http.Error(w, "could not delete category", http.StatusInternalServerError)
 			return
 		}
