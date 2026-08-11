@@ -24,13 +24,16 @@ func main() {
 	defer pool.Close()
 
 	queries := sqlcgen.New(pool)
-	tmpl := template.Must(template.ParseGlob("internal/web/templates/*.html"))
+	templates := map[string]*template.Template{
+		"register": template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/register.html")),
+		"login":    template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/login.html")),
+	}
 
 	deps := handlers.Deps{
 		DB:         pool,
 		Queries:    queries,
 		Sessions:   auth.NewManager(queries),
-		Templates:  tmpl,
+		Templates:  templates,
 		CookieName: cfg.SessionCookieName,
 	}
 

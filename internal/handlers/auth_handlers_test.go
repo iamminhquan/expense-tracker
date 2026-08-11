@@ -28,13 +28,16 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 	t.Cleanup(pool.Close)
 
-	tmpl := template.Must(template.ParseGlob("../web/templates/*.html"))
+	templates := map[string]*template.Template{
+		"register": template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/register.html")),
+		"login":    template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/login.html")),
+	}
 
 	return handlers.Deps{
 		DB:         pool,
 		Queries:    sqlcgen.New(pool),
 		Sessions:   auth.NewManager(sqlcgen.New(pool)),
-		Templates:  tmpl,
+		Templates:  templates,
 		CookieName: "session_id",
 	}
 }
@@ -72,5 +75,38 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 	cookies := loginRec.Result().Cookies()
 	if len(cookies) == 0 {
 		t.Fatal("expected a session cookie to be set")
+	}
+}
+
+func TestLoginAndRegisterPagesRenderDistinctContent(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+
+	loginReq := httptest.NewRequest(http.MethodGet, "/login", nil)
+	loginRec := httptest.NewRecorder()
+	router.ServeHTTP(loginRec, loginReq)
+
+	// Both pages link to each other ("Đăng nhập"/"Đăng ký" both appear as
+	// footer link text on both pages), so headings alone aren't a reliable
+	// signal. Instead assert on the form's action attribute and on the
+	// "name" input field, which only ever appears on the register form.
+	loginBody := loginRec.Body.String()
+	if !strings.Contains(loginBody, `action="/login"`) {
+		t.Fatalf("expected GET /login body to contain a form posting to /login, got: %s", loginBody)
+	}
+	if strings.Contains(loginBody, `name="name"`) {
+		t.Fatalf("expected GET /login body to NOT contain the register-only name field, got: %s", loginBody)
+	}
+
+	registerReq := httptest.NewRequest(http.MethodGet, "/register", nil)
+	registerRec := httptest.NewRecorder()
+	router.ServeHTTP(registerRec, registerReq)
+
+	registerBody := registerRec.Body.String()
+	if !strings.Contains(registerBody, `action="/register"`) {
+		t.Fatalf("expected GET /register body to contain a form posting to /register, got: %s", registerBody)
+	}
+	if !strings.Contains(registerBody, `name="name"`) {
+		t.Fatalf("expected GET /register body to contain the name field, got: %s", registerBody)
 	}
 }
