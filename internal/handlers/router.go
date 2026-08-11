@@ -7,10 +7,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// Deps holds shared dependencies for handlers. Populated incrementally
-// in later tasks (DB queries, session store, templates).
-type Deps struct{}
-
 func NewRouter(deps Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -20,6 +16,12 @@ func NewRouter(deps Deps) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
+	r.Get("/register", registerPage(deps))
+	r.Post("/register", registerPage(deps))
+	r.Get("/login", loginPage(deps))
+	r.Post("/login", loginPage(deps))
+	r.Post("/logout", logoutHandler(deps))
 
 	return r
 }
