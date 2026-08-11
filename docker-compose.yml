@@ -10,5 +10,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  app:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgres://expense:expense@postgres:5432/expense_tracker?sslmode=disable
+      PORT: 8080
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
