@@ -60,6 +60,30 @@ func (q *Queries) DeleteCategory(ctx context.Context, arg DeleteCategoryParams) 
 	return result.RowsAffected(), nil
 }
 
+const getCategoryForUser = `-- name: GetCategoryForUser :one
+SELECT id, user_id, name, type, color, created_at FROM categories
+WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)
+`
+
+type GetCategoryForUserParams struct {
+	ID     int64       `json:"id"`
+	UserID pgtype.Int8 `json:"user_id"`
+}
+
+func (q *Queries) GetCategoryForUser(ctx context.Context, arg GetCategoryForUserParams) (Category, error) {
+	row := q.db.QueryRow(ctx, getCategoryForUser, arg.ID, arg.UserID)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listCategoriesForUser = `-- name: ListCategoriesForUser :many
 SELECT id, user_id, name, type, color, created_at FROM categories
 WHERE user_id = $1 OR user_id IS NULL
