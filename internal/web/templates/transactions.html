@@ -1,0 +1,38 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-4">Giao dịch</h1>
+{{if .Error}}
+<p class="text-red-600 mb-4">{{.Error}}</p>
+{{end}}
+<form method="POST" action="/transactions" class="grid grid-cols-5 gap-2 mb-6">
+  <select class="border p-2" name="category_id" required>
+    {{range .Categories}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+  </select>
+  <select class="border p-2" name="type">
+    <option value="expense">Chi</option>
+    <option value="income">Thu</option>
+  </select>
+  <input class="border p-2" type="number" name="amount" placeholder="Số tiền" min="1" required>
+  <input class="border p-2" type="date" name="occurred_on" required>
+  <input class="border p-2" type="text" name="description" placeholder="Ghi chú">
+  <button class="col-span-5 bg-blue-600 text-white px-4 py-2 rounded" type="submit">Thêm giao dịch</button>
+</form>
+<table class="w-full text-left">
+  <thead><tr><th>Ngày</th><th>Danh mục</th><th>Loại</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead>
+  <tbody>
+    {{range .Transactions}}
+    <tr class="border-t">
+      <td>{{.OccurredOn.Time.Format "2006-01-02"}}</td>
+      <td>{{.CategoryName}}</td>
+      <td>{{.Type}}</td>
+      <td>{{.Amount}}₫</td>
+      <td>{{.Description}}</td>
+      <td>
+        <form method="POST" action="/transactions/{{.ID}}/delete">
+          <button class="text-red-600" type="submit">Xóa</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}

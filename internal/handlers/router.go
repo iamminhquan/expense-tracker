@@ -30,6 +30,9 @@ func NewRouter(deps Deps) http.Handler {
 		pr.Get("/categories", categoriesPage(deps))
 		pr.Post("/categories", categoriesPage(deps))
 		pr.Post("/categories/{id}/delete", deleteCategoryHandler(deps))
+		pr.Get("/transactions", transactionsPage(deps))
+		pr.Post("/transactions", transactionsPage(deps))
+		pr.Post("/transactions/{id}/delete", deleteTransactionHandler(deps))
 	})
 
 	return r
