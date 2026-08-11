@@ -1,12 +1,17 @@
 package handlers
 
 import (
+	"errors"
 	"html/template"
+	"log"
 	"net/http"
+	"net/mail"
+	"strings"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/sqlcgen"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,22 +31,38 @@ type Deps struct {
 	Sessions   *auth.Manager
 	Templates  map[string]*template.Template
 	CookieName string
+	// SecureCookies gates the Secure attribute on the session cookie; see
+	// internal/config.Config.SecureCookies for how it's populated.
+	SecureCookies bool
 }
 
 func registerPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			deps.Templates["register"].ExecuteTemplate(w, "layout", map[string]any{})
+			render(w, deps, "register", map[string]any{})
 			return
 		}
 
-		name := r.FormValue("name")
-		email := r.FormValue("email")
+		name := strings.TrimSpace(r.FormValue("name"))
+		email := strings.TrimSpace(r.FormValue("email"))
 		password := r.FormValue("password")
+
+		if name == "" {
+			render(w, deps, "register", map[string]any{"Error": "Vui lòng nhập họ tên", "Name": name, "Email": email})
+			return
+		}
+		if _, err := mail.ParseAddress(email); err != nil {
+			render(w, deps, "register", map[string]any{"Error": "Email không hợp lệ", "Name": name, "Email": email})
+			return
+		}
+		if len([]rune(password)) < 8 {
+			render(w, deps, "register", map[string]any{"Error": "Mật khẩu phải có ít nhất 8 ký tự", "Name": name, "Email": email})
+			return
+		}
 
 		hash, err := auth.HashPassword(password)
 		if err != nil {
-			deps.Templates["register"].ExecuteTemplate(w, "layout", map[string]any{"Error": "Không thể tạo tài khoản", "Name": name, "Email": email})
+			render(w, deps, "register", map[string]any{"Error": "Không thể tạo tài khoản", "Name": name, "Email": email})
 			return
 		}
 
@@ -51,7 +72,13 @@ func registerPage(deps Deps) http.HandlerFunc {
 			Name:         name,
 		})
 		if err != nil {
-			deps.Templates["register"].ExecuteTemplate(w, "layout", map[string]any{"Error": "Email đã được sử dụng", "Name": name, "Email": email})
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				render(w, deps, "register", map[string]any{"Error": "Email đã được sử dụng", "Name": name, "Email": email})
+				return
+			}
+			log.Printf("register: create user: %v", err)
+			render(w, deps, "register", map[string]any{"Error": "Không thể tạo tài khoản, vui lòng thử lại", "Name": name, "Email": email})
 			return
 		}
 
@@ -63,7 +90,7 @@ func registerPage(deps Deps) http.HandlerFunc {
 func loginPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			deps.Templates["login"].ExecuteTemplate(w, "layout", map[string]any{})
+			render(w, deps, "login", map[string]any{})
 			return
 		}
 
@@ -72,7 +99,7 @@ func loginPage(deps Deps) http.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByEmail(r.Context(), email)
 		if err != nil || !auth.VerifyPassword(user.PasswordHash, password) {
-			deps.Templates["login"].ExecuteTemplate(w, "layout", map[string]any{"Error": "Email hoặc mật khẩu không đúng", "Email": email})
+			render(w, deps, "login", map[string]any{"Error": "Email hoặc mật khẩu không đúng", "Email": email})
 			return
 		}
 
@@ -86,7 +113,14 @@ func logoutHandler(deps Deps) http.HandlerFunc {
 		if cookie, err := r.Cookie(deps.CookieName); err == nil {
 			deps.Sessions.DeleteSession(r.Context(), cookie.Value)
 		}
-		http.SetCookie(w, &http.Cookie{Name: deps.CookieName, Value: "", MaxAge: -1, Path: "/"})
+		http.SetCookie(w, &http.Cookie{
+			Name:     deps.CookieName,
+			Value:    "",
+			MaxAge:   -1,
+			Path:     "/",
+			SameSite: http.SameSiteLaxMode,
+			Secure:   deps.SecureCookies,
+		})
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	}
 }
@@ -103,5 +137,7 @@ func startSession(w http.ResponseWriter, r *http.Request, deps Deps, userID int6
 		Expires:  expiresAt,
 		HttpOnly: true,
 		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+		Secure:   deps.SecureCookies,
 	})
 }

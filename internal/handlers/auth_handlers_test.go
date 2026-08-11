@@ -37,11 +37,12 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 
 	return handlers.Deps{
-		DB:         pool,
-		Queries:    sqlcgen.New(pool),
-		Sessions:   auth.NewManager(sqlcgen.New(pool)),
-		Templates:  templates,
-		CookieName: "session_id",
+		DB:            pool,
+		Queries:       sqlcgen.New(pool),
+		Sessions:      auth.NewManager(sqlcgen.New(pool)),
+		Templates:     templates,
+		CookieName:    "session_id",
+		SecureCookies: false,
 	}
 }
 
@@ -111,5 +112,156 @@ func TestLoginAndRegisterPagesRenderDistinctContent(t *testing.T) {
 	}
 	if !strings.Contains(registerBody, `name="name"`) {
 		t.Fatalf("expected GET /register body to contain the name field, got: %s", registerBody)
+	}
+}
+
+// TestRegisterValidatesInput covers Finding 4 from the final whole-branch
+// review: name/email/password went straight to CreateUser with zero
+// validation, so an empty password created a working account. Each case
+// below must re-render the register form (200, no session cookie) instead
+// of creating a user.
+func TestRegisterValidatesInput(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+
+	cases := []struct {
+		name string
+		form url.Values
+	}{
+		{
+			name: "empty name",
+			form: url.Values{"name": {"   "}, "email": {"validate-name@example.com"}, "password": {"s3cret-pass"}},
+		},
+		{
+			name: "invalid email",
+			form: url.Values{"name": {"Test"}, "email": {"not-an-email"}, "password": {"s3cret-pass"}},
+		},
+		{
+			name: "short password",
+			form: url.Values{"name": {"Test"}, "email": {"validate-pw@example.com"}, "password": {"short"}},
+		},
+		{
+			name: "empty password",
+			form: url.Values{"name": {"Test"}, "email": {"validate-empty-pw@example.com"}, "password": {""}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			email := tc.form.Get("email")
+			deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+			t.Cleanup(func() {
+				deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(tc.form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected validation failure to re-render the register form with 200, got %d: %s", rec.Code, rec.Body.String())
+			}
+			if len(rec.Result().Cookies()) != 0 {
+				t.Fatal("expected no session cookie to be set when registration is rejected by validation")
+			}
+
+			user, err := deps.Queries.GetUserByEmail(context.Background(), email)
+			if err == nil {
+				t.Fatalf("expected no user to be created for invalid input, but found user id %d", user.ID)
+			}
+		})
+	}
+}
+
+// TestRegisterDuplicateEmailShowsSpecificMessage covers the other half of
+// Finding 4: only a real unique-constraint violation (Postgres code 23505)
+// should show "Email đã được sử dụng" -- other CreateUser errors must not
+// be misreported as that.
+func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "dup-register@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() {
+		deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	})
+
+	form := url.Values{"name": {"Dup"}, "email": {email}, "password": {"s3cret-pass"}}
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected the first registration to succeed, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	dupReq := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	dupReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	dupRec := httptest.NewRecorder()
+	router.ServeHTTP(dupRec, dupReq)
+
+	if dupRec.Code != http.StatusOK {
+		t.Fatalf("expected duplicate registration to re-render the form with 200, got %d: %s", dupRec.Code, dupRec.Body.String())
+	}
+	if !strings.Contains(dupRec.Body.String(), "Email đã được sử dụng") {
+		t.Fatalf("expected duplicate-email message, got: %s", dupRec.Body.String())
+	}
+}
+
+// TestSessionCookieAttributes covers Finding 3: the session cookie (set on
+// register/login) and the clearing cookie (set on logout) must both carry
+// SameSite=Lax, and Secure must follow Deps.SecureCookies (false in this
+// test's config, matching local HTTP dev).
+func TestSessionCookieAttributes(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "cookie-attrs@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() {
+		deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	})
+
+	form := url.Values{"name": {"Cookie"}, "email": {email}, "password": {"s3cret-pass"}}
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var sessionCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == deps.CookieName {
+			sessionCookie = c
+		}
+	}
+	if sessionCookie == nil {
+		t.Fatal("expected a session cookie to be set on register")
+	}
+	if sessionCookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("expected session cookie SameSite=Lax, got %v", sessionCookie.SameSite)
+	}
+	if sessionCookie.Secure {
+		t.Fatal("expected session cookie Secure=false when Deps.SecureCookies is false")
+	}
+
+	logoutReq := httptest.NewRequest(http.MethodPost, "/logout", nil)
+	logoutReq.AddCookie(sessionCookie)
+	logoutRec := httptest.NewRecorder()
+	router.ServeHTTP(logoutRec, logoutReq)
+
+	var clearingCookie *http.Cookie
+	for _, c := range logoutRec.Result().Cookies() {
+		if c.Name == deps.CookieName {
+			clearingCookie = c
+		}
+	}
+	if clearingCookie == nil {
+		t.Fatal("expected a clearing cookie to be set on logout")
+	}
+	if clearingCookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("expected logout clearing cookie SameSite=Lax, got %v", clearingCookie.SameSite)
+	}
+	if clearingCookie.Secure {
+		t.Fatal("expected logout clearing cookie Secure=false when Deps.SecureCookies is false")
 	}
 }
