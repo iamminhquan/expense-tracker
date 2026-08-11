@@ -29,8 +29,9 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	t.Cleanup(pool.Close)
 
 	templates := map[string]*template.Template{
-		"register": template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/register.html")),
-		"login":    template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/login.html")),
+		"register":   template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/register.html")),
+		"login":      template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/login.html")),
+		"categories": template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/categories.html")),
 	}
 
 	return handlers.Deps{

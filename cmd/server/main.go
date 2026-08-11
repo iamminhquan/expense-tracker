@@ -25,8 +25,9 @@ func main() {
 
 	queries := sqlcgen.New(pool)
 	templates := map[string]*template.Template{
-		"register": template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/register.html")),
-		"login":    template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/login.html")),
+		"register":   template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/register.html")),
+		"login":      template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/login.html")),
+		"categories": template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/categories.html")),
 	}
 
 	deps := handlers.Deps{

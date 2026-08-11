@@ -1,0 +1,27 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-4">Danh mục</h1>
+{{if .Error}}
+<p class="text-red-600 mb-4">{{.Error}}</p>
+{{end}}
+<form method="POST" action="/categories" class="flex gap-2 mb-6">
+  <input class="border p-2 flex-1" type="text" name="name" placeholder="Tên danh mục" required>
+  <select class="border p-2" name="type">
+    <option value="expense">Chi</option>
+    <option value="income">Thu</option>
+  </select>
+  <input class="border p-2 w-24" type="color" name="color" value="#6b7280">
+  <button class="bg-blue-600 text-white px-4 py-2 rounded" type="submit">Thêm</button>
+</form>
+<ul class="space-y-2">
+  {{range .Categories}}
+  <li class="flex items-center justify-between border p-2 rounded">
+    <span><span style="color: {{.Color}}">●</span> {{.Name}} ({{.Type}})</span>
+    {{if .UserID.Valid}}
+    <form method="POST" action="/categories/{{.ID}}/delete">
+      <button class="text-red-600" type="submit">Xóa</button>
+    </form>
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}
