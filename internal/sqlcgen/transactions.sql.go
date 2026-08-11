@@ -11,6 +11,47 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const categoryBreakdown = `-- name: CategoryBreakdown :many
+SELECT c.name AS category_name, c.color AS category_color, SUM(t.amount)::bigint AS total
+FROM transactions t
+JOIN categories c ON c.id = t.category_id
+WHERE t.user_id = $1 AND t.type = 'expense' AND t.occurred_on >= $2 AND t.occurred_on < $3
+GROUP BY c.name, c.color
+ORDER BY total DESC
+`
+
+type CategoryBreakdownParams struct {
+	UserID       int64       `json:"user_id"`
+	OccurredOn   pgtype.Date `json:"occurred_on"`
+	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
+}
+
+type CategoryBreakdownRow struct {
+	CategoryName  string `json:"category_name"`
+	CategoryColor string `json:"category_color"`
+	Total         int64  `json:"total"`
+}
+
+func (q *Queries) CategoryBreakdown(ctx context.Context, arg CategoryBreakdownParams) ([]CategoryBreakdownRow, error) {
+	rows, err := q.db.Query(ctx, categoryBreakdown, arg.UserID, arg.OccurredOn, arg.OccurredOn_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CategoryBreakdownRow
+	for rows.Next() {
+		var i CategoryBreakdownRow
+		if err := rows.Scan(&i.CategoryName, &i.CategoryColor, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -151,6 +192,32 @@ func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransact
 		return nil, err
 	}
 	return items, nil
+}
+
+const monthlyTotals = `-- name: MonthlyTotals :one
+SELECT
+    COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::bigint AS total_expense,
+    COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::bigint AS total_income
+FROM transactions
+WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3
+`
+
+type MonthlyTotalsParams struct {
+	UserID       int64       `json:"user_id"`
+	OccurredOn   pgtype.Date `json:"occurred_on"`
+	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
+}
+
+type MonthlyTotalsRow struct {
+	TotalExpense int64 `json:"total_expense"`
+	TotalIncome  int64 `json:"total_income"`
+}
+
+func (q *Queries) MonthlyTotals(ctx context.Context, arg MonthlyTotalsParams) (MonthlyTotalsRow, error) {
+	row := q.db.QueryRow(ctx, monthlyTotals, arg.UserID, arg.OccurredOn, arg.OccurredOn_2)
+	var i MonthlyTotalsRow
+	err := row.Scan(&i.TotalExpense, &i.TotalIncome)
+	return i, err
 }
 
 const updateTransaction = `-- name: UpdateTransaction :one

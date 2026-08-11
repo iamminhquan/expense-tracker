@@ -33,6 +33,7 @@ func newTestDeps(t *testing.T) handlers.Deps {
 		"login":        template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/login.html")),
 		"categories":   template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/categories.html")),
 		"transactions": template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html")),
+		"dashboard":    template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html")),
 	}
 
 	return handlers.Deps{

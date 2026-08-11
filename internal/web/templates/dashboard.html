@@ -1,0 +1,18 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-4">Tổng quan</h1>
+<div class="grid grid-cols-2 gap-4 mb-6">
+  <div class="border p-4 rounded"><p class="text-sm text-gray-500">Tổng chi tháng này</p><p class="text-xl font-bold">{{.TotalExpense}}₫</p></div>
+  <div class="border p-4 rounded"><p class="text-sm text-gray-500">Tổng thu tháng này</p><p class="text-xl font-bold">{{.TotalIncome}}₫</p></div>
+</div>
+<canvas id="breakdown-chart" width="400" height="300"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('breakdown-chart'), {
+  type: 'pie',
+  data: {
+    labels: {{.BreakdownLabelsJSON}},
+    datasets: [{ data: {{.BreakdownValuesJSON}}, backgroundColor: {{.BreakdownColorsJSON}} }]
+  }
+});
+</script>
+{{end}}

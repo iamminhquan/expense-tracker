@@ -29,6 +29,7 @@ func main() {
 		"login":        template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/login.html")),
 		"categories":   template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/categories.html")),
 		"transactions": template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/transactions.html")),
+		"dashboard":    template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/dashboard.html")),
 	}
 
 	deps := handlers.Deps{
