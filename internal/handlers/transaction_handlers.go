@@ -89,7 +89,7 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		render(w, deps, "transactions", map[string]any{
+		render(w, r, deps, "transactions", "transactions", map[string]any{
 			"Transactions": transactions,
 			"Categories":   categories,
 			"Error":        formErr,

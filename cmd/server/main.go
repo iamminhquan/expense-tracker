@@ -75,11 +75,11 @@ func main() {
 
 	queries := sqlcgen.New(pool)
 	templates := map[string]*template.Template{
-		"register":     template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/register.html")),
-		"login":        template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/login.html")),
-		"categories":   template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/categories.html")),
-		"transactions": template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/transactions.html")),
-		"dashboard":    template.Must(template.ParseFiles("internal/web/templates/layout.html", "internal/web/templates/dashboard.html")),
+		"register":     template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/register.html")),
+		"login":        template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/login.html")),
+		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/categories.html")),
+		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/transactions.html")),
+		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/dashboard.html")),
 	}
 
 	deps := handlers.Deps{

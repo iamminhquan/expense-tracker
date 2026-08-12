@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
 	"expensetracker/internal/sqlcgen"
@@ -29,11 +30,11 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	t.Cleanup(pool.Close)
 
 	templates := map[string]*template.Template{
-		"register":     template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/register.html")),
-		"login":        template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/login.html")),
-		"categories":   template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/categories.html")),
-		"transactions": template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html")),
-		"dashboard":    template.Must(template.ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html")),
+		"register":     template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/register.html")),
+		"login":        template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/login.html")),
+		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/categories.html")),
+		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html")),
+		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html")),
 	}
 
 	return handlers.Deps{
@@ -46,6 +47,31 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 }
 
+// csrfTokenFor issues a GET request to obtain a fresh csrf_token cookie.
+// Every mutating request built by a test must attach this cookie's value as
+// both the cookie itself and the X-CSRF-Token header via withCSRF, or
+// csrf.Middleware (wired into every route in Step 11) rejects it with 403.
+func csrfTokenFor(t *testing.T, router http.Handler) *http.Cookie {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == csrf.CookieName {
+			return c
+		}
+	}
+	t.Fatal("expected a csrf_token cookie to be set on GET /login")
+	return nil
+}
+
+// withCSRF attaches the cookie and header a mutating request needs to pass
+// csrf.Middleware.
+func withCSRF(req *http.Request, tok *http.Cookie) {
+	req.AddCookie(tok)
+	req.Header.Set(csrf.HeaderName, tok.Value)
+}
+
 func TestRegisterThenLoginFlow(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
@@ -53,6 +79,7 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 	email := "flow-test@example.com"
 	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
 
+	tok := csrfTokenFor(t, router)
 	form := url.Values{
 		"name":     {"Flow Test"},
 		"email":    {email},
@@ -60,6 +87,7 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -70,6 +98,7 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 	loginForm := url.Values{"email": {email}, "password": {"s3cret-pass"}}
 	loginReq := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(loginForm.Encode()))
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(loginReq, tok)
 	loginRec := httptest.NewRecorder()
 	router.ServeHTTP(loginRec, loginReq)
 
@@ -154,8 +183,10 @@ func TestRegisterValidatesInput(t *testing.T) {
 				deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
 			})
 
+			tok := csrfTokenFor(t, router)
 			req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(tc.form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			withCSRF(req, tok)
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)
 
@@ -187,9 +218,11 @@ func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 		deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
 	})
 
+	tok := csrfTokenFor(t, router)
 	form := url.Values{"name": {"Dup"}, "email": {email}, "password": {"s3cret-pass"}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusSeeOther {
@@ -198,6 +231,7 @@ func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 
 	dupReq := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	dupReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(dupReq, tok)
 	dupRec := httptest.NewRecorder()
 	router.ServeHTTP(dupRec, dupReq)
 
@@ -222,9 +256,11 @@ func TestSessionCookieAttributes(t *testing.T) {
 		deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
 	})
 
+	tok := csrfTokenFor(t, router)
 	form := url.Values{"name": {"Cookie"}, "email": {email}, "password": {"s3cret-pass"}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -244,8 +280,10 @@ func TestSessionCookieAttributes(t *testing.T) {
 		t.Fatal("expected session cookie Secure=false when Deps.SecureCookies is false")
 	}
 
-	logoutReq := httptest.NewRequest(http.MethodPost, "/logout", nil)
+	logoutReq := httptest.NewRequest(http.MethodPost, "/logout", strings.NewReader("csrf_token="+tok.Value))
+	logoutReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	logoutReq.AddCookie(sessionCookie)
+	logoutReq.AddCookie(tok)
 	logoutRec := httptest.NewRecorder()
 	router.ServeHTTP(logoutRec, logoutReq)
 

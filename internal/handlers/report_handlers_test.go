@@ -33,9 +33,11 @@ func TestDashboardShowsMonthlyTotal(t *testing.T) {
 		"description": {"Test spend"},
 		"occurred_on": {today},
 	}
+	tok := csrfTokenFor(t, router)
 	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
+	withCSRF(req, tok)
 	router.ServeHTTP(httptest.NewRecorder(), req)
 
 	// Clean up the transaction we just created so it doesn't leak into other

@@ -36,9 +36,11 @@ func TestTransactionCRUDAndIsolation(t *testing.T) {
 		"description": {"Cà phê"},
 		"occurred_on": {today},
 	}
+	tok := csrfTokenFor(t, router)
 	createReq := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
 	createReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	createReq.AddCookie(cookieA)
+	withCSRF(createReq, tok)
 	createRec := httptest.NewRecorder()
 	router.ServeHTTP(createRec, createReq)
 
@@ -93,6 +95,7 @@ func TestTransactionCRUDAndIsolation(t *testing.T) {
 
 	deleteReq := httptest.NewRequest(http.MethodPost, "/transactions/"+txnID+"/delete", nil)
 	deleteReq.AddCookie(cookieB)
+	withCSRF(deleteReq, tok)
 	deleteRec := httptest.NewRecorder()
 	router.ServeHTTP(deleteRec, deleteReq)
 
@@ -150,9 +153,11 @@ func TestCreateTransactionRejectsForeignCategory(t *testing.T) {
 		"description": {"Forged"},
 		"occurred_on": {today},
 	}
+	tok := csrfTokenFor(t, router)
 	forgeReq := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
 	forgeReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	forgeReq.AddCookie(cookieB)
+	withCSRF(forgeReq, tok)
 	forgeRec := httptest.NewRecorder()
 	router.ServeHTTP(forgeRec, forgeReq)
 

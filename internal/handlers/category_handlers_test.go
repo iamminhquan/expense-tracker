@@ -20,9 +20,11 @@ func loginAndGetCookie(t *testing.T, router http.Handler, deps handlers.Deps, em
 	t.Helper()
 	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
 
+	tok := csrfTokenFor(t, router)
 	form := url.Values{"name": {"Cat Test"}, "email": {email}, "password": {password}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -38,10 +40,12 @@ func TestCreateAndListCategories(t *testing.T) {
 	router := handlers.NewRouter(deps)
 	cookie := loginAndGetCookie(t, router, deps, "cat-test@example.com", "s3cret-pass")
 
+	tok := csrfTokenFor(t, router)
 	form := url.Values{"name": {"Du lịch"}, "type": {"expense"}, "color": {"#111111"}}
 	req := httptest.NewRequest(http.MethodPost, "/categories", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
+	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -108,8 +112,10 @@ func TestDeleteCategoryInUseShowsFriendlyError(t *testing.T) {
 		deps.Queries.DeleteCategory(ctx, sqlcgen.DeleteCategoryParams{ID: category.ID, UserID: pgtype.Int8{Int64: user.ID, Valid: true}})
 	})
 
+	tok := csrfTokenFor(t, router)
 	deleteReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/categories/%d/delete", category.ID), nil)
 	deleteReq.AddCookie(cookie)
+	withCSRF(deleteReq, tok)
 	deleteRec := httptest.NewRecorder()
 	router.ServeHTTP(deleteRec, deleteReq)
 

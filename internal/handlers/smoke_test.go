@@ -32,9 +32,11 @@ func TestEndToEndRegisterAddTransactionSeeDashboard(t *testing.T) {
 		"description": {"Trà sữa"},
 		"occurred_on": {time.Now().Format("2006-01-02")},
 	}
+	tok := csrfTokenFor(t, router)
 	addReq := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
 	addReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	addReq.AddCookie(cookie)
+	withCSRF(addReq, tok)
 	router.ServeHTTP(httptest.NewRecorder(), addReq)
 
 	// Clean up the transaction we just created so it doesn't leak into other

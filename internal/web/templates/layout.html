@@ -3,20 +3,116 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <title>Expense Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sổ chi tiêu</title>
+  <meta name="csrf-token" content="{{.CSRFToken}}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script>
+    document.addEventListener('htmx:configRequest', function (evt) {
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta) {
+        evt.detail.headers['X-CSRF-Token'] = meta.getAttribute('content');
+      }
+    });
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            app: '#FAF9F7',
+            surface: '#FFFFFF',
+            'surface-alt': '#FCFBF9',
+            track: '#F4F3F0',
+            'border-card': '#E9E7E4',
+            'border-input': '#E2E0DC',
+            'border-list': '#F1EFEC',
+            'border-nav': '#EDEBE7',
+            ink: '#1B1A18',
+            'ink-muted': '#57534E',
+            'ink-faint': '#8A8781',
+            'ink-faintest': '#9C9891',
+            placeholder: '#A8A49D',
+            'ink-zero': '#C6C2BB',
+            accent: '#3B6ECF',
+            expense: '#C2410C',
+            income: '#2F7D5B',
+          },
+          fontFamily: {
+            sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    .font-mono { font-variant-numeric: tabular-nums; }
+  </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
-  <nav class="bg-white border-b p-4 flex gap-4">
-    <a href="/dashboard">Tổng quan</a>
-    <a href="/transactions">Giao dịch</a>
-    <a href="/categories">Danh mục</a>
-    <form method="POST" action="/logout" class="ml-auto"><button type="submit">Đăng xuất</button></form>
-  </nav>
-  <main class="max-w-3xl mx-auto p-6">
+<body class="bg-app text-ink font-sans antialiased">
+  {{if .ShowNav}}{{template "nav_desktop" .}}{{end}}
+  <main class="{{if .ShowNav}}pb-24 md:pb-10{{end}}">
     {{template "content" .}}
   </main>
+  {{if .ShowNav}}{{template "nav_mobile" .}}{{end}}
 </body>
 </html>
+{{end}}
+
+{{define "nav_desktop"}}
+<nav class="hidden md:flex items-center h-[54px] bg-surface border-b border-border-nav sticky top-0 z-40 px-6 gap-[26px]">
+  <a href="/dashboard" class="flex items-center gap-2 shrink-0">
+    <span class="w-[18px] h-[18px] rounded-[5px] bg-accent block"></span>
+    <span class="text-sm font-semibold text-ink">Sổ chi tiêu</span>
+  </a>
+  <div class="flex items-center gap-1">
+    <a href="/dashboard" class="px-[11px] py-[6px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
+    <a href="/transactions" class="px-[11px] py-[6px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
+    <a href="/categories" class="px-[11px] py-[6px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Danh mục</a>
+  </div>
+  <div class="flex items-center gap-2 ml-auto">
+    <span class="w-6 h-6 rounded-full bg-border-nav flex items-center justify-center text-[11px] font-semibold text-ink-muted">{{.UserInitial}}</span>
+    <span class="text-[13px] text-ink-muted">{{.UserName}}</span>
+    <form method="POST" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit" class="text-[13px] text-ink-faint hover:text-ink">Đăng xuất</button>
+    </form>
+  </div>
+</nav>
+{{end}}
+
+{{define "nav_mobile"}}
+<nav class="md:hidden fixed bottom-0 inset-x-0 bg-surface border-t border-border-nav flex z-40" style="padding: 10px 0 22px 0;">
+  <a href="/dashboard" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
+    <span class="w-[5px] h-[5px] rounded-full {{if eq .ActiveNav "dashboard"}}bg-accent{{else}}bg-transparent{{end}}"></span>
+    <span class="text-[11px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Tổng quan</span>
+  </a>
+  <a href="/transactions" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
+    <span class="w-[5px] h-[5px] rounded-full {{if eq .ActiveNav "transactions"}}bg-accent{{else}}bg-transparent{{end}}"></span>
+    <span class="text-[11px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Giao dịch</span>
+  </a>
+  <a href="/categories" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
+    <span class="w-[5px] h-[5px] rounded-full {{if eq .ActiveNav "categories"}}bg-accent{{else}}bg-transparent{{end}}"></span>
+    <span class="text-[11px] {{if eq .ActiveNav "categories"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Danh mục</span>
+  </a>
+  <button type="button" onclick="document.getElementById('logout-dialog').showModal()" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
+    <span class="w-[5px] h-[5px] rounded-full bg-transparent"></span>
+    <span class="text-[11px] text-ink-faint">Đăng xuất</span>
+  </button>
+</nav>
+<dialog id="logout-dialog" class="rounded-xl p-5 max-w-[300px] w-[85vw] backdrop:bg-black/30">
+  <p class="text-[15px] font-semibold text-ink mb-4">Đăng xuất khỏi Sổ chi tiêu?</p>
+  <div class="flex gap-2 justify-end">
+    <button type="button" onclick="document.getElementById('logout-dialog').close()" class="px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Hủy</button>
+    <form method="POST" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit" class="px-4 h-9 rounded-lg bg-accent text-white text-[13px] font-semibold">Đăng xuất</button>
+    </form>
+  </div>
+</dialog>
 {{end}}

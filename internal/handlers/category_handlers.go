@@ -35,7 +35,7 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		render(w, deps, "categories", map[string]any{"Categories": categories})
+		render(w, r, deps, "categories", "categories", map[string]any{"Categories": categories})
 	}
 }
 
@@ -65,7 +65,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 					http.Error(w, "could not load categories", http.StatusInternalServerError)
 					return
 				}
-				render(w, deps, "categories", map[string]any{
+				render(w, r, deps, "categories", "categories", map[string]any{
 					"Categories": categories,
 					"Error":      "Không thể xóa danh mục đang được sử dụng bởi các giao dịch",
 				})

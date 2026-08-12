@@ -47,7 +47,7 @@ func dashboardPage(deps Deps) http.HandlerFunc {
 		valuesJSON, _ := json.Marshal(values)
 		colorsJSON, _ := json.Marshal(colors)
 
-		render(w, deps, "dashboard", map[string]any{
+		render(w, r, deps, "dashboard", "dashboard", map[string]any{
 			"TotalExpense":        totals.TotalExpense,
 			"TotalIncome":         totals.TotalIncome,
 			"BreakdownLabelsJSON": template.JS(labelsJSON),

@@ -39,7 +39,7 @@ type Deps struct {
 func registerPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			render(w, deps, "register", map[string]any{})
+			render(w, r, deps, "register", "", map[string]any{})
 			return
 		}
 
@@ -48,21 +48,21 @@ func registerPage(deps Deps) http.HandlerFunc {
 		password := r.FormValue("password")
 
 		if name == "" {
-			render(w, deps, "register", map[string]any{"Error": "Vui lòng nhập họ tên", "Name": name, "Email": email})
+			render(w, r, deps, "register", "", map[string]any{"Error": "Vui lòng nhập họ tên", "Name": name, "Email": email})
 			return
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
-			render(w, deps, "register", map[string]any{"Error": "Email không hợp lệ", "Name": name, "Email": email})
+			render(w, r, deps, "register", "", map[string]any{"Error": "Email không hợp lệ", "Name": name, "Email": email})
 			return
 		}
 		if len([]rune(password)) < 8 {
-			render(w, deps, "register", map[string]any{"Error": "Mật khẩu phải có ít nhất 8 ký tự", "Name": name, "Email": email})
+			render(w, r, deps, "register", "", map[string]any{"Error": "Mật khẩu phải có ít nhất 8 ký tự", "Name": name, "Email": email})
 			return
 		}
 
 		hash, err := auth.HashPassword(password)
 		if err != nil {
-			render(w, deps, "register", map[string]any{"Error": "Không thể tạo tài khoản", "Name": name, "Email": email})
+			render(w, r, deps, "register", "", map[string]any{"Error": "Không thể tạo tài khoản", "Name": name, "Email": email})
 			return
 		}
 
@@ -74,11 +74,11 @@ func registerPage(deps Deps) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				render(w, deps, "register", map[string]any{"Error": "Email đã được sử dụng", "Name": name, "Email": email})
+				render(w, r, deps, "register", "", map[string]any{"Error": "Email đã được sử dụng", "Name": name, "Email": email})
 				return
 			}
 			log.Printf("register: create user: %v", err)
-			render(w, deps, "register", map[string]any{"Error": "Không thể tạo tài khoản, vui lòng thử lại", "Name": name, "Email": email})
+			render(w, r, deps, "register", "", map[string]any{"Error": "Không thể tạo tài khoản, vui lòng thử lại", "Name": name, "Email": email})
 			return
 		}
 
@@ -90,7 +90,7 @@ func registerPage(deps Deps) http.HandlerFunc {
 func loginPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			render(w, deps, "login", map[string]any{})
+			render(w, r, deps, "login", "", map[string]any{})
 			return
 		}
 
@@ -99,7 +99,7 @@ func loginPage(deps Deps) http.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByEmail(r.Context(), email)
 		if err != nil || !auth.VerifyPassword(user.PasswordHash, password) {
-			render(w, deps, "login", map[string]any{"Error": "Email hoặc mật khẩu không đúng", "Email": email})
+			render(w, r, deps, "login", "", map[string]any{"Error": "Email hoặc mật khẩu không đúng", "Email": email})
 			return
 		}
 
