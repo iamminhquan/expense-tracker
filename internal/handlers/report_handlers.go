@@ -2,57 +2,185 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/sqlcgen"
 )
+
+const pieTopN = 6
+const barMonths = 4
+
+type pieLegendEntry struct {
+	Name    string
+	Color   string
+	Percent string
+	Amount  string
+}
 
 func dashboardPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
 
 		from, to := currentMonthRange()
-
-		totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{
-			UserID:       userID,
-			OccurredOn:   from,
-			OccurredOn_2: to,
-		})
+		totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
 			http.Error(w, "could not load totals", http.StatusInternalServerError)
 			return
 		}
 
-		breakdown, err := deps.Queries.CategoryBreakdown(r.Context(), sqlcgen.CategoryBreakdownParams{
-			UserID:       userID,
-			OccurredOn:   from,
-			OccurredOn_2: to,
-		})
+		prevFrom := pgDate(from.Time.AddDate(0, -1, 0))
+		prevTotals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: prevFrom, OccurredOn_2: from})
+		if err != nil {
+			http.Error(w, "could not load previous month totals", http.StatusInternalServerError)
+			return
+		}
+		hasPrevData := prevTotals.TotalExpense > 0 || prevTotals.TotalIncome > 0
+
+		breakdown, err := deps.Queries.CategoryBreakdown(r.Context(), sqlcgen.CategoryBreakdownParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
 			http.Error(w, "could not load breakdown", http.StatusInternalServerError)
 			return
 		}
+		pieLabels, pieValues, pieColors, legend := buildPieData(breakdown, totals.TotalExpense)
 
-		labels := make([]string, len(breakdown))
-		values := make([]int64, len(breakdown))
-		colors := make([]string, len(breakdown))
-		for i, row := range breakdown {
-			labels[i] = row.CategoryName
-			values[i] = row.Total
-			colors[i] = row.CategoryColor
+		seriesFrom := pgDate(from.Time.AddDate(0, -(barMonths - 1), 0))
+		series, err := deps.Queries.MonthlyTotalsSeries(r.Context(), sqlcgen.MonthlyTotalsSeriesParams{UserID: userID, OccurredOn: seriesFrom, OccurredOn_2: to})
+		if err != nil {
+			http.Error(w, "could not load monthly series", http.StatusInternalServerError)
+			return
 		}
-		labelsJSON, _ := json.Marshal(labels)
-		valuesJSON, _ := json.Marshal(values)
-		colorsJSON, _ := json.Marshal(colors)
+		barLabels, barChi, barThu := buildBarSeries(series, from.Time, barMonths)
+		hasAnyMonthData := false
+		for _, v := range barChi {
+			if v > 0 {
+				hasAnyMonthData = true
+			}
+		}
+		for _, v := range barThu {
+			if v > 0 {
+				hasAnyMonthData = true
+			}
+		}
+
+		pieLabelsJSON, _ := json.Marshal(pieLabels)
+		pieValuesJSON, _ := json.Marshal(pieValues)
+		pieColorsJSON, _ := json.Marshal(pieColors)
+		barLabelsJSON, _ := json.Marshal(barLabels)
+		barChiJSON, _ := json.Marshal(barChi)
+		barThuJSON, _ := json.Marshal(barThu)
 
 		render(w, r, deps, "dashboard", "dashboard", map[string]any{
-			"TotalExpense":        totals.TotalExpense,
-			"TotalIncome":         totals.TotalIncome,
-			"BreakdownLabelsJSON": template.JS(labelsJSON),
-			"BreakdownValuesJSON": template.JS(valuesJSON),
-			"BreakdownColorsJSON": template.JS(colorsJSON),
+			"MonthLabel":        monthLabel(from.Time),
+			"CurrentMonthValue": from.Time.Format("2006-01"),
+			"TotalExpense":      totals.TotalExpense,
+			"TotalIncome":       totals.TotalIncome,
+			"ExpenseComparison": comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
+			"IncomeComparison":  comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
+			"CurrentMonthEmpty": totals.TotalExpense == 0 && totals.TotalIncome == 0,
+			"HasAnyMonthData":   hasAnyMonthData,
+			"PieLegend":         legend,
+			"PieLabelsJSON":     template.JS(pieLabelsJSON),
+			"PieValuesJSON":     template.JS(pieValuesJSON),
+			"PieColorsJSON":     template.JS(pieColorsJSON),
+			"BarLabelsJSON":     template.JS(barLabelsJSON),
+			"BarChiJSON":        template.JS(barChiJSON),
+			"BarThuJSON":        template.JS(barThuJSON),
 		})
 	}
+}
+
+// buildPieData turns CategoryBreakdown's already-total-desc-ordered rows
+// into the top pieTopN slices plus a synthetic "Khác" aggregate for
+// everything past that, per SPEC.md section 5.
+func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) (labels []string, values []int64, colors []string, legend []pieLegendEntry) {
+	shown := breakdown
+	var otherSum int64
+	if len(breakdown) > pieTopN {
+		shown = breakdown[:pieTopN]
+		for _, row := range breakdown[pieTopN:] {
+			otherSum += row.Total
+		}
+	}
+	for _, row := range shown {
+		labels = append(labels, row.CategoryName)
+		values = append(values, row.Total)
+		colors = append(colors, row.CategoryColor)
+		legend = append(legend, pieLegendEntry{
+			Name: row.CategoryName, Color: row.CategoryColor,
+			Percent: percentOf(row.Total, totalExpense), Amount: vnd(row.Total),
+		})
+	}
+	if otherSum > 0 {
+		labels = append(labels, "Khác")
+		values = append(values, otherSum)
+		colors = append(colors, "#A1A1AA")
+		legend = append(legend, pieLegendEntry{
+			Name: "Khác", Color: "#A1A1AA",
+			Percent: percentOf(otherSum, totalExpense), Amount: vnd(otherSum),
+		})
+	}
+	return
+}
+
+func percentOf(part, total int64) string {
+	if total == 0 {
+		return "0%"
+	}
+	return fmt.Sprintf("%d%%", int(float64(part)/float64(total)*100+0.5))
+}
+
+// buildBarSeries returns exactly `months` consecutive [oldest..newest]
+// points ending at currentMonthStart, zero-padding any month
+// MonthlyTotalsSeries didn't return a row for.
+func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart time.Time, months int) (labels []string, chi []int64, thu []int64) {
+	byMonth := make(map[string]sqlcgen.MonthlyTotalsSeriesRow, len(series))
+	for _, row := range series {
+		byMonth[row.Month.Time.Format("2006-01")] = row
+	}
+	for i := months - 1; i >= 0; i-- {
+		m := currentMonthStart.AddDate(0, -i, 0)
+		key := m.Format("2006-01")
+		labels = append(labels, shortMonthLabel(m))
+		if row, ok := byMonth[key]; ok {
+			chi = append(chi, row.TotalExpense)
+			thu = append(thu, row.TotalIncome)
+		} else {
+			chi = append(chi, 0)
+			thu = append(thu, 0)
+		}
+	}
+	return
+}
+
+func shortMonthLabel(t time.Time) string {
+	return fmt.Sprintf("Th %d", int(t.Month()))
+}
+
+// comparisonText builds SPEC.md section 5's "Tháng trước X · tăng/giảm Y%"
+// line, or its "no data" fallback when the previous month had zero
+// transactions of any kind.
+func comparisonText(current, previous int64, hasPrevData bool) string {
+	if !hasPrevData {
+		return "Chưa có dữ liệu tháng trước"
+	}
+	if previous == 0 {
+		return fmt.Sprintf("Tháng trước %s", vnd(previous))
+	}
+	diff := current - previous
+	pct := int(float64(diff) / float64(previous) * 100)
+	if pct < 0 {
+		pct = -pct
+	}
+	if diff == 0 {
+		return fmt.Sprintf("Tháng trước %s · không đổi", vnd(previous))
+	}
+	direction := "tăng"
+	if diff < 0 {
+		direction = "giảm"
+	}
+	return fmt.Sprintf("Tháng trước %s · %s %d%%", vnd(previous), direction, pct)
 }
