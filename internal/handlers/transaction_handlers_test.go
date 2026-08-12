@@ -447,6 +447,83 @@ func TestCreateTransactionAcceptsNearFutureDate(t *testing.T) {
 	}
 }
 
+func TestCreateTransactionViaMobileFormTriggersHXTrigger(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-mobile-create@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "txn-mobile-create@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	t.Cleanup(func() {
+		deps.DB.Exec(ctx, "DELETE FROM transactions WHERE user_id = $1", user.ID)
+	})
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(category.ID, 10)},
+		"amount":      {"15000"},
+		"type":        {"expense"},
+		"occurred_on": {time.Now().Format("2006-01-02")},
+		"ui_source":   {"mobile"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("HX-Trigger"); got != "transaction-created" {
+		t.Fatalf("expected HX-Trigger: transaction-created, got %q", got)
+	}
+}
+
+func TestCreateTransactionValidationErrorRetargetsMobileForm(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-mobile-error@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(category.ID, 10)},
+		"amount":      {"15000"},
+		"type":        {"income"}, // mismatched on purpose
+		"occurred_on": {time.Now().Format("2006-01-02")},
+		"ui_source":   {"mobile"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("HX-Retarget"); got != "#mobile-quick-add-form" {
+		t.Fatalf("expected HX-Retarget: #mobile-quick-add-form, got %q", got)
+	}
+	if rec.Header().Get("HX-Trigger") != "" {
+		t.Fatal("expected no HX-Trigger on a validation-error response")
+	}
+}
+
 func TestUpdateTransactionAppliesEdit(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)

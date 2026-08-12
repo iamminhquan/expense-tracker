@@ -1,16 +1,28 @@
 {{define "transaction_row"}}
-<div id="transaction-row-{{.ID}}" class="group flex items-center gap-4 px-4 py-[13px] border-b border-border-list last:border-b-0 hover:bg-surface-alt">
-  <span class="w-[46px] shrink-0 font-mono text-[12px] text-ink-faintest">{{dateShort .OccurredOn}}</span>
-  <span class="w-[150px] shrink-0 flex items-center gap-2 text-[13px] font-medium text-ink">
+<div id="transaction-row-{{.ID}}" class="group flex items-center gap-3 md:gap-4 px-4 py-3 md:py-[13px] border-b border-border-list last:border-b-0 hover:bg-surface-alt">
+  <span class="w-2 h-2 rounded-full shrink-0 md:hidden" style="background-color: {{.CategoryColor}}"></span>
+  <span class="hidden md:inline w-[46px] shrink-0 font-mono text-[12px] text-ink-faintest">{{dateShort .OccurredOn}}</span>
+  <span class="hidden md:flex w-[150px] shrink-0 items-center gap-2 text-[13px] font-medium text-ink">
     <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.CategoryColor}}"></span>
     <span class="truncate">{{.CategoryName}}</span>
   </span>
-  <span class="flex-1 min-w-0 text-[13px] text-ink-faint truncate">{{.Description}}</span>
-  <span class="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100">
+  <span class="flex-1 min-w-0 hidden md:block text-[13px] text-ink-faint truncate">{{.Description}}</span>
+  <span class="flex-1 min-w-0 md:hidden flex flex-col">
+    <span class="text-[14px] font-medium text-ink truncate">{{.CategoryName}}</span>
+    <span class="text-[12px] text-ink-faintest truncate">{{dateShort .OccurredOn}}{{if .Description}} · {{.Description}}{{end}}</span>
+  </span>
+  <span class="hidden md:flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
     <button type="button" hx-get="/transactions/{{.ID}}/edit" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-[#EAE8E4] rounded-md px-[7px] py-[3px]">Sửa</button>
     <button type="button" hx-get="/transactions/{{.ID}}/delete-confirm" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-[#EAE8E4] rounded-md px-[7px] py-[3px]">Xóa</button>
   </span>
-  <span class="w-[132px] shrink-0 text-right font-mono text-[14px] font-medium {{if eq .Type "expense"}}text-expense{{else}}text-income{{end}}">{{vndSigned .Amount .Type}}</span>
+  <span class="shrink-0 text-right font-mono text-[14px] font-medium {{if eq .Type "expense"}}text-expense{{else}}text-income{{end}}">{{vndSigned .Amount .Type}}</span>
+  <button type="button" onclick="document.getElementById('mobile-actions-{{.ID}}').showModal()" class="md:hidden text-ink-faint text-[16px] px-1 leading-none">⋯</button>
+  <dialog id="mobile-actions-{{.ID}}" class="md:hidden rounded-t-[16px] w-full max-w-full m-0 mt-auto mb-0 p-0 backdrop:bg-black/32">
+    <div class="p-4 flex flex-col gap-1">
+      <button type="button" onclick="document.getElementById('mobile-actions-{{.ID}}').close()" hx-get="/transactions/{{.ID}}/edit" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-left px-3 py-3 text-[14px] text-ink rounded-lg hover:bg-track">Sửa</button>
+      <button type="button" onclick="document.getElementById('mobile-actions-{{.ID}}').close()" hx-get="/transactions/{{.ID}}/delete-confirm" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-left px-3 py-3 text-[14px] text-expense rounded-lg hover:bg-track">Xóa</button>
+    </div>
+  </dialog>
 </div>
 {{end}}
 
@@ -24,12 +36,22 @@
   <span class="text-[13px] font-semibold text-ink">Còn lại tháng này</span>
   <span class="w-[132px] text-right font-mono text-[15px] font-semibold {{if lt .Remaining 0}}text-expense{{else}}text-ink{{end}}">{{vndBalance .Remaining}}</span>
 </div>
+<div id="mobile-stat-cards" hx-swap-oob="true" class="md:hidden flex items-center gap-3">
+  <div class="flex-1 rounded-[10px] bg-surface border border-border-card px-3 py-[10px]">
+    <p class="text-[11px] text-ink-faint">Chi</p>
+    <p class="font-mono text-[15px] font-semibold text-expense">{{vnd .TotalExpense}}</p>
+  </div>
+  <div class="flex-1 rounded-[10px] bg-surface border border-border-card px-3 py-[10px]">
+    <p class="text-[11px] text-ink-faint">Thu</p>
+    <p class="font-mono text-[15px] font-semibold text-income">{{vnd .TotalIncome}}</p>
+  </div>
+</div>
 {{end}}
 
 {{define "transaction_create_response"}}{{template "transaction_row" .Row}}{{template "totals_oob" .Totals}}{{end}}
 
 {{define "transaction_row_edit"}}
-<form id="transaction-row-{{.ID}}" hx-patch="/transactions/{{.ID}}" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="flex items-center gap-4 px-4 py-[10px] border-b border-border-list last:border-b-0 bg-surface-alt">
+<form id="transaction-row-{{.ID}}" hx-patch="/transactions/{{.ID}}" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="flex items-center gap-4 px-4 py-[10px] border-b border-border-list last:border-b-0 bg-surface-alt flex-wrap">
   <input name="occurred_on" type="date" value="{{.OccurredOnValue}}" required class="w-[46px] shrink-0 font-mono text-[11px] border border-border-input rounded px-1 h-8">
   <select name="category_id" class="w-[150px] shrink-0 text-[13px] border border-border-input rounded px-1 h-8">
     {{range .CategoryOptions}}<option value="{{.ID}}" {{if eq .ID $.CategoryID}}selected{{end}}>{{.Name}}</option>{{end}}
@@ -51,5 +73,17 @@
     <button type="button" hx-delete="/transactions/{{.ID}}" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="px-3 h-8 rounded-lg bg-expense text-white text-[12px] font-semibold">Xóa</button>
     <button type="button" hx-get="/transactions/{{.ID}}/view" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="px-3 h-8 rounded-lg border border-border-input text-[12px] text-ink">Hủy</button>
   </span>
+</div>
+{{end}}
+
+{{define "category_chips"}}
+<div id="mobile-category-chips" class="flex flex-wrap gap-2">
+  {{range $i, $c := .Categories}}
+  <label class="px-[13px] py-[9px] rounded-full border flex items-center gap-2 cursor-pointer {{if eq $i 0}}border-accent bg-accent/[0.08]{{else}}border-border-input{{end}} has-[:checked]:border-accent has-[:checked]:bg-accent/[0.08]">
+    <input type="radio" name="category_id" value="{{$c.ID}}" {{if eq $i 0}}checked{{end}} class="hidden">
+    <span class="w-2 h-2 rounded-full" style="background-color: {{$c.Color}}"></span>
+    <span class="text-[13px]">{{$c.Name}}</span>
+  </label>
+  {{end}}
 </div>
 {{end}}

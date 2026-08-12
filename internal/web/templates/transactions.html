@@ -1,14 +1,56 @@
 {{define "content"}}
-<div class="max-w-[880px] mx-auto px-6 pt-7 pb-9 flex flex-col gap-[18px]">
-  <div id="quick-add-form-wrapper">{{template "quick_add_form" .}}</div>
+<div class="max-w-[880px] mx-auto px-5 md:px-6 pt-4 md:pt-7 pb-24 md:pb-9 flex flex-col gap-[14px] md:gap-[18px]">
+  <div class="hidden md:block" id="quick-add-form-wrapper">{{template "quick_add_form" .}}</div>
   {{template "transactions_month_section" .}}
 </div>
+
+<button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()"
+  class="md:hidden fixed z-30 h-12 px-5 rounded-full bg-accent text-white text-[14px] font-semibold flex items-center gap-1"
+  style="right:16px; bottom:74px; box-shadow:0 8px 20px -6px rgba(59,110,207,0.6);">＋ Thêm</button>
+
+<dialog id="mobile-add-sheet" class="md:hidden w-full max-w-full m-0 mt-auto mb-0 rounded-t-[20px] rounded-b-none p-0 backdrop:bg-black/32">
+  <div class="p-[18px] pb-7">
+    <div class="w-[38px] h-1 rounded-full bg-border-input mx-auto mb-4"></div>
+    <p class="text-[17px] font-semibold text-ink mb-4">Thêm giao dịch</p>
+    {{template "mobile_quick_add_form" .}}
+  </div>
+</dialog>
+{{end}}
+
+{{define "mobile_quick_add_form"}}
+<form id="mobile-quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
+  hx-on:transaction-created="document.getElementById('mobile-add-sheet').close(); this.reset();"
+  class="flex flex-col gap-4">
+  <input type="hidden" name="ui_source" value="mobile">
+  <div class="flex bg-track rounded-lg p-[3px] gap-1 h-10">
+    <label class="flex-1 flex items-center justify-center cursor-pointer">
+      <input type="radio" name="type" value="expense" {{if ne .SelectedType "income"}}checked{{end}} class="peer hidden"
+        hx-get="/transactions/category-chips" hx-target="#mobile-category-chips" hx-trigger="change" hx-vals='{"type":"expense"}'>
+      <span class="text-[14px] peer-checked:font-semibold">Chi</span>
+    </label>
+    <label class="flex-1 flex items-center justify-center cursor-pointer">
+      <input type="radio" name="type" value="income" {{if eq .SelectedType "income"}}checked{{end}} class="peer hidden"
+        hx-get="/transactions/category-chips" hx-target="#mobile-category-chips" hx-trigger="change" hx-vals='{"type":"income"}'>
+      <span class="text-[14px] peer-checked:font-semibold">Thu</span>
+    </label>
+  </div>
+  <input name="amount" type="number" inputmode="numeric" min="1" required placeholder="0"
+    class="h-14 px-4 rounded-[10px] border-2 border-accent font-mono text-[24px] font-semibold text-center focus:outline-none focus:ring-[3px] focus:ring-accent/[0.12]">
+  {{template "category_chips" .}}
+  <div class="flex gap-3">
+    <input name="occurred_on" type="date" value="{{.Today}}" required class="flex-1 h-12 px-3 rounded-[10px] border border-border-input font-mono text-[14px]">
+    <input name="description" type="text" placeholder="Ghi chú" class="flex-1 h-12 px-3 rounded-[10px] border border-border-input text-[14px]">
+  </div>
+  {{if .QuickAddError}}<p class="text-[12px] text-expense">{{.QuickAddError}}</p>{{end}}
+  <button type="submit" class="h-[50px] rounded-[10px] bg-accent text-white text-[14px] font-semibold">Lưu giao dịch</button>
+</form>
 {{end}}
 
 {{define "transactions_month_section"}}
-<div id="transactions-month-section" class="flex flex-col gap-[18px]">
+<div id="transactions-month-section" class="flex flex-col gap-[14px] md:gap-[18px]">
   <div class="flex items-center justify-between">
-    <div class="flex items-center gap-2 relative">
+    <h1 class="md:hidden text-[19px] font-semibold text-ink">Giao dịch</h1>
+    <div class="hidden md:flex items-center gap-2 relative">
       <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
       <div class="hidden absolute left-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
         <button type="button" hx-get="/transactions?thang={{.CurrentMonthValue}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
@@ -18,9 +60,29 @@
       </div>
       <span id="transaction-count" class="text-[12px] text-ink-faint">{{len .Transactions}} giao dịch</span>
     </div>
-    <div id="totals-summary" class="flex items-center gap-[18px]">
+    <div class="md:hidden relative">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute right-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+        <button type="button" hx-get="/transactions?thang={{.CurrentMonthValue}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
+        {{range .AvailableMonths}}
+        <button type="button" hx-get="/transactions?thang={{.Value}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
+        {{end}}
+      </div>
+    </div>
+    <div id="totals-summary" class="hidden md:flex items-center gap-[18px]">
       <span class="text-[13px] text-ink-faint">Chi <span class="font-mono font-medium text-expense">{{vnd .TotalExpense}}</span></span>
       <span class="text-[13px] text-ink-faint">Thu <span class="font-mono font-medium text-income">{{vnd .TotalIncome}}</span></span>
+    </div>
+  </div>
+
+  <div id="mobile-stat-cards" class="md:hidden flex items-center gap-3">
+    <div class="flex-1 rounded-[10px] bg-surface border border-border-card px-3 py-[10px]">
+      <p class="text-[11px] text-ink-faint">Chi</p>
+      <p class="font-mono text-[15px] font-semibold text-expense">{{vnd .TotalExpense}}</p>
+    </div>
+    <div class="flex-1 rounded-[10px] bg-surface border border-border-card px-3 py-[10px]">
+      <p class="text-[11px] text-ink-faint">Thu</p>
+      <p class="font-mono text-[15px] font-semibold text-income">{{vnd .TotalIncome}}</p>
     </div>
   </div>
 
@@ -45,8 +107,9 @@
 {{define "quick_add_form"}}
 <div class="bg-surface border border-border-card rounded-xl p-4">
   <form id="quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
-    hx-on::after-request="if(event.detail.successful){ this.querySelector('[name=amount]').value=''; this.querySelector('[name=description]').value=''; }"
+    hx-on:transaction-created="this.querySelector('[name=amount]').value=''; this.querySelector('[name=description]').value='';"
     class="flex items-end gap-[10px] flex-wrap">
+    <input type="hidden" name="ui_source" value="desktop">
     <div class="flex flex-col gap-[6px]">
       <label class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Loại</label>
       <div class="flex bg-track rounded-lg p-[3px] gap-1 h-9">

@@ -146,6 +146,19 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		http.Error(w, "invalid type", http.StatusBadRequest)
 		return
 	}
+	source := r.FormValue("ui_source")
+
+	retarget := func(errMsg string) {
+		if source == "mobile" {
+			w.Header().Set("HX-Retarget", "#mobile-quick-add-form")
+			w.Header().Set("HX-Reswap", "outerHTML")
+			renderTransactionsPageMobileForm(w, r, deps, userID, errMsg, txnType)
+			return
+		}
+		w.Header().Set("HX-Retarget", "#quick-add-form-wrapper")
+		w.Header().Set("HX-Reswap", "outerHTML")
+		renderTransactionsPageForm(w, r, deps, userID, errMsg, txnType)
+	}
 
 	category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{
 		ID: categoryID, UserID: pgInt64(userID),
@@ -165,9 +178,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		formErr = "Ngày giao dịch không được ở quá xa trong tương lai"
 	}
 	if formErr != "" {
-		w.Header().Set("HX-Retarget", "#quick-add-form-wrapper")
-		w.Header().Set("HX-Reswap", "outerHTML")
-		renderTransactionsPageForm(w, r, deps, userID, formErr, txnType)
+		retarget(formErr)
 		return
 	}
 
@@ -176,9 +187,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		Description: r.FormValue("description"), OccurredOn: pgDate(occurredOn),
 	})
 	if err != nil {
-		w.Header().Set("HX-Retarget", "#quick-add-form-wrapper")
-		w.Header().Set("HX-Reswap", "outerHTML")
-		renderTransactionsPageForm(w, r, deps, userID, "Không thể thêm giao dịch, vui lòng thử lại.", txnType)
+		retarget("Không thể thêm giao dịch, vui lòng thử lại.")
 		return
 	}
 
@@ -194,6 +203,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		return
 	}
 
+	w.Header().Set("HX-Trigger", "transaction-created")
 	renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
 		"Row": map[string]any{
 			"ID": created.ID, "CategoryName": category.Name, "CategoryColor": category.Color,
@@ -228,6 +238,51 @@ func renderTransactionsPageForm(w http.ResponseWriter, r *http.Request, deps Dep
 		"Today":         time.Now().In(vietnamLocation).Format("2006-01-02"),
 		"QuickAddError": errMsg,
 	})
+}
+
+// renderTransactionsPageMobileForm mirrors renderTransactionsPageForm but
+// re-renders the mobile bottom-sheet form fragment instead of the desktop
+// one, for handleCreateTransaction's ui_source == "mobile" error path.
+func renderTransactionsPageMobileForm(w http.ResponseWriter, r *http.Request, deps Deps, userID int64, errMsg, selectedType string) {
+	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+	if err != nil {
+		http.Error(w, "could not load categories", http.StatusInternalServerError)
+		return
+	}
+	var filteredCategories []sqlcgen.Category
+	for _, c := range allCategories {
+		if c.Type == selectedType {
+			filteredCategories = append(filteredCategories, c)
+		}
+	}
+	renderNamed(w, r, deps, "transactions", "mobile_quick_add_form", "", map[string]any{
+		"Categories":    filteredCategories,
+		"SelectedType":  selectedType,
+		"Today":         time.Now().In(vietnamLocation).Format("2006-01-02"),
+		"QuickAddError": errMsg,
+	})
+}
+
+func categoryChipsHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+		typ := r.FormValue("type")
+		if typ != "income" {
+			typ = "expense"
+		}
+		categories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+		if err != nil {
+			http.Error(w, "could not load categories", http.StatusInternalServerError)
+			return
+		}
+		var filtered []sqlcgen.Category
+		for _, c := range categories {
+			if c.Type == typ {
+				filtered = append(filtered, c)
+			}
+		}
+		renderNamed(w, r, deps, "transactions", "category_chips", "", map[string]any{"Categories": filtered})
+	}
 }
 
 func categoryOptionsHandler(deps Deps) http.HandlerFunc {
