@@ -25,72 +25,92 @@ func dashboardPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
 
-		from, to := currentMonthRange()
-		totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+		data, err := buildDashboardData(r, deps, userID, r.URL.Query().Get("thang"))
 		if err != nil {
-			http.Error(w, "could not load totals", http.StatusInternalServerError)
+			http.Error(w, "could not load dashboard", http.StatusInternalServerError)
 			return
 		}
 
-		prevFrom := pgDate(from.Time.AddDate(0, -1, 0))
-		prevTotals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: prevFrom, OccurredOn_2: from})
-		if err != nil {
-			http.Error(w, "could not load previous month totals", http.StatusInternalServerError)
+		if r.Header.Get("HX-Request") == "true" {
+			renderNamed(w, r, deps, "dashboard", "dashboard_month_section", "", data)
 			return
 		}
-		hasPrevData := prevTotals.TotalExpense > 0 || prevTotals.TotalIncome > 0
-
-		breakdown, err := deps.Queries.CategoryBreakdown(r.Context(), sqlcgen.CategoryBreakdownParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
-		if err != nil {
-			http.Error(w, "could not load breakdown", http.StatusInternalServerError)
-			return
-		}
-		pieLabels, pieValues, pieColors, legend := buildPieData(breakdown, totals.TotalExpense)
-
-		seriesFrom := pgDate(from.Time.AddDate(0, -(barMonths - 1), 0))
-		series, err := deps.Queries.MonthlyTotalsSeries(r.Context(), sqlcgen.MonthlyTotalsSeriesParams{UserID: userID, OccurredOn: seriesFrom, OccurredOn_2: to})
-		if err != nil {
-			http.Error(w, "could not load monthly series", http.StatusInternalServerError)
-			return
-		}
-		barLabels, barChi, barThu := buildBarSeries(series, from.Time, barMonths)
-		hasAnyMonthData := false
-		for _, v := range barChi {
-			if v > 0 {
-				hasAnyMonthData = true
-			}
-		}
-		for _, v := range barThu {
-			if v > 0 {
-				hasAnyMonthData = true
-			}
-		}
-
-		pieLabelsJSON, _ := json.Marshal(pieLabels)
-		pieValuesJSON, _ := json.Marshal(pieValues)
-		pieColorsJSON, _ := json.Marshal(pieColors)
-		barLabelsJSON, _ := json.Marshal(barLabels)
-		barChiJSON, _ := json.Marshal(barChi)
-		barThuJSON, _ := json.Marshal(barThu)
-
-		render(w, r, deps, "dashboard", "dashboard", map[string]any{
-			"MonthLabel":        monthLabel(from.Time),
-			"CurrentMonthValue": from.Time.Format("2006-01"),
-			"TotalExpense":      totals.TotalExpense,
-			"TotalIncome":       totals.TotalIncome,
-			"ExpenseComparison": comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
-			"IncomeComparison":  comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
-			"CurrentMonthEmpty": totals.TotalExpense == 0 && totals.TotalIncome == 0,
-			"HasAnyMonthData":   hasAnyMonthData,
-			"PieLegend":         legend,
-			"PieLabelsJSON":     template.JS(pieLabelsJSON),
-			"PieValuesJSON":     template.JS(pieValuesJSON),
-			"PieColorsJSON":     template.JS(pieColorsJSON),
-			"BarLabelsJSON":     template.JS(barLabelsJSON),
-			"BarChiJSON":        template.JS(barChiJSON),
-			"BarThuJSON":        template.JS(barThuJSON),
-		})
+		render(w, r, deps, "dashboard", "dashboard", data)
 	}
+}
+
+func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam string) (map[string]any, error) {
+	from, to := monthRangeFor(monthParam)
+
+	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+	if err != nil {
+		return nil, err
+	}
+
+	prevFrom := pgDate(from.Time.AddDate(0, -1, 0))
+	prevTotals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: prevFrom, OccurredOn_2: from})
+	if err != nil {
+		return nil, err
+	}
+	hasPrevData := prevTotals.TotalExpense > 0 || prevTotals.TotalIncome > 0
+
+	breakdown, err := deps.Queries.CategoryBreakdown(r.Context(), sqlcgen.CategoryBreakdownParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+	if err != nil {
+		return nil, err
+	}
+	pieLabels, pieValues, pieColors, legend := buildPieData(breakdown, totals.TotalExpense)
+
+	seriesFrom := pgDate(from.Time.AddDate(0, -(barMonths - 1), 0))
+	series, err := deps.Queries.MonthlyTotalsSeries(r.Context(), sqlcgen.MonthlyTotalsSeriesParams{UserID: userID, OccurredOn: seriesFrom, OccurredOn_2: to})
+	if err != nil {
+		return nil, err
+	}
+	barLabels, barChi, barThu := buildBarSeries(series, from.Time, barMonths)
+	hasAnyMonthData := false
+	for i := range barChi {
+		if barChi[i] > 0 || barThu[i] > 0 {
+			hasAnyMonthData = true
+		}
+	}
+
+	months, err := deps.Queries.ListDistinctTransactionMonths(r.Context(), userID)
+	if err != nil {
+		return nil, err
+	}
+	currentFrom, _ := currentMonthRange()
+	var available []map[string]any
+	for _, m := range months {
+		if m.Time.Year() == currentFrom.Time.Year() && m.Time.Month() == currentFrom.Time.Month() {
+			continue
+		}
+		available = append(available, map[string]any{"Value": m.Time.Format("2006-01"), "Label": monthLabel(m.Time)})
+	}
+
+	pieLabelsJSON, _ := json.Marshal(pieLabels)
+	pieValuesJSON, _ := json.Marshal(pieValues)
+	pieColorsJSON, _ := json.Marshal(pieColors)
+	barLabelsJSON, _ := json.Marshal(barLabels)
+	barChiJSON, _ := json.Marshal(barChi)
+	barThuJSON, _ := json.Marshal(barThu)
+
+	return map[string]any{
+		"MonthLabel":        monthLabel(from.Time),
+		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
+		"AvailableMonths":   available,
+		"TotalExpense":      totals.TotalExpense,
+		"TotalIncome":       totals.TotalIncome,
+		"ExpenseComparison": comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
+		"IncomeComparison":  comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
+		"CurrentMonthEmpty": totals.TotalExpense == 0 && totals.TotalIncome == 0,
+		"HasAnyMonthData":   hasAnyMonthData,
+		"PieLegend":         legend,
+		"PieLabelsJSON":     template.JS(pieLabelsJSON),
+		"PieValuesJSON":     template.JS(pieValuesJSON),
+		"PieColorsJSON":     template.JS(pieColorsJSON),
+		"BarLabelsJSON":     template.JS(barLabelsJSON),
+		"BarChiJSON":        template.JS(barChiJSON),
+		"BarThuJSON":        template.JS(barThuJSON),
+	}, nil
 }
 
 // buildPieData turns CategoryBreakdown's already-total-desc-ordered rows

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"expensetracker/internal/handlers"
+	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -59,7 +60,77 @@ func TestDashboardShowsMonthlyTotal(t *testing.T) {
 	if dashRec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", dashRec.Code, dashRec.Body.String())
 	}
-	if !strings.Contains(dashRec.Body.String(), "100000") {
+	if !strings.Contains(dashRec.Body.String(), "100.000") {
 		t.Fatal("expected dashboard to reflect the new transaction's amount")
+	}
+}
+
+func TestDashboardShowsPreviousMonthComparison(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "dash-compare@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "dash-compare@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+	t.Cleanup(func() {
+		deps.DB.Exec(ctx, "DELETE FROM transactions WHERE user_id = $1", user.ID)
+	})
+
+	now := time.Now()
+	if _, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 100000, Type: "expense",
+		Description: "current", OccurredOn: pgtype.Date{Time: now, Valid: true},
+	}); err != nil {
+		t.Fatalf("create current-month transaction: %v", err)
+	}
+
+	prevMonth := now.AddDate(0, -1, 0)
+	if _, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 200000, Type: "expense",
+		Description: "previous",
+		OccurredOn:  pgtype.Date{Time: time.Date(prevMonth.Year(), prevMonth.Month(), 10, 0, 0, 0, 0, time.UTC), Valid: true},
+	}); err != nil {
+		t.Fatalf("create previous-month transaction: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Tháng trước") {
+		t.Fatalf("expected a previous-month comparison line, got: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "giảm") {
+		t.Fatalf("expected 'giảm' (current 100.000 < previous 200.000), got: %s", rec.Body.String())
+	}
+}
+
+func TestDashboardEmptyStateWhenNoTransactions(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "dash-empty@example.com", "s3cret-pass")
+
+	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Chưa đủ dữ liệu để vẽ biểu đồ") {
+		t.Fatalf("expected the empty-state message for a brand-new user with no transactions, got: %s", rec.Body.String())
 	}
 }

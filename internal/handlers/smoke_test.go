@@ -58,7 +58,7 @@ func TestEndToEndRegisterAddTransactionSeeDashboard(t *testing.T) {
 	if dashRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 from dashboard, got %d", dashRec.Code)
 	}
-	if !strings.Contains(dashRec.Body.String(), "25000") {
+	if !strings.Contains(dashRec.Body.String(), "25.000") {
 		t.Fatal("expected dashboard total to include the new transaction")
 	}
 }

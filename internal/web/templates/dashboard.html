@@ -1,18 +1,130 @@
 {{define "content"}}
-<h1 class="text-2xl font-bold mb-4">Tổng quan</h1>
-<div class="grid grid-cols-2 gap-4 mb-6">
-  <div class="border p-4 rounded"><p class="text-sm text-gray-500">Tổng chi tháng này</p><p class="text-xl font-bold">{{.TotalExpense}}₫</p></div>
-  <div class="border p-4 rounded"><p class="text-sm text-gray-500">Tổng thu tháng này</p><p class="text-xl font-bold">{{.TotalIncome}}₫</p></div>
-</div>
-<canvas id="breakdown-chart" width="400" height="300"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4"></script>
-<script>
-new Chart(document.getElementById('breakdown-chart'), {
-  type: 'pie',
-  data: {
-    labels: {{.BreakdownLabelsJSON}},
-    datasets: [{ data: {{.BreakdownValuesJSON}}, backgroundColor: {{.BreakdownColorsJSON}} }]
-  }
-});
-</script>
+<div class="max-w-[880px] mx-auto px-5 md:px-6 pt-4 md:pt-7 pb-24 md:pb-9 flex flex-col gap-[14px] md:gap-[18px]">
+  {{template "dashboard_month_section" .}}
+</div>
+{{end}}
+
+{{define "dashboard_month_section"}}
+<div id="dashboard-month-section" class="flex flex-col gap-[14px] md:gap-[18px]">
+  <div class="flex items-center justify-between">
+    <h1 class="text-[19px] md:text-[18px] font-semibold text-ink">{{.MonthLabel}}</h1>
+    <div class="relative">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute right-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+        <button type="button" hx-get="/dashboard?thang={{.CurrentMonthValue}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
+        {{range .AvailableMonths}}
+        <button type="button" hx-get="/dashboard?thang={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
+        {{end}}
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col md:flex-row gap-3 md:gap-4">
+    <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
+      <p class="text-[12px] font-medium text-ink-faint">Tổng chi tháng này</p>
+      <p class="font-mono text-[27px] md:text-[32px] font-semibold text-expense" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalExpense}}{{end}}</p>
+      {{if not .CurrentMonthEmpty}}<p class="text-[12px] text-ink-faint">{{.ExpenseComparison}}</p>{{end}}
+    </div>
+    <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
+      <p class="text-[12px] font-medium text-ink-faint">Tổng thu tháng này</p>
+      <p class="font-mono text-[27px] md:text-[32px] font-semibold text-income" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalIncome}}{{end}}</p>
+      {{if not .CurrentMonthEmpty}}<p class="text-[12px] text-ink-faint">{{.IncomeComparison}}</p>{{end}}
+    </div>
+  </div>
+
+  {{if and .CurrentMonthEmpty (not .HasAnyMonthData)}}
+  <div class="bg-surface border border-border-card rounded-xl text-center py-11 px-7">
+    <p class="text-[15px] font-semibold text-ink">Chưa đủ dữ liệu để vẽ biểu đồ</p>
+    <p class="text-[13px] text-ink-faint mt-1">Hai thẻ số liệu vẫn hiển thị 0₫. Biểu đồ xuất hiện sau giao dịch đầu tiên.</p>
+    <a href="/transactions" class="inline-block mt-3 text-[13px] text-accent font-medium">Thêm giao dịch</a>
+  </div>
+  {{else}}
+  <div class="flex flex-col md:flex-row gap-4">
+    <div class="md:w-[440px] bg-surface border border-border-card rounded-xl p-[18px]">
+      <p class="text-[13px] font-semibold text-ink mb-3">Chi theo danh mục</p>
+      {{if .CurrentMonthEmpty}}
+      <p class="text-[13px] text-ink-faint text-center py-8">Chưa có chi tiêu tháng này</p>
+      {{else}}
+      <div class="flex items-center gap-4">
+        <canvas id="pie-chart" width="150" height="150" class="w-[108px] h-[108px] md:w-[150px] md:h-[150px] shrink-0"></canvas>
+        <div class="flex-1 flex flex-col gap-[9px] min-w-0">
+          {{range .PieLegend}}
+          <div class="flex items-center gap-2 text-[12px]">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span>
+            <span class="flex-1 min-w-0 truncate text-[#57534E]">{{.Name}}</span>
+            <span class="font-mono text-ink-faintest w-[34px] text-right shrink-0">{{.Percent}}</span>
+            <span class="hidden md:inline font-mono font-medium w-[86px] text-right shrink-0">{{.Amount}}</span>
+          </div>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+    <div class="flex-1 bg-surface border border-border-card rounded-xl p-[18px]">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[13px] font-semibold text-ink">4 tháng gần nhất</p>
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px]" style="background-color:#C2410C"></span>Chi</span>
+          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px]" style="background-color:#2F7D5B"></span>Thu</span>
+        </div>
+      </div>
+      <canvas id="bar-chart" class="w-full h-[118px] md:h-[158px]"></canvas>
+    </div>
+  </div>
+  {{end}}
+
+  <script type="application/json" id="chart-data">
+    {"pie": {"labels": {{.PieLabelsJSON}}, "values": {{.PieValuesJSON}}, "colors": {{.PieColorsJSON}}}, "bars": {"labels": {{.BarLabelsJSON}}, "chi": {{.BarChiJSON}}, "thu": {{.BarThuJSON}}}}
+  </script>
+  <script>
+    (function () {
+      if (window.__pieChart) { window.__pieChart.destroy(); window.__pieChart = null; }
+      if (window.__barChart) { window.__barChart.destroy(); window.__barChart = null; }
+      var dataEl = document.getElementById('chart-data');
+      if (!dataEl) return;
+      var chartData = JSON.parse(dataEl.textContent);
+
+      var pieCanvas = document.getElementById('pie-chart');
+      if (pieCanvas && chartData.pie.labels.length > 0) {
+        window.__pieChart = new Chart(pieCanvas, {
+          type: 'doughnut',
+          data: {
+            labels: chartData.pie.labels,
+            datasets: [{ data: chartData.pie.values, backgroundColor: chartData.pie.colors, borderWidth: 2, borderColor: '#fff' }]
+          },
+          options: { cutout: '62%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: false }
+        });
+      }
+
+      var barCanvas = document.getElementById('bar-chart');
+      if (barCanvas) {
+        window.__barChart = new Chart(barCanvas, {
+          type: 'bar',
+          data: {
+            labels: chartData.bars.labels,
+            datasets: [
+              { label: 'Chi', data: chartData.bars.chi, backgroundColor: '#C2410C', borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 },
+              { label: 'Thu', data: chartData.bars.thu, backgroundColor: '#2F7D5B', borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 }
+            ]
+          },
+          options: {
+            animation: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, border: { display: false }, ticks: { color: '#9C9891', font: { family: 'JetBrains Mono' } } },
+              y: {
+                beginAtZero: true, grid: { color: '#F1EFEC' }, border: { display: false },
+                ticks: {
+                  color: '#B5B1AA', maxTicksLimit: 4, font: { family: 'JetBrains Mono' },
+                  callback: function (value) { return value >= 1000000 ? (value / 1000000) + 'tr' : value; }
+                }
+              }
+            }
+          }
+        });
+      }
+    })();
+  </script>
+</div>
 {{end}}
