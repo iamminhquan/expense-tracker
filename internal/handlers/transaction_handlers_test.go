@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -105,9 +106,10 @@ func TestTransactionCRUDAndIsolation(t *testing.T) {
 	}
 	txnID := rest[:endIdx]
 
-	deleteReq := httptest.NewRequest(http.MethodPost, "/transactions/"+txnID+"/delete", nil)
+	tokDel := csrfTokenFor(t, router)
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/transactions/"+txnID, nil)
 	deleteReq.AddCookie(cookieB)
-	withCSRF(deleteReq, tok)
+	withCSRF(deleteReq, tokDel)
 	deleteRec := httptest.NewRecorder()
 	router.ServeHTTP(deleteRec, deleteReq)
 
@@ -442,5 +444,101 @@ func TestCreateTransactionAcceptsNearFutureDate(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "tương lai") {
 		t.Fatalf("expected a 3-day-future date (within the 7-day threshold) to be accepted, got error in body: %s", rec.Body.String())
+	}
+}
+
+func TestUpdateTransactionAppliesEdit(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-update@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "txn-update@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+
+	txn, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 10000, Type: "expense",
+		Description: "before edit", OccurredOn: pgtype.Date{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	t.Cleanup(func() {
+		deps.Queries.DeleteTransaction(ctx, sqlcgen.DeleteTransactionParams{ID: txn.ID, UserID: user.ID})
+	})
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(category.ID, 10)},
+		"amount":      {"25000"},
+		"description": {"after edit"},
+		"occurred_on": {time.Now().Format("2006-01-02")},
+	}
+	req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/transactions/%d", txn.ID), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 updating a transaction, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "after edit") {
+		t.Fatalf("expected updated description in response, got: %s", rec.Body.String())
+	}
+
+	updated, err := deps.Queries.GetTransaction(ctx, sqlcgen.GetTransactionParams{ID: txn.ID, UserID: user.ID})
+	if err != nil {
+		t.Fatalf("get updated transaction: %v", err)
+	}
+	if updated.Amount != 25000 {
+		t.Fatalf("expected amount 25000, got %d", updated.Amount)
+	}
+}
+
+func TestDeleteTransactionRemovesRow(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-delete-new@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "txn-delete-new@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+
+	txn, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 9000, Type: "expense",
+		Description: "to delete", OccurredOn: pgtype.Date{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+
+	tok := csrfTokenFor(t, router)
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/transactions/%d", txn.ID), nil)
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 deleting a transaction, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := deps.Queries.GetTransaction(ctx, sqlcgen.GetTransactionParams{ID: txn.ID, UserID: user.ID}); err == nil {
+		t.Fatal("expected the transaction to no longer exist")
 	}
 }

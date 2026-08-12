@@ -51,6 +51,12 @@ FROM transactions
 WHERE user_id = $1
 ORDER BY month DESC;
 
+-- name: GetTransactionWithCategory :one
+SELECT t.*, c.name AS category_name, c.color AS category_color
+FROM transactions t
+JOIN categories c ON c.id = t.category_id
+WHERE t.id = $1 AND t.user_id = $2;
+
 -- name: MonthlyTotalsSeries :many
 SELECT
     date_trunc('month', occurred_on)::date AS month,

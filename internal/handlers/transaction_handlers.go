@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -251,6 +252,187 @@ func categoryOptionsHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
+// dateInputValue formats a DATE column for an <input type="date"> value
+// attribute (always "2006-01-02", regardless of display locale) -- distinct
+// from dateFull/dateShort, which are for read-only display.
+func dateInputValue(d pgtype.Date) string {
+	return d.Time.Format("2006-01-02")
+}
+
+func editTransactionRowHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		txn, err := deps.Queries.GetTransaction(r.Context(), sqlcgen.GetTransactionParams{ID: id, UserID: userID})
+		if err != nil {
+			http.Error(w, "transaction not found", http.StatusNotFound)
+			return
+		}
+
+		allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+		if err != nil {
+			http.Error(w, "could not load categories", http.StatusInternalServerError)
+			return
+		}
+		var options []sqlcgen.Category
+		for _, c := range allCategories {
+			if c.Type == txn.Type {
+				options = append(options, c)
+			}
+		}
+
+		renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
+			"ID": txn.ID, "CategoryID": txn.CategoryID, "Description": txn.Description,
+			"Amount": txn.Amount, "OccurredOnValue": dateInputValue(txn.OccurredOn),
+			"CategoryOptions": options,
+		})
+	}
+}
+
+func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		txn, err := deps.Queries.GetTransactionWithCategory(r.Context(), sqlcgen.GetTransactionWithCategoryParams{ID: id, UserID: userID})
+		if err != nil {
+			http.Error(w, "transaction not found", http.StatusNotFound)
+			return
+		}
+
+		renderNamed(w, r, deps, "transactions", "transaction_row", "", map[string]any{
+			"ID": txn.ID, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
+			"Description": txn.Description, "OccurredOn": txn.OccurredOn, "Amount": txn.Amount, "Type": txn.Type,
+		})
+	}
+}
+
+func deleteConfirmTransactionHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		if _, err := deps.Queries.GetTransaction(r.Context(), sqlcgen.GetTransactionParams{ID: id, UserID: userID}); err != nil {
+			http.Error(w, "transaction not found", http.StatusNotFound)
+			return
+		}
+		renderNamed(w, r, deps, "transactions", "transaction_row_delete_confirm", "", map[string]any{"ID": id})
+	}
+}
+
+func updateTransactionHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		existing, err := deps.Queries.GetTransaction(r.Context(), sqlcgen.GetTransactionParams{ID: id, UserID: userID})
+		if err != nil {
+			http.Error(w, "transaction not found", http.StatusNotFound)
+			return
+		}
+
+		categoryID, err := strconv.ParseInt(r.FormValue("category_id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid category", http.StatusBadRequest)
+			return
+		}
+		amount, err := strconv.ParseInt(r.FormValue("amount"), 10, 64)
+		if err != nil || amount <= 0 {
+			http.Error(w, "invalid amount", http.StatusBadRequest)
+			return
+		}
+		occurredOn, err := time.Parse("2006-01-02", r.FormValue("occurred_on"))
+		if err != nil {
+			http.Error(w, "invalid date", http.StatusBadRequest)
+			return
+		}
+		description := r.FormValue("description")
+
+		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: categoryID, UserID: pgInt64(userID)})
+		if err != nil {
+			http.Error(w, "category not found", http.StatusForbidden)
+			return
+		}
+
+		var formErr string
+		switch {
+		case category.Type != existing.Type:
+			formErr = "Loại giao dịch không khớp với danh mục đã chọn"
+		case len([]rune(description)) > 200:
+			formErr = "Ghi chú tối đa 200 ký tự"
+		case occurredOn.After(time.Now().In(vietnamLocation).AddDate(0, 0, 7)):
+			formErr = "Ngày giao dịch không được ở quá xa trong tương lai"
+		}
+		if formErr != "" {
+			allCategories, _ := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+			var options []sqlcgen.Category
+			for _, c := range allCategories {
+				if c.Type == existing.Type {
+					options = append(options, c)
+				}
+			}
+			renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
+				"ID": id, "CategoryID": categoryID, "Description": description, "Amount": amount,
+				"OccurredOnValue": r.FormValue("occurred_on"), "CategoryOptions": options, "Error": formErr,
+			})
+			return
+		}
+
+		updated, err := deps.Queries.UpdateTransaction(r.Context(), sqlcgen.UpdateTransactionParams{
+			ID: id, UserID: userID, CategoryID: categoryID, Amount: amount, Type: existing.Type,
+			Description: description, OccurredOn: pgDate(occurredOn),
+		})
+		if err != nil {
+			log.Printf("update transaction: %v", err)
+			http.Error(w, "could not update transaction", http.StatusInternalServerError)
+			return
+		}
+
+		from, to := currentMonthRange()
+		totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+		if err != nil {
+			http.Error(w, "could not load totals", http.StatusInternalServerError)
+			return
+		}
+		transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+		if err != nil {
+			http.Error(w, "could not load transactions", http.StatusInternalServerError)
+			return
+		}
+
+		// Reuses transaction_create_response (Task 6) -- despite the name it
+		// is just "a row plus the three OOB total fragments", which is
+		// exactly what a successful edit needs too.
+		renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
+			"Row": map[string]any{
+				"ID": updated.ID, "CategoryName": category.Name, "CategoryColor": category.Color,
+				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
+				"Amount": updated.Amount, "Type": updated.Type,
+			},
+			"Totals": map[string]any{
+				"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
+				"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
+			},
+		})
+	}
+}
+
 func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -260,14 +442,26 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.Queries.DeleteTransaction(r.Context(), sqlcgen.DeleteTransactionParams{
-			ID:     id,
-			UserID: userID,
-		}); err != nil {
+		if _, err := deps.Queries.DeleteTransaction(r.Context(), sqlcgen.DeleteTransactionParams{ID: id, UserID: userID}); err != nil {
 			http.Error(w, "could not delete transaction", http.StatusInternalServerError)
 			return
 		}
 
-		http.Redirect(w, r, "/transactions", http.StatusSeeOther)
+		from, to := currentMonthRange()
+		totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+		if err != nil {
+			http.Error(w, "could not load totals", http.StatusInternalServerError)
+			return
+		}
+		transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+		if err != nil {
+			http.Error(w, "could not load transactions", http.StatusInternalServerError)
+			return
+		}
+
+		renderNamed(w, r, deps, "transactions", "totals_oob", "", map[string]any{
+			"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
+			"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
+		})
 	}
 }

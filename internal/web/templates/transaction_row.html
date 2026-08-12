@@ -27,3 +27,29 @@
 {{end}}
 
 {{define "transaction_create_response"}}{{template "transaction_row" .Row}}{{template "totals_oob" .Totals}}{{end}}
+
+{{define "transaction_row_edit"}}
+<form id="transaction-row-{{.ID}}" hx-patch="/transactions/{{.ID}}" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="flex items-center gap-4 px-4 py-[10px] border-b border-border-list last:border-b-0 bg-surface-alt">
+  <input name="occurred_on" type="date" value="{{.OccurredOnValue}}" required class="w-[46px] shrink-0 font-mono text-[11px] border border-border-input rounded px-1 h-8">
+  <select name="category_id" class="w-[150px] shrink-0 text-[13px] border border-border-input rounded px-1 h-8">
+    {{range .CategoryOptions}}<option value="{{.ID}}" {{if eq .ID $.CategoryID}}selected{{end}}>{{.Name}}</option>{{end}}
+  </select>
+  <input name="description" type="text" value="{{.Description}}" class="flex-1 min-w-0 text-[13px] border border-border-input rounded px-2 h-8">
+  {{if .Error}}<span class="text-[12px] text-expense shrink-0">{{.Error}}</span>{{end}}
+  <span class="shrink-0 flex items-center gap-1">
+    <button type="submit" class="text-[12px] text-accent font-semibold border border-border-input rounded-md px-[7px] py-[3px]">Lưu</button>
+    <button type="button" hx-get="/transactions/{{.ID}}/view" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-[#EAE8E4] rounded-md px-[7px] py-[3px]">Hủy</button>
+  </span>
+  <input name="amount" type="number" min="1" value="{{.Amount}}" required class="w-[132px] shrink-0 text-right font-mono text-[14px] border border-border-input rounded px-2 h-8">
+</form>
+{{end}}
+
+{{define "transaction_row_delete_confirm"}}
+<div id="transaction-row-{{.ID}}" class="flex items-center justify-between px-4 py-[13px] border-b border-border-list last:border-b-0" style="background-color:#FEF7F5">
+  <span class="text-[13px] text-ink">Xóa giao dịch này?</span>
+  <span class="flex items-center gap-2">
+    <button type="button" hx-delete="/transactions/{{.ID}}" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="px-3 h-8 rounded-lg bg-expense text-white text-[12px] font-semibold">Xóa</button>
+    <button type="button" hx-get="/transactions/{{.ID}}/view" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="px-3 h-8 rounded-lg border border-border-input text-[12px] text-ink">Hủy</button>
+  </span>
+</div>
+{{end}}

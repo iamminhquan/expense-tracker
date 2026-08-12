@@ -151,6 +151,42 @@ func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) 
 	return i, err
 }
 
+const getTransactionWithCategory = `-- name: GetTransactionWithCategory :one
+SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, c.name AS category_name, c.color AS category_color
+FROM transactions t
+JOIN categories c ON c.id = t.category_id
+WHERE t.id = $1 AND t.user_id = $2
+`
+
+type GetTransactionWithCategoryParams struct {
+	ID     int64 `json:"id"`
+	UserID int64 `json:"user_id"`
+}
+
+type GetTransactionWithCategoryRow struct {
+	ID            int64              `json:"id"`
+	UserID        int64              `json:"user_id"`
+	CategoryID    int64              `json:"category_id"`
+	Amount        int64              `json:"amount"`
+	Type          string             `json:"type"`
+	Description   string             `json:"description"`
+	OccurredOn    pgtype.Date        `json:"occurred_on"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	CategoryName  string             `json:"category_name"`
+	CategoryColor string             `json:"category_color"`
+}
+
+func (q *Queries) GetTransactionWithCategory(ctx context.Context, arg GetTransactionWithCategoryParams) (GetTransactionWithCategoryRow, error) {
+	row := q.db.QueryRow(ctx, getTransactionWithCategory, arg.ID, arg.UserID)
+	var i GetTransactionWithCategoryRow
+	err := row.Scan(
+		&i.ID, &i.UserID, &i.CategoryID, &i.Amount, &i.Type, &i.Description,
+		&i.OccurredOn, &i.CreatedAt, &i.UpdatedAt, &i.CategoryName, &i.CategoryColor,
+	)
+	return i, err
+}
+
 const listDistinctTransactionMonths = `-- name: ListDistinctTransactionMonths :many
 SELECT DISTINCT date_trunc('month', occurred_on)::date AS month
 FROM transactions
