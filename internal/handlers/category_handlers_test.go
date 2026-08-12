@@ -21,7 +21,7 @@ func loginAndGetCookie(t *testing.T, router http.Handler, deps handlers.Deps, em
 	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Cat Test"}, "email": {email}, "password": {password}}
+	form := url.Values{"name": {"Cat Test"}, "email": {email}, "password": {password}, "password_confirm": {password}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(req, tok)

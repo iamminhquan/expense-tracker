@@ -1,0 +1,65 @@
+{{define "auth_card_body"}}
+<div class="flex bg-track rounded-lg p-[3px] gap-1">
+  <button type="button"
+    hx-get="/login" hx-target="#auth-card" hx-swap="innerHTML" hx-push-url="true"
+    class="flex-1 h-8 rounded-[6px] text-[13px] {{if eq .Tab "login"}}bg-white text-ink font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.06)]{{else}}text-ink-muted{{end}}">Đăng nhập</button>
+  <button type="button"
+    hx-get="/register" hx-target="#auth-card" hx-swap="innerHTML" hx-push-url="true"
+    class="flex-1 h-8 rounded-[6px] text-[13px] {{if eq .Tab "register"}}bg-white text-ink font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.06)]{{else}}text-ink-muted{{end}}">Đăng ký</button>
+</div>
+
+{{if eq .Tab "register"}}
+<form hx-post="/register" hx-target="#auth-card" hx-swap="innerHTML" class="flex flex-col gap-4">
+  <div class="flex flex-col gap-[6px]">
+    <label class="text-[12px] font-medium text-ink-muted" for="name">Tên</label>
+    <input id="name" name="name" type="text" value="{{.Name}}" required
+      class="h-12 md:h-[38px] px-3 rounded-[10px] md:rounded-lg border border-border-input text-[15px] md:text-[13px] focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/[0.12]">
+  </div>
+  <div class="flex flex-col gap-[6px]">
+    <label class="text-[12px] font-medium text-ink-muted" for="email">Email</label>
+    <input id="email" name="email" type="email" value="{{.Email}}" placeholder="ban@email.com" required
+      class="h-12 md:h-[38px] px-3 rounded-[10px] md:rounded-lg border border-border-input text-[15px] md:text-[13px] placeholder:text-placeholder focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/[0.12]">
+  </div>
+  <div class="flex flex-col gap-[6px]">
+    <label class="text-[12px] font-medium text-ink-muted" for="password">Mật khẩu</label>
+    <input id="password" name="password" type="password" required
+      class="h-12 md:h-[38px] px-3 rounded-[10px] md:rounded-lg border border-border-input text-[15px] md:text-[13px] focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/[0.12]">
+  </div>
+  <div class="flex flex-col gap-[6px]">
+    <label class="text-[12px] font-medium text-ink-muted" for="password_confirm">Nhập lại mật khẩu</label>
+    <input id="password_confirm" name="password_confirm" type="password" required
+      class="h-12 md:h-[38px] px-3 rounded-[10px] md:rounded-lg border border-border-input text-[15px] md:text-[13px] focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/[0.12]">
+  </div>
+  {{if .Error}}
+  <p class="text-[12px] text-expense bg-[#FEF2F2] border border-[#FECACA] rounded-lg px-3 py-2">{{.Error}}</p>
+  {{end}}
+  <button type="submit" class="h-[50px] md:h-10 rounded-[10px] md:rounded-lg bg-accent text-white text-[13px] font-semibold">Tạo tài khoản</button>
+</form>
+<p class="text-center text-[12px] text-ink-faint">Đã có tài khoản?
+  <button type="button" hx-get="/login" hx-target="#auth-card" hx-swap="innerHTML" hx-push-url="true" class="text-accent font-medium">Đăng nhập</button>
+</p>
+{{else}}
+<form hx-post="/login" hx-target="#auth-card" hx-swap="innerHTML" class="flex flex-col gap-4">
+  <div class="flex flex-col gap-[6px]">
+    <label class="text-[12px] font-medium text-ink-muted" for="email">Email</label>
+    <input id="email" name="email" type="email" value="{{.Email}}" placeholder="ban@email.com" required
+      class="h-12 md:h-[38px] px-3 rounded-[10px] md:rounded-lg border border-border-input text-[15px] md:text-[13px] placeholder:text-placeholder focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/[0.12]">
+  </div>
+  <div class="flex flex-col gap-[6px]">
+    <div class="flex items-baseline justify-between">
+      <label class="text-[12px] font-medium text-ink-muted" for="password">Mật khẩu</label>
+      <span class="text-[12px] text-accent">Quên mật khẩu?</span>
+    </div>
+    <input id="password" name="password" type="password" required
+      class="h-12 md:h-[38px] px-3 rounded-[10px] md:rounded-lg border border-border-input text-[15px] md:text-[13px] focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/[0.12]">
+  </div>
+  {{if .Error}}
+  <p class="text-[12px] text-expense bg-[#FEF2F2] border border-[#FECACA] rounded-lg px-3 py-2">{{.Error}}</p>
+  {{end}}
+  <button type="submit" class="h-[50px] md:h-10 rounded-[10px] md:rounded-lg bg-accent text-white text-[13px] font-semibold">Đăng nhập</button>
+</form>
+<p class="text-center text-[12px] text-ink-faint">Chưa có tài khoản?
+  <button type="button" hx-get="/register" hx-target="#auth-card" hx-swap="innerHTML" hx-push-url="true" class="text-accent font-medium">Đăng ký</button>
+</p>
+{{end}}
+{{end}}

@@ -30,8 +30,7 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	t.Cleanup(pool.Close)
 
 	templates := map[string]*template.Template{
-		"register":     template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/register.html")),
-		"login":        template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/login.html")),
+		"auth":         template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/auth.html", "../web/templates/auth_card_body.html")),
 		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/categories.html")),
 		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html")),
 		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html")),
@@ -81,9 +80,10 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 
 	tok := csrfTokenFor(t, router)
 	form := url.Values{
-		"name":     {"Flow Test"},
-		"email":    {email},
-		"password": {"s3cret-pass"},
+		"name":             {"Flow Test"},
+		"email":            {email},
+		"password":         {"s3cret-pass"},
+		"password_confirm": {"s3cret-pass"},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -91,8 +91,8 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("expected redirect after register, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with HX-Redirect after register, got %d: %s", rec.Code, rec.Body.String())
 	}
 
 	loginForm := url.Values{"email": {email}, "password": {"s3cret-pass"}}
@@ -102,8 +102,11 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 	loginRec := httptest.NewRecorder()
 	router.ServeHTTP(loginRec, loginReq)
 
-	if loginRec.Code != http.StatusSeeOther {
-		t.Fatalf("expected redirect after login, got %d: %s", loginRec.Code, loginRec.Body.String())
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with HX-Redirect after login, got %d: %s", loginRec.Code, loginRec.Body.String())
+	}
+	if got := loginRec.Header().Get("HX-Redirect"); got != "/transactions" {
+		t.Fatalf("expected HX-Redirect: /transactions, got %q", got)
 	}
 	cookies := loginRec.Result().Cookies()
 	if len(cookies) == 0 {
@@ -119,13 +122,9 @@ func TestLoginAndRegisterPagesRenderDistinctContent(t *testing.T) {
 	loginRec := httptest.NewRecorder()
 	router.ServeHTTP(loginRec, loginReq)
 
-	// Both pages link to each other ("Đăng nhập"/"Đăng ký" both appear as
-	// footer link text on both pages), so headings alone aren't a reliable
-	// signal. Instead assert on the form's action attribute and on the
-	// "name" input field, which only ever appears on the register form.
 	loginBody := loginRec.Body.String()
-	if !strings.Contains(loginBody, `action="/login"`) {
-		t.Fatalf("expected GET /login body to contain a form posting to /login, got: %s", loginBody)
+	if !strings.Contains(loginBody, `hx-post="/login"`) {
+		t.Fatalf("expected GET /login body to contain a form posting to /login via htmx, got: %s", loginBody)
 	}
 	if strings.Contains(loginBody, `name="name"`) {
 		t.Fatalf("expected GET /login body to NOT contain the register-only name field, got: %s", loginBody)
@@ -136,11 +135,96 @@ func TestLoginAndRegisterPagesRenderDistinctContent(t *testing.T) {
 	router.ServeHTTP(registerRec, registerReq)
 
 	registerBody := registerRec.Body.String()
-	if !strings.Contains(registerBody, `action="/register"`) {
-		t.Fatalf("expected GET /register body to contain a form posting to /register, got: %s", registerBody)
+	if !strings.Contains(registerBody, `hx-post="/register"`) {
+		t.Fatalf("expected GET /register body to contain a form posting to /register via htmx, got: %s", registerBody)
 	}
 	if !strings.Contains(registerBody, `name="name"`) {
 		t.Fatalf("expected GET /register body to contain the name field, got: %s", registerBody)
+	}
+}
+
+// TestAuthTabSwitchReturnsFragmentOnly covers the htmx tab-switch contract
+// from SPEC.md section 2: a request carrying HX-Request must get back just
+// the auth_card_body fragment, not a full <html> page, so htmx can swap it
+// into #auth-card without a flash of the logo/tagline re-rendering.
+func TestAuthTabSwitchReturnsFragmentOnly(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+
+	req := httptest.NewRequest(http.MethodGet, "/register", nil)
+	req.Header.Set("HX-Request", "true")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if strings.Contains(body, "<html") {
+		t.Fatalf("expected an htmx fragment response with no <html> wrapper, got: %s", body)
+	}
+	if !strings.Contains(body, `hx-post="/register"`) {
+		t.Fatalf("expected the register form fragment, got: %s", body)
+	}
+}
+
+// TestLoginSuccessSendsHXRedirect covers PROMPT.md's "every mutation
+// returns a fragment, never a full reload" rule applied to the one case
+// that needs a real navigation: login/register success signal it via the
+// HX-Redirect response header instead of an HTTP 3xx, since htmx treats a
+// 3xx as just another response to swap in, not a page navigation.
+func TestLoginSuccessSendsHXRedirect(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "hx-redirect@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+
+	tok := csrfTokenFor(t, router)
+	regForm := url.Values{"name": {"HX"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
+	regReq := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(regForm.Encode()))
+	regReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(regReq, tok)
+	router.ServeHTTP(httptest.NewRecorder(), regReq)
+
+	tok2 := csrfTokenFor(t, router)
+	loginForm := url.Values{"email": {email}, "password": {"s3cret-pass"}}
+	loginReq := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(loginForm.Encode()))
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(loginReq, tok2)
+	loginRec := httptest.NewRecorder()
+	router.ServeHTTP(loginRec, loginReq)
+
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with HX-Redirect on success, got %d: %s", loginRec.Code, loginRec.Body.String())
+	}
+	if got := loginRec.Header().Get("HX-Redirect"); got != "/transactions" {
+		t.Fatalf("expected HX-Redirect: /transactions, got %q", got)
+	}
+}
+
+// TestRegisterPasswordMismatchShowsError covers the new "Nhập lại mật khẩu"
+// field SPEC.md section 2 adds to the register tab.
+func TestRegisterPasswordMismatchShowsError(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "mismatch@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{"name": {"Mismatch"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"different"}}
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 re-rendering the form, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Mật khẩu nhập lại không khớp") {
+		t.Fatalf("expected password-mismatch error, got: %s", rec.Body.String())
+	}
+	if _, err := deps.Queries.GetUserByEmail(context.Background(), email); err == nil {
+		t.Fatal("expected no user to be created when passwords don't match")
 	}
 }
 
@@ -219,13 +303,13 @@ func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 	})
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Dup"}, "email": {email}, "password": {"s3cret-pass"}}
+	form := url.Values{"name": {"Dup"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusSeeOther {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("expected the first registration to succeed, got %d: %s", rec.Code, rec.Body.String())
 	}
 
@@ -238,7 +322,7 @@ func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 	if dupRec.Code != http.StatusOK {
 		t.Fatalf("expected duplicate registration to re-render the form with 200, got %d: %s", dupRec.Code, dupRec.Body.String())
 	}
-	if !strings.Contains(dupRec.Body.String(), "Email đã được sử dụng") {
+	if !strings.Contains(dupRec.Body.String(), "Email này đã được dùng.") {
 		t.Fatalf("expected duplicate-email message, got: %s", dupRec.Body.String())
 	}
 }
@@ -257,7 +341,7 @@ func TestSessionCookieAttributes(t *testing.T) {
 	})
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Cookie"}, "email": {email}, "password": {"s3cret-pass"}}
+	form := url.Values{"name": {"Cookie"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(req, tok)
