@@ -18,6 +18,7 @@ func TemplateFuncs() template.FuncMap {
 		"vndBalance": vndBalance,
 		"dateFull":   dateFull,
 		"dateShort":  dateShort,
+		"swatches":   func() []string { return categorySwatches },
 	}
 }
 

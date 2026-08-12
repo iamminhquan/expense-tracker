@@ -103,6 +103,44 @@ func (q *Queries) GetDefaultCategoryForReassignment(ctx context.Context) (Catego
 	return i, err
 }
 
+const getCategoryWithTransactionCount = `-- name: GetCategoryWithTransactionCount :one
+SELECT c.id, c.user_id, c.name, c.type, c.color, c.created_at, COUNT(t.id) AS transaction_count
+FROM categories c
+LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $2
+WHERE c.id = $1 AND (c.user_id = $2 OR c.user_id IS NULL)
+GROUP BY c.id
+`
+
+type GetCategoryWithTransactionCountParams struct {
+	ID     int64       `json:"id"`
+	UserID pgtype.Int8 `json:"user_id"`
+}
+
+type GetCategoryWithTransactionCountRow struct {
+	ID               int64              `json:"id"`
+	UserID           pgtype.Int8        `json:"user_id"`
+	Name             string             `json:"name"`
+	Type             string             `json:"type"`
+	Color            string             `json:"color"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	TransactionCount int64              `json:"transaction_count"`
+}
+
+func (q *Queries) GetCategoryWithTransactionCount(ctx context.Context, arg GetCategoryWithTransactionCountParams) (GetCategoryWithTransactionCountRow, error) {
+	row := q.db.QueryRow(ctx, getCategoryWithTransactionCount, arg.ID, arg.UserID)
+	var i GetCategoryWithTransactionCountRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.CreatedAt,
+		&i.TransactionCount,
+	)
+	return i, err
+}
+
 const listCategoriesForUser = `-- name: ListCategoriesForUser :many
 SELECT id, user_id, name, type, color, created_at FROM categories
 WHERE user_id = $1 OR user_id IS NULL

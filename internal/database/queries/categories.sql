@@ -36,3 +36,10 @@ LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1
 WHERE c.user_id = $1 OR c.user_id IS NULL
 GROUP BY c.id
 ORDER BY c.user_id NULLS FIRST, c.name;
+
+-- name: GetCategoryWithTransactionCount :one
+SELECT c.*, COUNT(t.id) AS transaction_count
+FROM categories c
+LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $2
+WHERE c.id = $1 AND (c.user_id = $2 OR c.user_id IS NULL)
+GROUP BY c.id;

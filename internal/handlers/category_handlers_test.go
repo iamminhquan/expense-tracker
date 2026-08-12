@@ -41,7 +41,7 @@ func TestCreateAndListCategories(t *testing.T) {
 	cookie := loginAndGetCookie(t, router, deps, "cat-test@example.com", "s3cret-pass")
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Du lịch"}, "type": {"expense"}, "color": {"#111111"}}
+	form := url.Values{"name": {"Du lịch"}, "type": {"expense"}, "color": {"#D97757"}}
 	req := httptest.NewRequest(http.MethodPost, "/categories", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(cookie)
@@ -69,64 +69,199 @@ func TestCreateAndListCategories(t *testing.T) {
 	}
 }
 
-// TestDeleteCategoryInUseShowsFriendlyError covers Finding 7 from the final
-// whole-branch review: transactions.category_id has no ON DELETE clause
-// (RESTRICT by default), so deleting a category that still has transactions
-// referencing it raises a foreign-key violation. Before the fix this
-// surfaced as a bare 500; it should instead re-render the categories page
-// with a friendly Vietnamese message via the existing {{.Error}} slot.
-func TestDeleteCategoryInUseShowsFriendlyError(t *testing.T) {
+func TestDeleteExpenseCategoryReassignsTransactions(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
-	cookie := loginAndGetCookie(t, router, deps, "cat-inuse@example.com", "s3cret-pass")
-
+	cookie := loginAndGetCookie(t, router, deps, "cat-reassign@example.com", "s3cret-pass")
 	ctx := context.Background()
-	user, err := deps.Queries.GetUserByEmail(ctx, "cat-inuse@example.com")
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "cat-reassign@example.com")
 	if err != nil {
 		t.Fatalf("get user: %v", err)
 	}
 
 	category, err := deps.Queries.CreateCategory(ctx, sqlcgen.CreateCategoryParams{
-		UserID: pgtype.Int8{Int64: user.ID, Valid: true},
-		Name:   "Sẽ bị khóa",
-		Type:   "expense",
-		Color:  "#654321",
+		UserID: pgtype.Int8{Int64: user.ID, Valid: true}, Name: "Sẽ bị gộp", Type: "expense", Color: "#D97757",
 	})
 	if err != nil {
 		t.Fatalf("create category: %v", err)
 	}
 
 	txn, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
-		UserID:      user.ID,
-		CategoryID:  category.ID,
-		Amount:      1000,
-		Type:        "expense",
-		Description: "blocks delete",
-		OccurredOn:  pgtype.Date{Time: time.Now(), Valid: true},
+		UserID: user.ID, CategoryID: category.ID, Amount: 5000, Type: "expense",
+		Description: "reassign me", OccurredOn: pgtype.Date{Time: time.Now(), Valid: true},
 	})
 	if err != nil {
 		t.Fatalf("create transaction: %v", err)
 	}
 	t.Cleanup(func() {
 		deps.Queries.DeleteTransaction(ctx, sqlcgen.DeleteTransactionParams{ID: txn.ID, UserID: user.ID})
-		deps.Queries.DeleteCategory(ctx, sqlcgen.DeleteCategoryParams{ID: category.ID, UserID: pgtype.Int8{Int64: user.ID, Valid: true}})
 	})
 
 	tok := csrfTokenFor(t, router)
-	deleteReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/categories/%d/delete", category.ID), nil)
+	deleteReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/categories/%d", category.ID), nil)
 	deleteReq.AddCookie(cookie)
 	withCSRF(deleteReq, tok)
 	deleteRec := httptest.NewRecorder()
 	router.ServeHTTP(deleteRec, deleteReq)
 
 	if deleteRec.Code != http.StatusOK {
-		t.Fatalf("expected 200 re-rendering categories page with a friendly error, got %d: %s", deleteRec.Code, deleteRec.Body.String())
+		t.Fatalf("expected 200 deleting an expense category with transactions, got %d: %s", deleteRec.Code, deleteRec.Body.String())
 	}
-	if !strings.Contains(deleteRec.Body.String(), "Không thể xóa danh mục") {
-		t.Fatalf("expected friendly FK-violation error message in body, got: %s", deleteRec.Body.String())
+
+	moved, err := deps.Queries.GetTransaction(ctx, sqlcgen.GetTransactionParams{ID: txn.ID, UserID: user.ID})
+	if err != nil {
+		t.Fatalf("get reassigned transaction: %v", err)
 	}
-	// The category and its blocking transaction must both still exist.
-	if !strings.Contains(deleteRec.Body.String(), "Sẽ bị khóa") {
-		t.Fatal("expected the in-use category to remain listed after the failed delete")
+	khac, err := deps.Queries.GetDefaultCategoryForReassignment(ctx)
+	if err != nil {
+		t.Fatalf("get Khác default: %v", err)
+	}
+	if moved.CategoryID != khac.ID {
+		t.Fatalf("expected transaction to be reassigned to Khác (id %d), got category_id %d", khac.ID, moved.CategoryID)
+	}
+	if _, err := deps.Queries.GetCategoryForUser(ctx, sqlcgen.GetCategoryForUserParams{ID: category.ID, UserID: pgtype.Int8{Int64: user.ID, Valid: true}}); err == nil {
+		t.Fatal("expected the deleted category to no longer exist")
+	}
+}
+
+func TestDeleteIncomeCategoryWithTransactionsIsBlocked(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "cat-income-block@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "cat-income-block@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+
+	category, err := deps.Queries.CreateCategory(ctx, sqlcgen.CreateCategoryParams{
+		UserID: pgtype.Int8{Int64: user.ID, Valid: true}, Name: "Thu riêng", Type: "income", Color: "#4FA871",
+	})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	t.Cleanup(func() {
+		deps.Queries.DeleteCategory(ctx, sqlcgen.DeleteCategoryParams{ID: category.ID, UserID: pgtype.Int8{Int64: user.ID, Valid: true}})
+	})
+
+	txn, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 5000, Type: "income",
+		Description: "blocks delete", OccurredOn: pgtype.Date{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	t.Cleanup(func() {
+		deps.Queries.DeleteTransaction(ctx, sqlcgen.DeleteTransactionParams{ID: txn.ID, UserID: user.ID})
+	})
+
+	tok := csrfTokenFor(t, router)
+	deleteReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/categories/%d", category.ID), nil)
+	deleteReq.AddCookie(cookie)
+	withCSRF(deleteReq, tok)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusConflict {
+		t.Fatalf("expected 409 blocking delete of an income category with transactions, got %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
+	if _, err := deps.Queries.GetCategoryForUser(ctx, sqlcgen.GetCategoryForUserParams{ID: category.ID, UserID: pgtype.Int8{Int64: user.ID, Valid: true}}); err != nil {
+		t.Fatal("expected the blocked category to still exist")
+	}
+}
+
+func TestDeleteDefaultCategoryIsForbidden(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "cat-default-delete@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("expected default categories: %v", err)
+	}
+	var defaultCategory sqlcgen.Category
+	for _, c := range categories {
+		if !c.UserID.Valid {
+			defaultCategory = c
+			break
+		}
+	}
+
+	tok := csrfTokenFor(t, router)
+	deleteReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/categories/%d", defaultCategory.ID), nil)
+	deleteReq.AddCookie(cookie)
+	withCSRF(deleteReq, tok)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 deleting a default category, got %d", deleteRec.Code)
+	}
+}
+
+func TestUpdateCategoryColorAppliesToDefaultCategory(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "cat-color@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("expected default categories: %v", err)
+	}
+	target := categories[0]
+	original := target.Color
+	newColor := "#8B7BD8"
+	if original == newColor {
+		newColor = "#5B8DEF"
+	}
+	t.Cleanup(func() {
+		deps.Queries.UpdateCategoryColor(context.Background(), sqlcgen.UpdateCategoryColorParams{ID: target.ID, UserID: pgtype.Int8{}, Color: original})
+	})
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{"color": {newColor}}
+	req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/categories/%d/color", target.ID), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 changing a default category's color, got %d: %s", rec.Code, rec.Body.String())
+	}
+	updated, err := deps.Queries.GetCategoryForUser(context.Background(), sqlcgen.GetCategoryForUserParams{ID: target.ID, UserID: pgtype.Int8{}})
+	if err != nil {
+		t.Fatalf("get updated category: %v", err)
+	}
+	if updated.Color != newColor {
+		t.Fatalf("expected color %q, got %q", newColor, updated.Color)
+	}
+}
+
+func TestRenameCategoryRejectsDefault(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "cat-rename-default@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("expected default categories: %v", err)
+	}
+	target := categories[0]
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{"name": {"Hacked Name"}}
+	req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/categories/%d/name", target.ID), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 renaming a default category, got %d", rec.Code)
 	}
 }
