@@ -1,0 +1,29 @@
+{{define "transaction_row"}}
+<div id="transaction-row-{{.ID}}" class="group flex items-center gap-4 px-4 py-[13px] border-b border-border-list last:border-b-0 hover:bg-surface-alt">
+  <span class="w-[46px] shrink-0 font-mono text-[12px] text-ink-faintest">{{dateShort .OccurredOn}}</span>
+  <span class="w-[150px] shrink-0 flex items-center gap-2 text-[13px] font-medium text-ink">
+    <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.CategoryColor}}"></span>
+    <span class="truncate">{{.CategoryName}}</span>
+  </span>
+  <span class="flex-1 min-w-0 text-[13px] text-ink-faint truncate">{{.Description}}</span>
+  <span class="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100">
+    <button type="button" hx-get="/transactions/{{.ID}}/edit" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-[#EAE8E4] rounded-md px-[7px] py-[3px]">Sửa</button>
+    <button type="button" hx-get="/transactions/{{.ID}}/delete-confirm" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-[#EAE8E4] rounded-md px-[7px] py-[3px]">Xóa</button>
+  </span>
+  <span class="w-[132px] shrink-0 text-right font-mono text-[14px] font-medium {{if eq .Type "expense"}}text-expense{{else}}text-income{{end}}">{{vndSigned .Amount .Type}}</span>
+</div>
+{{end}}
+
+{{define "totals_oob"}}
+<div id="totals-summary" hx-swap-oob="true" class="flex items-center gap-[18px]">
+  <span class="text-[13px] text-ink-faint">Chi <span class="font-mono font-medium text-expense">{{vnd .TotalExpense}}</span></span>
+  <span class="text-[13px] text-ink-faint">Thu <span class="font-mono font-medium text-income">{{vnd .TotalIncome}}</span></span>
+</div>
+<span id="transaction-count" hx-swap-oob="true" class="text-[12px] text-ink-faint">{{.Count}} giao dịch</span>
+<div id="remaining-row" hx-swap-oob="true" class="flex items-center justify-between px-4 py-[13px] bg-surface-alt">
+  <span class="text-[13px] font-semibold text-ink">Còn lại tháng này</span>
+  <span class="w-[132px] text-right font-mono text-[15px] font-semibold {{if lt .Remaining 0}}text-expense{{else}}text-ink{{end}}">{{vndBalance .Remaining}}</span>
+</div>
+{{end}}
+
+{{define "transaction_create_response"}}{{template "transaction_row" .Row}}{{template "totals_oob" .Totals}}{{end}}

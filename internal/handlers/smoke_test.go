@@ -26,7 +26,7 @@ func TestEndToEndRegisterAddTransactionSeeDashboard(t *testing.T) {
 	}
 
 	form := url.Values{
-		"category_id": {strconv.FormatInt(categories[0].ID, 10)},
+		"category_id": {strconv.FormatInt(firstCategoryOfType(t, categories, "expense").ID, 10)},
 		"amount":      {"25000"},
 		"type":        {"expense"},
 		"description": {"Trà sữa"},

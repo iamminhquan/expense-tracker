@@ -1,38 +1,83 @@
 {{define "content"}}
-<h1 class="text-2xl font-bold mb-4">Giao dịch</h1>
-{{if .Error}}
-<p class="text-red-600 mb-4">{{.Error}}</p>
-{{end}}
-<form method="POST" action="/transactions" class="grid grid-cols-5 gap-2 mb-6">
-  <select class="border p-2" name="category_id" required>
-    {{range .Categories}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-  </select>
-  <select class="border p-2" name="type">
-    <option value="expense">Chi</option>
-    <option value="income">Thu</option>
-  </select>
-  <input class="border p-2" type="number" name="amount" placeholder="Số tiền" min="1" required>
-  <input class="border p-2" type="date" name="occurred_on" required>
-  <input class="border p-2" type="text" name="description" placeholder="Ghi chú">
-  <button class="col-span-5 bg-blue-600 text-white px-4 py-2 rounded" type="submit">Thêm giao dịch</button>
-</form>
-<table class="w-full text-left">
-  <thead><tr><th>Ngày</th><th>Danh mục</th><th>Loại</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead>
-  <tbody>
-    {{range .Transactions}}
-    <tr class="border-t">
-      <td>{{.OccurredOn.Time.Format "2006-01-02"}}</td>
-      <td>{{.CategoryName}}</td>
-      <td>{{.Type}}</td>
-      <td>{{.Amount}}₫</td>
-      <td>{{.Description}}</td>
-      <td>
-        <form method="POST" action="/transactions/{{.ID}}/delete">
-          <button class="text-red-600" type="submit">Xóa</button>
-        </form>
-      </td>
-    </tr>
+<div class="max-w-[880px] mx-auto px-6 pt-7 pb-9 flex flex-col gap-[18px]">
+
+  <div id="quick-add-form-wrapper">
+    {{template "quick_add_form" .}}
+  </div>
+
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <button type="button" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <span id="transaction-count" class="text-[12px] text-ink-faint">{{len .Transactions}} giao dịch</span>
+    </div>
+    <div id="totals-summary" class="flex items-center gap-[18px]">
+      <span class="text-[13px] text-ink-faint">Chi <span class="font-mono font-medium text-expense">{{vnd .TotalExpense}}</span></span>
+      <span class="text-[13px] text-ink-faint">Thu <span class="font-mono font-medium text-income">{{vnd .TotalIncome}}</span></span>
+    </div>
+  </div>
+
+  <div class="bg-surface border border-border-card rounded-xl overflow-hidden">
+    <div id="transaction-list">
+      {{range .Transactions}}{{template "transaction_row" .}}{{end}}
+    </div>
+    {{if not .Transactions}}
+    <div class="text-center py-11 px-7">
+      <p class="text-[15px] font-semibold text-ink">Chưa có giao dịch nào trong {{.MonthLabelLower}}</p>
+      <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Thêm giao dịch đầu tiên bằng form phía trên, hoặc chọn tháng khác để xem lại.</p>
+    </div>
     {{end}}
-  </tbody>
-</table>
+    <div id="remaining-row" class="flex items-center justify-between px-4 py-[13px] bg-surface-alt">
+      <span class="text-[13px] font-semibold text-ink">Còn lại tháng này</span>
+      <span class="w-[132px] text-right font-mono text-[15px] font-semibold {{if lt .Remaining 0}}text-expense{{else}}text-ink{{end}}">{{vndBalance .Remaining}}</span>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "quick_add_form"}}
+<div class="bg-surface border border-border-card rounded-xl p-4">
+  <form id="quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
+    hx-on::after-request="if(event.detail.successful){ this.querySelector('[name=amount]').value=''; this.querySelector('[name=description]').value=''; }"
+    class="flex items-end gap-[10px] flex-wrap">
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Loại</label>
+      <div class="flex bg-track rounded-lg p-[3px] gap-1 h-9">
+        <label class="px-3 flex items-center cursor-pointer">
+          <input type="radio" name="type" value="expense" {{if ne .SelectedType "income"}}checked{{end}} class="peer hidden"
+            hx-get="/transactions/category-options" hx-target="#category-select" hx-trigger="change" hx-vals='{"type":"expense"}'>
+          <span class="text-[13px] peer-checked:font-semibold">Chi</span>
+        </label>
+        <label class="px-3 flex items-center cursor-pointer">
+          <input type="radio" name="type" value="income" {{if eq .SelectedType "income"}}checked{{end}} class="peer hidden"
+            hx-get="/transactions/category-options" hx-target="#category-select" hx-trigger="change" hx-vals='{"type":"income"}'>
+          <span class="text-[13px] peer-checked:font-semibold">Thu</span>
+        </label>
+      </div>
+    </div>
+    <div class="flex flex-col gap-[6px] w-[168px]">
+      <label class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Danh mục</label>
+      {{template "category_options" .}}
+    </div>
+    <div class="flex flex-col gap-[6px] w-[150px]">
+      <label class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Số tiền</label>
+      <input name="amount" type="number" min="1" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[14px] font-medium">
+    </div>
+    <div class="flex flex-col gap-[6px] w-[128px]">
+      <label class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Ngày</label>
+      <input name="occurred_on" type="date" value="{{.Today}}" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[13px]">
+    </div>
+    <div class="flex flex-col gap-[6px] flex-1 min-w-[140px]">
+      <label class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Ghi chú</label>
+      <input name="description" type="text" placeholder="Không bắt buộc" class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    <button type="submit" class="h-9 px-[18px] rounded-lg bg-accent text-white text-[13px] font-semibold">Thêm</button>
+  </form>
+  {{if .QuickAddError}}<p class="text-[12px] text-expense mt-2">{{.QuickAddError}}</p>{{end}}
+</div>
+{{end}}
+
+{{define "category_options"}}
+<select id="category-select" name="category_id" class="h-9 px-3 rounded-lg border border-border-input text-[13px] bg-white">
+  {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">● {{.Name}}</option>{{end}}
+</select>
 {{end}}

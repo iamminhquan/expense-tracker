@@ -16,6 +16,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+func firstCategoryOfType(t *testing.T, categories []sqlcgen.Category, typ string) sqlcgen.Category {
+	t.Helper()
+	for _, c := range categories {
+		if c.Type == typ {
+			return c
+		}
+	}
+	t.Fatalf("expected a category of type %q", typ)
+	return sqlcgen.Category{}
+}
+
 func TestTransactionCRUDAndIsolation(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
@@ -26,7 +37,7 @@ func TestTransactionCRUDAndIsolation(t *testing.T) {
 	if err != nil || len(categories) == 0 {
 		t.Fatalf("expected default categories to exist: %v", err)
 	}
-	categoryID := categories[0].ID
+	categoryID := firstCategoryOfType(t, categories, "expense").ID
 
 	today := time.Now().Format("2006-01-02")
 	form := url.Values{
@@ -79,17 +90,18 @@ func TestTransactionCRUDAndIsolation(t *testing.T) {
 	}
 
 	// Cross-user delete attempt: user B tries to delete user A's transaction
-	// by guessing an ID from A's list. Extract the id from A's delete form
-	// action to make the isolation check concrete rather than assumed.
+	// by guessing an ID from A's list. Extract the id from the row's root
+	// element (id="transaction-row-{id}") to make the isolation check
+	// concrete rather than assumed.
 	bodyA := listRecA.Body.String()
-	idx := strings.Index(bodyA, `/transactions/`)
+	idx := strings.Index(bodyA, `id="transaction-row-`)
 	if idx == -1 {
-		t.Fatal("expected a transaction delete form in user A's page")
+		t.Fatal("expected a transaction row in user A's page")
 	}
-	rest := bodyA[idx+len("/transactions/"):]
-	endIdx := strings.Index(rest, "/delete")
+	rest := bodyA[idx+len(`id="transaction-row-`):]
+	endIdx := strings.Index(rest, `"`)
 	if endIdx == -1 {
-		t.Fatal("expected /delete action in user A's page")
+		t.Fatal("expected a closing quote after the transaction row id")
 	}
 	txnID := rest[:endIdx]
 

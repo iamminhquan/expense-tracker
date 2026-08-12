@@ -42,6 +42,7 @@ func NewRouter(deps Deps) http.Handler {
 		pr.Delete("/categories/{id}", deleteCategoryHandler(deps))
 		pr.Get("/transactions", transactionsPage(deps))
 		pr.Post("/transactions", transactionsPage(deps))
+		pr.Get("/transactions/category-options", categoryOptionsHandler(deps))
 		pr.Post("/transactions/{id}/delete", deleteTransactionHandler(deps))
 		pr.Get("/dashboard", dashboardPage(deps))
 	})

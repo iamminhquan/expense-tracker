@@ -27,7 +27,7 @@ func TestDashboardShowsMonthlyTotal(t *testing.T) {
 
 	today := time.Now().Format("2006-01-02")
 	form := url.Values{
-		"category_id": {strconv.FormatInt(categories[0].ID, 10)},
+		"category_id": {strconv.FormatInt(firstCategoryOfType(t, categories, "expense").ID, 10)},
 		"amount":      {"100000"},
 		"type":        {"expense"},
 		"description": {"Test spend"},
