@@ -102,8 +102,39 @@ func TestMigrationsApplyCleanly(t *testing.T) {
 	if err := db.QueryRow("SELECT count(*) FROM categories WHERE user_id IS NULL").Scan(&count); err != nil {
 		t.Fatalf("query default categories: %v", err)
 	}
-	if count != 8 {
-		t.Fatalf("expected 8 default categories, got %d", count)
+	if count != 9 {
+		t.Fatalf("expected 9 default categories, got %d", count)
+	}
+
+	var anUongColor string
+	if err := db.QueryRow("SELECT color FROM categories WHERE user_id IS NULL AND name = 'Ăn uống'").Scan(&anUongColor); err != nil {
+		t.Fatalf("query Ăn uống color: %v", err)
+	}
+	if anUongColor != "#D97757" {
+		t.Fatalf("expected Ăn uống to be seeded with #D97757, got %q", anUongColor)
+	}
+
+	if _, err := db.Exec(
+		`INSERT INTO categories (user_id, name, type, color) VALUES (NULL, 'Bad Color Test', 'expense', '#000000')`,
+	); err == nil {
+		t.Fatal("expected inserting a category with a color outside the fixed palette to violate the CHECK constraint")
+	}
+
+	var userID int64
+	if err := db.QueryRow(
+		`INSERT INTO users (email, password_hash, name) VALUES ('migrate-constraint-test@example.com', 'x', 'Constraint Test') RETURNING id`,
+	).Scan(&userID); err != nil {
+		t.Fatalf("insert throwaway user: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO categories (user_id, name, type, color) VALUES ($1, 'Dup', 'expense', '#D97757')`, userID,
+	); err != nil {
+		t.Fatalf("insert first Dup category: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO categories (user_id, name, type, color) VALUES ($1, 'Dup', 'expense', '#5B8DEF')`, userID,
+	); err == nil {
+		t.Fatal("expected a second category with the same (user_id, type, name) to violate the unique index")
 	}
 
 	if err := m.Down(); err != nil {

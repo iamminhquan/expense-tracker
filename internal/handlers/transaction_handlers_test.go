@@ -132,7 +132,7 @@ func TestCreateTransactionRejectsForeignCategory(t *testing.T) {
 		UserID: pgtype.Int8{Int64: userA.ID, Valid: true},
 		Name:   "Bí mật của A",
 		Type:   "expense",
-		Color:  "#123456",
+		Color:  "#5B8DEF",
 	})
 	if err != nil {
 		t.Fatalf("create private category: %v", err)

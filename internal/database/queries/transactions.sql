@@ -36,3 +36,27 @@ JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.type = 'expense' AND t.occurred_on >= $2 AND t.occurred_on < $3
 GROUP BY c.name, c.color
 ORDER BY total DESC;
+
+-- name: ReassignCategoryTransactions :execrows
+UPDATE transactions SET category_id = $1
+WHERE category_id = $2 AND user_id = $3;
+
+-- name: CountTransactionsForCategory :one
+SELECT COUNT(*)::bigint AS count FROM transactions
+WHERE category_id = $1 AND user_id = $2;
+
+-- name: ListDistinctTransactionMonths :many
+SELECT DISTINCT date_trunc('month', occurred_on)::date AS month
+FROM transactions
+WHERE user_id = $1
+ORDER BY month DESC;
+
+-- name: MonthlyTotalsSeries :many
+SELECT
+    date_trunc('month', occurred_on)::date AS month,
+    COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::bigint AS total_expense,
+    COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::bigint AS total_income
+FROM transactions
+WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3
+GROUP BY month
+ORDER BY month;

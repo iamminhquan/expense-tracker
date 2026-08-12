@@ -84,6 +84,25 @@ func (q *Queries) GetCategoryForUser(ctx context.Context, arg GetCategoryForUser
 	return i, err
 }
 
+const getDefaultCategoryForReassignment = `-- name: GetDefaultCategoryForReassignment :one
+SELECT id, user_id, name, type, color, created_at FROM categories
+WHERE user_id IS NULL AND type = 'expense' AND name = 'Khác'
+`
+
+func (q *Queries) GetDefaultCategoryForReassignment(ctx context.Context) (Category, error) {
+	row := q.db.QueryRow(ctx, getDefaultCategoryForReassignment)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listCategoriesForUser = `-- name: ListCategoriesForUser :many
 SELECT id, user_id, name, type, color, created_at FROM categories
 WHERE user_id = $1 OR user_id IS NULL
@@ -115,4 +134,103 @@ func (q *Queries) ListCategoriesForUser(ctx context.Context, userID pgtype.Int8)
 		return nil, err
 	}
 	return items, nil
+}
+
+const listCategoriesWithTransactionCounts = `-- name: ListCategoriesWithTransactionCounts :many
+SELECT c.id, c.user_id, c.name, c.type, c.color, c.created_at, COUNT(t.id) AS transaction_count
+FROM categories c
+LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1
+WHERE c.user_id = $1 OR c.user_id IS NULL
+GROUP BY c.id
+ORDER BY c.user_id NULLS FIRST, c.name
+`
+
+type ListCategoriesWithTransactionCountsRow struct {
+	ID               int64              `json:"id"`
+	UserID           pgtype.Int8        `json:"user_id"`
+	Name             string             `json:"name"`
+	Type             string             `json:"type"`
+	Color            string             `json:"color"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	TransactionCount int64              `json:"transaction_count"`
+}
+
+func (q *Queries) ListCategoriesWithTransactionCounts(ctx context.Context, userID pgtype.Int8) ([]ListCategoriesWithTransactionCountsRow, error) {
+	rows, err := q.db.Query(ctx, listCategoriesWithTransactionCounts, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCategoriesWithTransactionCountsRow
+	for rows.Next() {
+		var i ListCategoriesWithTransactionCountsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.Type,
+			&i.Color,
+			&i.CreatedAt,
+			&i.TransactionCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateCategoryColor = `-- name: UpdateCategoryColor :one
+UPDATE categories SET color = $3
+WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)
+RETURNING id, user_id, name, type, color, created_at
+`
+
+type UpdateCategoryColorParams struct {
+	ID     int64       `json:"id"`
+	UserID pgtype.Int8 `json:"user_id"`
+	Color  string      `json:"color"`
+}
+
+func (q *Queries) UpdateCategoryColor(ctx context.Context, arg UpdateCategoryColorParams) (Category, error) {
+	row := q.db.QueryRow(ctx, updateCategoryColor, arg.ID, arg.UserID, arg.Color)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateCategoryName = `-- name: UpdateCategoryName :one
+UPDATE categories SET name = $3
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, name, type, color, created_at
+`
+
+type UpdateCategoryNameParams struct {
+	ID     int64       `json:"id"`
+	UserID pgtype.Int8 `json:"user_id"`
+	Name   string      `json:"name"`
+}
+
+func (q *Queries) UpdateCategoryName(ctx context.Context, arg UpdateCategoryNameParams) (Category, error) {
+	row := q.db.QueryRow(ctx, updateCategoryName, arg.ID, arg.UserID, arg.Name)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.CreatedAt,
+	)
+	return i, err
 }

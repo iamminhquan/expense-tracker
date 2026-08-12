@@ -52,6 +52,23 @@ func (q *Queries) CategoryBreakdown(ctx context.Context, arg CategoryBreakdownPa
 	return items, nil
 }
 
+const countTransactionsForCategory = `-- name: CountTransactionsForCategory :one
+SELECT COUNT(*)::bigint AS count FROM transactions
+WHERE category_id = $1 AND user_id = $2
+`
+
+type CountTransactionsForCategoryParams struct {
+	CategoryID int64 `json:"category_id"`
+	UserID     int64 `json:"user_id"`
+}
+
+func (q *Queries) CountTransactionsForCategory(ctx context.Context, arg CountTransactionsForCategoryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTransactionsForCategory, arg.CategoryID, arg.UserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -132,6 +149,33 @@ func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) 
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listDistinctTransactionMonths = `-- name: ListDistinctTransactionMonths :many
+SELECT DISTINCT date_trunc('month', occurred_on)::date AS month
+FROM transactions
+WHERE user_id = $1
+ORDER BY month DESC
+`
+
+func (q *Queries) ListDistinctTransactionMonths(ctx context.Context, userID int64) ([]pgtype.Date, error) {
+	rows, err := q.db.Query(ctx, listDistinctTransactionMonths, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.Date
+	for rows.Next() {
+		var month pgtype.Date
+		if err := rows.Scan(&month); err != nil {
+			return nil, err
+		}
+		items = append(items, month)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listTransactionsForMonth = `-- name: ListTransactionsForMonth :many
@@ -218,6 +262,68 @@ func (q *Queries) MonthlyTotals(ctx context.Context, arg MonthlyTotalsParams) (M
 	var i MonthlyTotalsRow
 	err := row.Scan(&i.TotalExpense, &i.TotalIncome)
 	return i, err
+}
+
+const monthlyTotalsSeries = `-- name: MonthlyTotalsSeries :many
+SELECT
+    date_trunc('month', occurred_on)::date AS month,
+    COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::bigint AS total_expense,
+    COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::bigint AS total_income
+FROM transactions
+WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3
+GROUP BY month
+ORDER BY month
+`
+
+type MonthlyTotalsSeriesParams struct {
+	UserID       int64       `json:"user_id"`
+	OccurredOn   pgtype.Date `json:"occurred_on"`
+	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
+}
+
+type MonthlyTotalsSeriesRow struct {
+	Month        pgtype.Date `json:"month"`
+	TotalExpense int64       `json:"total_expense"`
+	TotalIncome  int64       `json:"total_income"`
+}
+
+func (q *Queries) MonthlyTotalsSeries(ctx context.Context, arg MonthlyTotalsSeriesParams) ([]MonthlyTotalsSeriesRow, error) {
+	rows, err := q.db.Query(ctx, monthlyTotalsSeries, arg.UserID, arg.OccurredOn, arg.OccurredOn_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MonthlyTotalsSeriesRow
+	for rows.Next() {
+		var i MonthlyTotalsSeriesRow
+		if err := rows.Scan(&i.Month, &i.TotalExpense, &i.TotalIncome); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reassignCategoryTransactions = `-- name: ReassignCategoryTransactions :execrows
+UPDATE transactions SET category_id = $1
+WHERE category_id = $2 AND user_id = $3
+`
+
+type ReassignCategoryTransactionsParams struct {
+	CategoryID   int64 `json:"category_id"`
+	CategoryID_2 int64 `json:"category_id_2"`
+	UserID       int64 `json:"user_id"`
+}
+
+func (q *Queries) ReassignCategoryTransactions(ctx context.Context, arg ReassignCategoryTransactionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reassignCategoryTransactions, arg.CategoryID, arg.CategoryID_2, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateTransaction = `-- name: UpdateTransaction :one
