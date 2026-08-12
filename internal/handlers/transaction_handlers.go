@@ -21,6 +21,18 @@ func pgDate(t time.Time) pgtype.Date {
 func monthLabel(t time.Time) string      { return fmt.Sprintf("Tháng %d, %d", int(t.Month()), t.Year()) }
 func monthLabelLower(t time.Time) string { return fmt.Sprintf("tháng %d", int(t.Month())) }
 
+// monthRangeFor returns the [from, to) bounds for the "YYYY-MM" value the
+// month dropdown sends via ?thang=, falling back to the current Vietnam-
+// local month when param is empty or malformed.
+func monthRangeFor(param string) (from, to pgtype.Date) {
+	t, err := time.ParseInLocation("2006-01", param, vietnamLocation)
+	if err != nil {
+		return currentMonthRange()
+	}
+	fromTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, vietnamLocation)
+	return pgDate(fromTime), pgDate(fromTime.AddDate(0, 1, 0))
+}
+
 func transactionsPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -30,57 +42,86 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		renderTransactionsPage(w, r, deps, userID, "", "")
+		data, err := buildTransactionsPageData(r, deps, userID, r.URL.Query().Get("thang"), "", "")
+		if err != nil {
+			http.Error(w, "could not load transactions", http.StatusInternalServerError)
+			return
+		}
+
+		if r.Header.Get("HX-Request") == "true" {
+			renderNamed(w, r, deps, "transactions", "transactions_month_section", "", data)
+			return
+		}
+		render(w, r, deps, "transactions", "transactions", data)
 	}
 }
 
-func renderTransactionsPage(w http.ResponseWriter, r *http.Request, deps Deps, userID int64, quickAddError, selectedType string) {
-	from, to := currentMonthRange()
+// buildTransactionsPageData loads everything transactions.html (both the
+// full page and the transactions_month_section fragment the month dropdown
+// swaps in) needs: the selected month's transactions/totals, the dropdown's
+// list of other months with data, and the quick-add form's own state.
+func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam, quickAddError, selectedType string) (map[string]any, error) {
+	from, to := monthRangeFor(monthParam)
 
 	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
 	})
 	if err != nil {
-		http.Error(w, "could not load transactions", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
 	})
 	if err != nil {
-		http.Error(w, "could not load totals", http.StatusInternalServerError)
-		return
+		return nil, err
+	}
+
+	months, err := deps.Queries.ListDistinctTransactionMonths(r.Context(), userID)
+	if err != nil {
+		return nil, err
+	}
+	currentFrom, _ := currentMonthRange()
+	var available []map[string]any
+	for _, m := range months {
+		if m.Time.Year() == currentFrom.Time.Year() && m.Time.Month() == currentFrom.Time.Month() {
+			continue // already offered as the pinned "Tháng này" entry
+		}
+		available = append(available, map[string]any{
+			"Value": m.Time.Format("2006-01"),
+			"Label": monthLabel(m.Time),
+		})
 	}
 
 	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
 	if err != nil {
-		http.Error(w, "could not load categories", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
-	typ := selectedType
-	if typ != "income" {
-		typ = "expense"
+	formType := selectedType
+	if formType != "income" {
+		formType = "expense"
 	}
-	var filteredCategories []sqlcgen.Category
+	var formCategories []sqlcgen.Category
 	for _, c := range allCategories {
-		if c.Type == typ {
-			filteredCategories = append(filteredCategories, c)
+		if c.Type == formType {
+			formCategories = append(formCategories, c)
 		}
 	}
 
-	render(w, r, deps, "transactions", "transactions", map[string]any{
-		"Transactions":    transactions,
-		"Categories":      filteredCategories,
-		"SelectedType":    selectedType,
-		"TotalExpense":    totals.TotalExpense,
-		"TotalIncome":     totals.TotalIncome,
-		"Remaining":       totals.TotalIncome - totals.TotalExpense,
-		"MonthLabel":      monthLabel(from.Time),
-		"MonthLabelLower": monthLabelLower(from.Time),
-		"Today":           time.Now().In(vietnamLocation).Format("2006-01-02"),
-		"QuickAddError":   quickAddError,
-	})
+	return map[string]any{
+		"Transactions":      transactions,
+		"TotalExpense":      totals.TotalExpense,
+		"TotalIncome":       totals.TotalIncome,
+		"Remaining":         totals.TotalIncome - totals.TotalExpense,
+		"MonthLabel":        monthLabel(from.Time),
+		"MonthLabelLower":   monthLabelLower(from.Time),
+		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
+		"AvailableMonths":   available,
+		"Categories":        formCategories,
+		"SelectedType":      selectedType,
+		"Today":             time.Now().In(vietnamLocation).Format("2006-01-02"),
+		"QuickAddError":     quickAddError,
+	}, nil
 }
 
 func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
@@ -166,9 +207,8 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 }
 
 // renderTransactionsPageForm re-renders just the quick_add_form fragment
-// (targeted via HX-Retarget by the caller) after a validation failure,
-// with the category list filtered to match the type the user had selected
-// so their in-progress selection stays coherent.
+// (targeted via HX-Retarget by the caller) after a validation failure, with
+// the category list filtered to match the type the user had selected.
 func renderTransactionsPageForm(w http.ResponseWriter, r *http.Request, deps Deps, userID int64, errMsg, selectedType string) {
 	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
 	if err != nil {
