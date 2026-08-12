@@ -252,6 +252,65 @@ func TestCreateTransactionRejectsTypeCategoryMismatch(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "không khớp") {
 		t.Fatalf("expected a type/category mismatch error, got: %s", rec.Body.String())
 	}
+	if got := rec.Header().Get("HX-Retarget"); got != "#quick-add-form-wrapper" {
+		t.Fatalf("expected HX-Retarget: #quick-add-form-wrapper, got %q", got)
+	}
+}
+
+// TestCreateTransactionConsecutiveDesktopValidationErrorsBothRetarget covers
+// a regression found in Task 9 review: handleCreateTransaction's desktop
+// error path retargets "#quick-add-form-wrapper" with an outerHTML swap, so
+// whatever markup that id lives on must be part of the swapped-in fragment
+// itself -- otherwise the first error swap discards the id (and its
+// "hidden md:block" breakpoint-gating classes) from the DOM, and a second
+// consecutive failed submission can no longer be retargeted at all.
+func TestCreateTransactionConsecutiveDesktopValidationErrorsBothRetarget(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-desktop-double-error@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+
+	form := url.Values{
+		"category_id": {strconv.FormatInt(category.ID, 10)},
+		"amount":      {"10000"},
+		"type":        {"income"}, // deliberately mismatched, twice
+		"occurred_on": {time.Now().Format("2006-01-02")},
+	}
+
+	for _, label := range []string{"first", "second"} {
+		tok := csrfTokenFor(t, router)
+		req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.AddCookie(cookie)
+		withCSRF(req, tok)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s submission: expected 200, got %d: %s", label, rec.Code, rec.Body.String())
+		}
+		if got := rec.Header().Get("HX-Retarget"); got != "#quick-add-form-wrapper" {
+			t.Fatalf("%s submission: expected HX-Retarget: #quick-add-form-wrapper, got %q", label, got)
+		}
+		if !strings.Contains(rec.Body.String(), "không khớp") {
+			t.Fatalf("%s submission: expected a type/category mismatch error, got: %s", label, rec.Body.String())
+		}
+		// The swapped-in fragment must itself carry the wrapper's id and
+		// breakpoint-gating classes, since an outerHTML swap replaces the
+		// entire previous element -- including whatever the id/classes were
+		// attached to -- with exactly this response body.
+		if !strings.Contains(rec.Body.String(), `id="quick-add-form-wrapper"`) {
+			t.Fatalf("%s submission: expected the retargeted fragment to carry id=\"quick-add-form-wrapper\" itself, got: %s", label, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "hidden md:block") {
+			t.Fatalf("%s submission: expected the retargeted fragment to carry the desktop-only breakpoint classes, got: %s", label, rec.Body.String())
+		}
+	}
 }
 
 func TestCreateTransactionRejectsLongDescription(t *testing.T) {

@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="max-w-[880px] mx-auto px-5 md:px-6 pt-4 md:pt-7 pb-24 md:pb-9 flex flex-col gap-[14px] md:gap-[18px]">
-  <div class="hidden md:block" id="quick-add-form-wrapper">{{template "quick_add_form" .}}</div>
+  {{template "quick_add_form" .}}
   {{template "transactions_month_section" .}}
 </div>
 
@@ -105,7 +105,7 @@
 {{end}}
 
 {{define "quick_add_form"}}
-<div class="bg-surface border border-border-card rounded-xl p-4">
+<div id="quick-add-form-wrapper" class="hidden md:block bg-surface border border-border-card rounded-xl p-4">
   <form id="quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
     hx-on:transaction-created="this.querySelector('[name=amount]').value=''; this.querySelector('[name=description]').value='';"
     class="flex items-end gap-[10px] flex-wrap">
