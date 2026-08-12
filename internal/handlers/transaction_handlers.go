@@ -44,30 +44,34 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 				return
 			}
 
-			// Verify the client-supplied category_id is either owned by the
-			// authenticated user or a shared default category (user_id IS
-			// NULL) before attaching it to a transaction. Without this check
-			// a forged request could attach a transaction to another user's
-			// private category, leaking its name/color via the joined
-			// ListTransactionsForMonth query.
-			if _, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{
+			category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{
 				ID:     categoryID,
 				UserID: pgInt64(userID),
-			}); err != nil {
+			})
+			if err != nil {
 				http.Error(w, "category not found", http.StatusForbidden)
 				return
 			}
 
-			_, err = deps.Queries.CreateTransaction(r.Context(), sqlcgen.CreateTransactionParams{
-				UserID:      userID,
-				CategoryID:  categoryID,
-				Amount:      amount,
-				Type:        txnType,
-				Description: r.FormValue("description"),
-				OccurredOn:  pgDate(occurredOn),
-			})
-			if err != nil {
-				formErr = "could not create transaction"
+			switch {
+			case category.Type != txnType:
+				formErr = "Loại giao dịch không khớp với danh mục đã chọn"
+			case len([]rune(r.FormValue("description"))) > 200:
+				formErr = "Ghi chú tối đa 200 ký tự"
+			case occurredOn.After(time.Now().In(vietnamLocation).AddDate(0, 0, 7)):
+				formErr = "Ngày giao dịch không được ở quá xa trong tương lai"
+			default:
+				_, err = deps.Queries.CreateTransaction(r.Context(), sqlcgen.CreateTransactionParams{
+					UserID:      userID,
+					CategoryID:  categoryID,
+					Amount:      amount,
+					Type:        txnType,
+					Description: r.FormValue("description"),
+					OccurredOn:  pgDate(occurredOn),
+				})
+				if err != nil {
+					formErr = "could not create transaction"
+				}
 			}
 		}
 

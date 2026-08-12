@@ -200,3 +200,169 @@ func TestCreateTransactionRejectsForeignCategory(t *testing.T) {
 		t.Fatal("expected no transaction to be created against the forged category")
 	}
 }
+
+func TestCreateTransactionRejectsTypeCategoryMismatch(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-type-mismatch@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	var expenseCategory sqlcgen.Category
+	for _, c := range categories {
+		if c.Type == "expense" {
+			expenseCategory = c
+			break
+		}
+	}
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(expenseCategory.ID, 10)},
+		"amount":      {"10000"},
+		"type":        {"income"}, // deliberately mismatched
+		"occurred_on": {time.Now().Format("2006-01-02")},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 re-rendering with a validation error, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "không khớp") {
+		t.Fatalf("expected a type/category mismatch error, got: %s", rec.Body.String())
+	}
+}
+
+func TestCreateTransactionRejectsLongDescription(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-long-desc@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	var expenseCategory sqlcgen.Category
+	for _, c := range categories {
+		if c.Type == "expense" {
+			expenseCategory = c
+			break
+		}
+	}
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(expenseCategory.ID, 10)},
+		"amount":      {"10000"},
+		"type":        {"expense"},
+		"description": {strings.Repeat("a", 201)},
+		"occurred_on": {time.Now().Format("2006-01-02")},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 re-rendering with a validation error, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "200 ký tự") {
+		t.Fatalf("expected a description-length error, got: %s", rec.Body.String())
+	}
+}
+
+func TestCreateTransactionRejectsFarFutureDate(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-far-future@example.com", "s3cret-pass")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	var expenseCategory sqlcgen.Category
+	for _, c := range categories {
+		if c.Type == "expense" {
+			expenseCategory = c
+			break
+		}
+	}
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(expenseCategory.ID, 10)},
+		"amount":      {"10000"},
+		"type":        {"expense"},
+		"occurred_on": {time.Now().AddDate(0, 0, 30).Format("2006-01-02")},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 re-rendering with a validation error, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "tương lai") {
+		t.Fatalf("expected a far-future-date error, got: %s", rec.Body.String())
+	}
+}
+
+func TestCreateTransactionAcceptsNearFutureDate(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-near-future@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	var expenseCategory sqlcgen.Category
+	for _, c := range categories {
+		if c.Type == "expense" {
+			expenseCategory = c
+			break
+		}
+	}
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "txn-near-future@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	t.Cleanup(func() {
+		deps.DB.Exec(ctx, "DELETE FROM transactions WHERE user_id = $1", user.ID)
+	})
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(expenseCategory.ID, 10)},
+		"amount":      {"10000"},
+		"type":        {"expense"},
+		"occurred_on": {time.Now().AddDate(0, 0, 3).Format("2006-01-02")},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "tương lai") {
+		t.Fatalf("expected a 3-day-future date (within the 7-day threshold) to be accepted, got error in body: %s", rec.Body.String())
+	}
+}
