@@ -151,6 +151,6 @@
 
 {{define "category_options"}}
 <select id="category-select" name="category_id" class="h-9 px-3 rounded-lg border border-border-input text-[13px] bg-white">
-  {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">● {{.Name}}</option>{{end}}
+  {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">{{.Name}}</option>{{end}}
 </select>
 {{end}}
