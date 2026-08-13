@@ -102,12 +102,21 @@ func TestMigrationsApplyCleanly(t *testing.T) {
 	if err := db.QueryRow("SELECT count(*) FROM categories WHERE user_id IS NULL").Scan(&count); err != nil {
 		t.Fatalf("query default categories: %v", err)
 	}
-	// The data-preserving 000006 migration keeps the legacy "Thu nhập khác"
-	// default in place (recolored, not deleted -- see 000006's comments) on
-	// top of the 9 categories SPEC.md specifies, so even a from-scratch
-	// migrate-up ends with 10, not 9, default rows.
-	if count != 10 {
-		t.Fatalf("expected 10 default categories, got %d", count)
+	// A from-scratch migrate-up has no transactions referencing the legacy
+	// "Thu nhập khác" default, so 000006's conditional DELETE removes it,
+	// leaving exactly the 9 categories SPEC.md specifies.
+	if count != 9 {
+		t.Fatalf("expected 9 default categories, got %d", count)
+	}
+
+	var thuNhapKhacCount int
+	if err := db.QueryRow(
+		"SELECT count(*) FROM categories WHERE user_id IS NULL AND name = 'Thu nhập khác'",
+	).Scan(&thuNhapKhacCount); err != nil {
+		t.Fatalf("query 'Thu nhập khác' count: %v", err)
+	}
+	if thuNhapKhacCount != 0 {
+		t.Fatalf("expected 'Thu nhập khác' to be gone on a fresh install, found %d rows", thuNhapKhacCount)
 	}
 
 	var anUongColor string
@@ -220,6 +229,26 @@ func TestMigrations000006PreservesExistingData(t *testing.T) {
 		t.Fatalf("insert transaction on old default category: %v", err)
 	}
 
+	// "Thu nhập khác" has no equivalent in the new 9-category set, so 000006
+	// conditionally deletes it -- but only when nothing references it. Seed
+	// a transaction against it here to exercise the "keep" branch: an
+	// upgraded account that already used it must not have its data broken.
+	var oldThuNhapKhacID int64
+	if err := db.QueryRow(
+		`SELECT id FROM categories WHERE user_id IS NULL AND name = 'Thu nhập khác'`,
+	).Scan(&oldThuNhapKhacID); err != nil {
+		t.Fatalf("query old 'Thu nhập khác' default: %v", err)
+	}
+
+	var thuNhapKhacTxnID int64
+	if err := db.QueryRow(
+		`INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
+		 VALUES ($1, $2, 100000, 'income', 'pre-redesign Thu nhap khac txn', '2026-01-05') RETURNING id`,
+		userID, oldThuNhapKhacID,
+	).Scan(&thuNhapKhacTxnID); err != nil {
+		t.Fatalf("insert transaction on old 'Thu nhập khác' default category: %v", err)
+	}
+
 	var offPaletteCategoryID int64
 	if err := db.QueryRow(
 		`INSERT INTO categories (user_id, name, type, color) VALUES ($1, 'Danh mục cũ', 'expense', '#123456') RETURNING id`,
@@ -267,6 +296,21 @@ func TestMigrations000006PreservesExistingData(t *testing.T) {
 	}
 	if resolvedName != "Ăn uống" || resolvedColor != "#D97757" {
 		t.Fatalf("expected the pre-existing transaction's category to still resolve to Ăn uống/#D97757, got %q/%q", resolvedName, resolvedColor)
+	}
+
+	// The transaction referencing "Thu nhập khác" must still resolve too --
+	// the conditional DELETE must not have fired since a transaction
+	// references it, and it must have been recolored (not left at its old
+	// seed color) so it satisfies the new fixed-palette CHECK constraint.
+	var thuNhapKhacName, thuNhapKhacColor string
+	if err := db.QueryRow(
+		`SELECT c.name, c.color FROM transactions t JOIN categories c ON c.id = t.category_id WHERE t.id = $1`,
+		thuNhapKhacTxnID,
+	).Scan(&thuNhapKhacName, &thuNhapKhacColor); err != nil {
+		t.Fatalf("resolve 'Thu nhập khác' category via transaction join: %v", err)
+	}
+	if thuNhapKhacName != "Thu nhập khác" || thuNhapKhacColor != "#6BA292" {
+		t.Fatalf("expected the pre-existing transaction's category to still resolve to Thu nhập khác/#6BA292, got %q/%q", thuNhapKhacName, thuNhapKhacColor)
 	}
 
 	// The off-palette custom category must have been recolored into the

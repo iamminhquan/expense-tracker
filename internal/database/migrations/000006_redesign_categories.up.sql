@@ -29,16 +29,19 @@ UPDATE categories SET color = '#4FA871' WHERE user_id IS NULL AND type = 'income
 UPDATE categories SET name = 'Đi lại', color = '#5B8DEF' WHERE user_id IS NULL AND type = 'expense' AND name = 'Di chuyển';
 
 -- "Thu nhập khác" has no equivalent in the new 9-category set (which pairs
--- "Lương" with "Thưởng" instead of a generic other-income category).
--- Deleting it would violate the transactions FK for any account that has
--- income transactions on it; silently renaming it to "Thưởng" would
--- misrepresent those transactions' history. So it is kept, unchanged in
--- name, only recolored to an in-palette value so the CHECK constraint
--- below can be added without breaking it. It is no longer offered by the
--- application as one of the "9 exact defaults" going forward (the app only
--- ever seeds/displays the 9), but it keeps working for any account that
--- already used it.
-UPDATE categories SET color = '#7CA65C' WHERE user_id IS NULL AND type = 'income' AND name = 'Thu nhập khác';
+-- "Lương" with "Thưởng" instead of a generic other-income category). On a
+-- fresh install (or any account that never used it) it's safe to remove,
+-- so a new database correctly ends up with exactly 9 defaults. On an
+-- account that already has income transactions referencing it, deleting
+-- it would violate the transactions FK, so it is kept (recolored to an
+-- in-palette value distinct from "Thưởng") rather than deleted, and is no
+-- longer offered by the application as one of the 9 defaults going
+-- forward -- it just keeps working for accounts that already used it.
+DELETE FROM categories
+WHERE user_id IS NULL AND type = 'income' AND name = 'Thu nhập khác'
+  AND NOT EXISTS (SELECT 1 FROM transactions WHERE transactions.category_id = categories.id);
+
+UPDATE categories SET color = '#6BA292' WHERE user_id IS NULL AND type = 'income' AND name = 'Thu nhập khác';
 
 -- Insert the two genuinely new defaults, but only if they don't already
 -- exist (idempotency: a fresh database that never had the old 8-category
