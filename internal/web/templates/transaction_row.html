@@ -70,7 +70,7 @@
     <button type="submit" class="text-[12px] text-accent font-semibold border border-border-input rounded-md px-[7px] py-[3px]">Lưu</button>
     <button type="button" hx-get="/transactions/{{.ID}}/view" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-[#EAE8E4] rounded-md px-[7px] py-[3px]">Hủy</button>
   </span>
-  <input name="amount" type="number" min="1" value="{{.Amount}}" required class="w-[132px] shrink-0 text-right font-mono text-[14px] border border-border-input rounded px-2 h-8">
+  <input name="amount" type="text" inputmode="numeric" value="{{.Amount}}" required class="w-[132px] shrink-0 text-right font-mono text-[14px] border border-border-input rounded px-2 h-8">
 </form>
 {{end}}
 

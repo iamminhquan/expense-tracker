@@ -34,7 +34,7 @@
       <span class="text-[14px] peer-checked:font-semibold">Thu</span>
     </label>
   </div>
-  <input name="amount" type="number" inputmode="numeric" min="1" required placeholder="0"
+  <input name="amount" type="text" inputmode="numeric" required placeholder="0"
     class="h-14 px-4 rounded-[10px] border-2 border-accent font-mono text-[24px] font-semibold text-center focus:outline-none focus:ring-[3px] focus:ring-accent/[0.12]">
   {{template "category_chips" .}}
   <div class="flex gap-3">
@@ -133,7 +133,7 @@
     </div>
     <div class="flex flex-col gap-[6px] w-[150px]">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Số tiền</label>
-      <input name="amount" type="number" min="1" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[14px] font-medium">
+      <input name="amount" type="text" inputmode="numeric" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[14px] font-medium">
     </div>
     <div class="flex flex-col gap-[6px] w-[168px]">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Ngày</label>

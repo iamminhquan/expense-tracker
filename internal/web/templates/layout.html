@@ -16,7 +16,26 @@
       if (meta) {
         evt.detail.headers['X-CSRF-Token'] = meta.getAttribute('content');
       }
+      if (evt.detail.parameters.amount) {
+        evt.detail.parameters.amount = String(evt.detail.parameters.amount).replace(/\D/g, '');
+      }
     });
+
+    function formatAmountInput(el) {
+      var digits = el.value.replace(/\D/g, '');
+      el.value = digits ? Number(digits).toLocaleString('vi-VN') : '';
+    }
+    document.addEventListener('input', function (evt) {
+      if (evt.target.matches && evt.target.matches('input[name="amount"]')) {
+        formatAmountInput(evt.target);
+      }
+    });
+    function formatAmountInputsIn(root) {
+      root.querySelectorAll('input[name="amount"]').forEach(formatAmountInput);
+    }
+    document.addEventListener('DOMContentLoaded', function () { formatAmountInputsIn(document); });
+    document.addEventListener('htmx:afterSwap', function () { formatAmountInputsIn(document); });
+    document.addEventListener('htmx:afterSettle', function () { formatAmountInputsIn(document); });
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
