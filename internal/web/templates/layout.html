@@ -65,17 +65,17 @@
 {{end}}
 
 {{define "nav_desktop"}}
-<nav class="hidden md:flex items-center h-[54px] bg-surface border-b border-border-nav sticky top-0 z-40 px-6 gap-[26px]">
+<nav class="hidden md:flex items-center h-[60px] bg-surface border-b border-border-nav sticky top-0 z-40 px-9 gap-10">
   <a href="/dashboard" class="flex items-center gap-2 shrink-0">
     <span class="w-[18px] h-[18px] rounded-[5px] bg-accent block"></span>
     <span class="text-sm font-semibold text-ink">Sổ chi tiêu</span>
   </a>
-  <div class="flex items-center gap-1">
-    <a href="/dashboard" class="px-[11px] py-[6px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
-    <a href="/transactions" class="px-[11px] py-[6px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
-    <a href="/categories" class="px-[11px] py-[6px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Danh mục</a>
+  <div class="flex items-center gap-2 flex-1 justify-center">
+    <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
+    <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
+    <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Danh mục</a>
   </div>
-  <div class="flex items-center gap-2 ml-auto">
+  <div class="flex items-center gap-3 shrink-0">
     <span class="w-6 h-6 rounded-full bg-border-nav flex items-center justify-center text-[11px] font-semibold text-ink-muted">{{.UserInitial}}</span>
     <span class="text-[13px] text-ink-muted">{{.UserName}}</span>
     <form method="POST" action="/logout">
