@@ -94,22 +94,24 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 	barThuJSON, _ := json.Marshal(barThu)
 
 	return map[string]any{
-		"MonthLabel":        monthLabel(from.Time),
-		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
-		"AvailableMonths":   available,
-		"TotalExpense":      totals.TotalExpense,
-		"TotalIncome":       totals.TotalIncome,
-		"ExpenseComparison": comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
-		"IncomeComparison":  comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
-		"CurrentMonthEmpty": totals.TotalExpense == 0 && totals.TotalIncome == 0,
-		"HasAnyMonthData":   hasAnyMonthData,
-		"PieLegend":         legend,
-		"PieLabelsJSON":     template.JS(pieLabelsJSON),
-		"PieValuesJSON":     template.JS(pieValuesJSON),
-		"PieColorsJSON":     template.JS(pieColorsJSON),
-		"BarLabelsJSON":     template.JS(barLabelsJSON),
-		"BarChiJSON":        template.JS(barChiJSON),
-		"BarThuJSON":        template.JS(barThuJSON),
+		"MonthLabel":              monthLabel(from.Time),
+		"CurrentMonthValue":       currentFrom.Time.Format("2006-01"),
+		"AvailableMonths":         available,
+		"TotalExpense":            totals.TotalExpense,
+		"TotalIncome":             totals.TotalIncome,
+		"ExpenseComparison":       comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
+		"IncomeComparison":        comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
+		"ExpenseComparisonMobile": comparisonTextMobile(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
+		"IncomeComparisonMobile":  comparisonTextMobile(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
+		"CurrentMonthEmpty":       totals.TotalExpense == 0 && totals.TotalIncome == 0,
+		"HasAnyMonthData":         hasAnyMonthData,
+		"PieLegend":               legend,
+		"PieLabelsJSON":           template.JS(pieLabelsJSON),
+		"PieValuesJSON":           template.JS(pieValuesJSON),
+		"PieColorsJSON":           template.JS(pieColorsJSON),
+		"BarLabelsJSON":           template.JS(barLabelsJSON),
+		"BarChiJSON":              template.JS(barChiJSON),
+		"BarThuJSON":              template.JS(barThuJSON),
 	}, nil
 }
 
@@ -203,4 +205,27 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 		direction = "giảm"
 	}
 	return fmt.Sprintf("Tháng trước %s · %s %d%%", vnd(previous), direction, pct)
+}
+
+// comparisonTextMobile builds SPEC.md section 5's mobile-only shortened
+// comparison line (e.g. "Giảm 11% so với tháng trước"), shown below 768px
+// in place of comparisonText's fuller "Tháng trước X · giảm Y%" -- the
+// amount is dropped to fit the narrower stat card.
+func comparisonTextMobile(current, previous int64, hasPrevData bool) string {
+	if !hasPrevData || previous == 0 {
+		return "Chưa có dữ liệu tháng trước"
+	}
+	diff := current - previous
+	if diff == 0 {
+		return "Không đổi so với tháng trước"
+	}
+	pct := int(float64(diff) / float64(previous) * 100)
+	if pct < 0 {
+		pct = -pct
+	}
+	direction := "Tăng"
+	if diff < 0 {
+		direction = "Giảm"
+	}
+	return fmt.Sprintf("%s %d%% so với tháng trước", direction, pct)
 }

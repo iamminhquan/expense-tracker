@@ -24,12 +24,18 @@
     <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
       <p class="text-[12px] font-medium text-ink-faint">Tổng chi tháng này</p>
       <p class="font-mono text-[27px] md:text-[32px] font-semibold text-expense" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalExpense}}{{end}}</p>
-      {{if not .CurrentMonthEmpty}}<p class="text-[12px] text-ink-faint">{{.ExpenseComparison}}</p>{{end}}
+      {{if not .CurrentMonthEmpty}}
+      <p class="text-[12px] text-ink-faint md:hidden">{{.ExpenseComparisonMobile}}</p>
+      <p class="hidden md:block text-[12px] text-ink-faint">{{.ExpenseComparison}}</p>
+      {{end}}
     </div>
     <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
       <p class="text-[12px] font-medium text-ink-faint">Tổng thu tháng này</p>
       <p class="font-mono text-[27px] md:text-[32px] font-semibold text-income" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalIncome}}{{end}}</p>
-      {{if not .CurrentMonthEmpty}}<p class="text-[12px] text-ink-faint">{{.IncomeComparison}}</p>{{end}}
+      {{if not .CurrentMonthEmpty}}
+      <p class="text-[12px] text-ink-faint md:hidden">{{.IncomeComparisonMobile}}</p>
+      <p class="hidden md:block text-[12px] text-ink-faint">{{.IncomeComparison}}</p>
+      {{end}}
     </div>
   </div>
 

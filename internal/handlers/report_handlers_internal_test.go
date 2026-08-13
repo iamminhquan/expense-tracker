@@ -21,6 +21,21 @@ func TestComparisonText(t *testing.T) {
 	}
 }
 
+func TestComparisonTextMobile(t *testing.T) {
+	if got := comparisonTextMobile(0, 0, false); got != "Chưa có dữ liệu tháng trước" {
+		t.Errorf("comparisonTextMobile(no prev data) = %q", got)
+	}
+	if got := comparisonTextMobile(8800000, 10000000, true); got != "Giảm 12% so với tháng trước" {
+		t.Errorf("comparisonTextMobile(decrease) = %q", got)
+	}
+	if got := comparisonTextMobile(11000000, 10000000, true); got != "Tăng 10% so với tháng trước" {
+		t.Errorf("comparisonTextMobile(increase) = %q", got)
+	}
+	if got := comparisonTextMobile(10000000, 10000000, true); got != "Không đổi so với tháng trước" {
+		t.Errorf("comparisonTextMobile(no change) = %q", got)
+	}
+}
+
 func TestBuildPieDataCapsAtSixPlusKhac(t *testing.T) {
 	var breakdown []sqlcgen.CategoryBreakdownRow
 	for i := 0; i < 8; i++ {
