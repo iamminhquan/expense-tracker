@@ -44,6 +44,20 @@
 </div>
 {{end}}
 
+{{define "categories_empty_oob"}}
+<div id="categories-empty" hx-swap-oob="true">
+  {{if not .HasCustomCategories}}
+  <div class="text-center py-11 px-7">
+    <p class="text-[13px] text-ink-faint">Bạn chưa tạo danh mục riêng</p>
+    <p class="text-[13px] text-ink-faint mt-1">9 danh mục mặc định đã sẵn sàng. Tạo thêm khi bạn cần theo dõi khoản chi riêng.</p>
+    <button type="button" onclick="openAddCategorySheet()" class="md:hidden mt-3 px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Thêm danh mục</button>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "category_create_response"}}{{template "category_row" .Row}}{{template "categories_empty_oob" .}}{{end}}
+
 {{define "category_row_edit"}}
 <form id="category-row-{{.ID}}" hx-patch="/categories/{{.ID}}/name" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="flex items-center gap-3 px-[14px] py-3 border-b border-border-list">
   <span class="w-[10px] h-[10px] rounded-full shrink-0" style="background-color: {{.Color}}"></span>

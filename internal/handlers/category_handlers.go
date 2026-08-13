@@ -124,9 +124,15 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 		return
 	}
 
-	renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(
-		created.ID, created.UserID, created.Name, created.Type, created.Color, 0, "#category-list-"+created.Type,
-	))
+	renderNamed(w, r, deps, "categories", "category_create_response", "", map[string]any{
+		"Row": categoryRowData(
+			created.ID, created.UserID, created.Name, created.Type, created.Color, 0, "#category-list-"+created.Type,
+		),
+		// Creating a category always means the user now has at least one
+		// custom category, so the "no custom categories yet" empty state
+		// (see categories.html/#categories-empty) must be hidden.
+		"HasCustomCategories": true,
+	})
 }
 
 func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
@@ -155,7 +161,10 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		count, _ := deps.Queries.CountTransactionsForCategory(r.Context(), sqlcgen.CountTransactionsForCategoryParams{CategoryID: updated.ID, UserID: userID})
+		count, err := deps.Queries.CountTransactionsForCategory(r.Context(), sqlcgen.CountTransactionsForCategoryParams{CategoryID: updated.ID, UserID: userID})
+		if err != nil {
+			log.Printf("update category color: count transactions: %v", err)
+		}
 		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Name, updated.Type, updated.Color, count, ""))
 	}
 }
@@ -239,9 +248,37 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		count, _ := deps.Queries.CountTransactionsForCategory(r.Context(), sqlcgen.CountTransactionsForCategoryParams{CategoryID: updated.ID, UserID: userID})
+		count, err := deps.Queries.CountTransactionsForCategory(r.Context(), sqlcgen.CountTransactionsForCategoryParams{CategoryID: updated.ID, UserID: userID})
+		if err != nil {
+			log.Printf("update category name: count transactions: %v", err)
+		}
 		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Name, updated.Type, updated.Color, count, ""))
 	}
+}
+
+// respondCategoryDeleted renders the categories_empty_oob fragment so a
+// delete that empties the user's last custom category brings the "you have
+// no custom categories yet" empty state (categories.html/#categories-empty)
+// back, and a delete that still leaves other custom categories keeps it
+// hidden. Its response body is entirely OOB content with nothing for the
+// hx-target="#category-row-{id}" outerHTML swap the delete button issued,
+// so that row is simply removed from the DOM -- mirroring the previous
+// empty-body-means-"remove the row" behavior.
+func respondCategoryDeleted(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
+	all, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+	if err != nil {
+		log.Printf("delete category: list categories for empty-state check: %v", err)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	hasCustom := false
+	for _, c := range all {
+		if c.UserID.Valid {
+			hasCustom = true
+			break
+		}
+	}
+	renderNamed(w, r, deps, "categories", "categories_empty_oob", "", map[string]any{"HasCustomCategories": hasCustom})
 }
 
 func deleteCategoryHandler(deps Deps) http.HandlerFunc {
@@ -310,7 +347,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
 			}
-			w.WriteHeader(http.StatusOK)
+			respondCategoryDeleted(w, r, deps, userID)
 			return
 		}
 
@@ -319,6 +356,6 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "could not delete category", http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		respondCategoryDeleted(w, r, deps, userID)
 	}
 }

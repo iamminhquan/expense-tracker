@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -238,6 +239,74 @@ func TestUpdateCategoryColorAppliesToDefaultCategory(t *testing.T) {
 	}
 	if updated.Color != newColor {
 		t.Fatalf("expected color %q, got %q", newColor, updated.Color)
+	}
+}
+
+// TestCategoryEmptyStateHidesOnCreateAndReappearsOnDelete covers Finding 4
+// from the final review: the "Bạn chưa tạo danh mục riêng" empty-state
+// block is a sibling of the category list, not inside it, so creating the
+// first custom category (an OOB insert into the list) used to leave the
+// empty-state message showing alongside the new row until a manual reload.
+// It also covers the reverse: deleting the last custom category should
+// bring the message back.
+func TestCategoryEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "cat-empty-state@example.com", "s3cret-pass")
+
+	listReq := httptest.NewRequest(http.MethodGet, "/categories", nil)
+	listReq.AddCookie(cookie)
+	listRec := httptest.NewRecorder()
+	router.ServeHTTP(listRec, listReq)
+	if !strings.Contains(listRec.Body.String(), "Bạn chưa tạo danh mục riêng") {
+		t.Fatal("expected the empty state message before any custom category exists")
+	}
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{"name": {"Việc riêng"}, "type": {"expense"}, "color": {"#D97757"}}
+	createReq := httptest.NewRequest(http.MethodPost, "/categories", strings.NewReader(form.Encode()))
+	createReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	createReq.AddCookie(cookie)
+	withCSRF(createReq, tok)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+
+	if createRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 creating category, got %d: %s", createRec.Code, createRec.Body.String())
+	}
+	if !strings.Contains(createRec.Body.String(), `id="categories-empty" hx-swap-oob="true"`) {
+		t.Fatalf("expected the create response to include an OOB update targeting #categories-empty, got: %s", createRec.Body.String())
+	}
+	if strings.Contains(createRec.Body.String(), "Bạn chưa tạo danh mục riêng") {
+		t.Fatalf("expected the create response's empty-state OOB fragment to be cleared, got: %s", createRec.Body.String())
+	}
+
+	idx := strings.Index(createRec.Body.String(), `id="category-row-`)
+	if idx == -1 {
+		t.Fatal("expected a category row id in the create response")
+	}
+	rest := createRec.Body.String()[idx+len(`id="category-row-`):]
+	endIdx := strings.Index(rest, `"`)
+	if endIdx == -1 {
+		t.Fatal("expected a closing quote after the category row id")
+	}
+	createdID, err := strconv.ParseInt(rest[:endIdx], 10, 64)
+	if err != nil {
+		t.Fatalf("parse created category id: %v", err)
+	}
+
+	tokDel := csrfTokenFor(t, router)
+	deleteReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/categories/%d", createdID), nil)
+	deleteReq.AddCookie(cookie)
+	withCSRF(deleteReq, tokDel)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 deleting category, got %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
+	if !strings.Contains(deleteRec.Body.String(), "Bạn chưa tạo danh mục riêng") {
+		t.Fatalf("expected the delete response's OOB fragment to bring back the empty state, got: %s", deleteRec.Body.String())
 	}
 }
 

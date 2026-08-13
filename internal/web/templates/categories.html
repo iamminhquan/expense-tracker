@@ -20,13 +20,15 @@
       </div>
     </div>
 
-    {{if not .HasCustomCategories}}
-    <div class="text-center py-11 px-7">
-      <p class="text-[13px] text-ink-faint">Bạn chưa tạo danh mục riêng</p>
-      <p class="text-[13px] text-ink-faint mt-1">9 danh mục mặc định đã sẵn sàng. Tạo thêm khi bạn cần theo dõi khoản chi riêng.</p>
-      <button type="button" onclick="openAddCategorySheet()" class="md:hidden mt-3 px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Thêm danh mục</button>
+    <div id="categories-empty">
+      {{if not .HasCustomCategories}}
+      <div class="text-center py-11 px-7">
+        <p class="text-[13px] text-ink-faint">Bạn chưa tạo danh mục riêng</p>
+        <p class="text-[13px] text-ink-faint mt-1">9 danh mục mặc định đã sẵn sàng. Tạo thêm khi bạn cần theo dõi khoản chi riêng.</p>
+        <button type="button" onclick="openAddCategorySheet()" class="md:hidden mt-3 px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Thêm danh mục</button>
+      </div>
+      {{end}}
     </div>
-    {{end}}
   </div>
 
   <div class="md:w-[300px] md:sticky md:top-[78px] md:self-start">

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 	"time"
 
@@ -193,10 +194,10 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 		return fmt.Sprintf("Tháng trước %s", vnd(previous))
 	}
 	diff := current - previous
-	pct := int(float64(diff) / float64(previous) * 100)
-	if pct < 0 {
-		pct = -pct
-	}
+	// Rounds to the nearest percent (matching percentOf's rounding above)
+	// rather than truncating, so e.g. a 12.6% change reads as "13%" here
+	// too, not "12%".
+	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
 	if diff == 0 {
 		return fmt.Sprintf("Tháng trước %s · không đổi", vnd(previous))
 	}
@@ -219,10 +220,7 @@ func comparisonTextMobile(current, previous int64, hasPrevData bool) string {
 	if diff == 0 {
 		return "Không đổi so với tháng trước"
 	}
-	pct := int(float64(diff) / float64(previous) * 100)
-	if pct < 0 {
-		pct = -pct
-	}
+	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
 	direction := "Tăng"
 	if diff < 0 {
 		direction = "Giảm"

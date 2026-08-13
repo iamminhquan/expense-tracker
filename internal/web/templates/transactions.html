@@ -90,12 +90,14 @@
     <div id="transaction-list">
       {{range .Transactions}}{{template "transaction_row" .}}{{end}}
     </div>
-    {{if not .Transactions}}
-    <div class="text-center py-11 px-7">
-      <p class="text-[15px] font-semibold text-ink">Chưa có giao dịch nào trong {{.MonthLabelLower}}</p>
-      <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Thêm giao dịch đầu tiên bằng form phía trên, hoặc chọn tháng khác để xem lại.</p>
+    <div id="transactions-empty">
+      {{if not .Transactions}}
+      <div class="text-center py-11 px-7">
+        <p class="text-[15px] font-semibold text-ink">Chưa có giao dịch nào trong {{.MonthLabelLower}}</p>
+        <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Thêm giao dịch đầu tiên bằng form phía trên, hoặc chọn tháng khác để xem lại.</p>
+      </div>
+      {{end}}
     </div>
-    {{end}}
     <div id="remaining-row" class="flex items-center justify-between px-4 py-[13px] bg-surface-alt">
       <span class="text-[13px] font-semibold text-ink">Còn lại tháng này</span>
       <span class="w-[132px] text-right font-mono text-[15px] font-semibold {{if lt .Remaining 0}}text-expense{{else}}text-ink{{end}}">{{vndBalance .Remaining}}</span>

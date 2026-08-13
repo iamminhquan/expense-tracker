@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -32,6 +33,28 @@ func monthRangeFor(param string) (from, to pgtype.Date) {
 	}
 	fromTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, vietnamLocation)
 	return pgDate(fromTime), pgDate(fromTime.AddDate(0, 1, 0))
+}
+
+// monthRangeFromRequest determines which month a mutation response's OOB
+// totals fragment should reflect: the month the page the request originated
+// from was actually displaying, not necessarily today's month. A create/
+// update/delete request's own URL never carries "?thang=" (only the page's
+// GET request does), but htmx sends the full URL of that originating page,
+// query string included, in the HX-Current-URL header on every request it
+// issues -- so that header, not r.URL, is where the active month lives.
+// Falls back to currentMonthRange() (mirroring monthRangeFor's own
+// empty/malformed fallback) when the header is absent or unparseable, e.g.
+// non-htmx requests.
+func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
+	raw := r.Header.Get("HX-Current-URL")
+	if raw == "" {
+		return currentMonthRange()
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return currentMonthRange()
+	}
+	return monthRangeFor(u.Query().Get("thang"))
 }
 
 func transactionsPage(deps Deps) http.HandlerFunc {
@@ -191,7 +214,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		return
 	}
 
-	from, to := currentMonthRange()
+	from, to := monthRangeFromRequest(r)
 	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 	if err != nil {
 		http.Error(w, "could not load totals", http.StatusInternalServerError)
@@ -213,6 +236,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		"Totals": map[string]any{
 			"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
 			"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
+			"MonthLabelLower": monthLabelLower(from.Time),
 		},
 	})
 }
@@ -459,7 +483,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		from, to := currentMonthRange()
+		from, to := monthRangeFromRequest(r)
 		totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
 			http.Error(w, "could not load totals", http.StatusInternalServerError)
@@ -483,6 +507,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			"Totals": map[string]any{
 				"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
 				"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
+				"MonthLabelLower": monthLabelLower(from.Time),
 			},
 		})
 	}
@@ -502,7 +527,7 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		from, to := currentMonthRange()
+		from, to := monthRangeFromRequest(r)
 		totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
 			http.Error(w, "could not load totals", http.StatusInternalServerError)
@@ -517,6 +542,7 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 		renderNamed(w, r, deps, "transactions", "totals_oob", "", map[string]any{
 			"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
 			"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
+			"MonthLabelLower": monthLabelLower(from.Time),
 		})
 	}
 }

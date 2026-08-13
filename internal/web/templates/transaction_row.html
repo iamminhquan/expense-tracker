@@ -46,6 +46,14 @@
     <p class="font-mono text-[15px] font-semibold text-income">{{vnd .TotalIncome}}</p>
   </div>
 </div>
+<div id="transactions-empty" hx-swap-oob="true">
+  {{if eq .Count 0}}
+  <div class="text-center py-11 px-7">
+    <p class="text-[15px] font-semibold text-ink">Chưa có giao dịch nào trong {{.MonthLabelLower}}</p>
+    <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Thêm giao dịch đầu tiên bằng form phía trên, hoặc chọn tháng khác để xem lại.</p>
+  </div>
+  {{end}}
+</div>
 {{end}}
 
 {{define "transaction_create_response"}}{{template "transaction_row" .Row}}{{template "totals_oob" .Totals}}{{end}}

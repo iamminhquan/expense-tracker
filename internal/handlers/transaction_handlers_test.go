@@ -640,6 +640,216 @@ func TestUpdateTransactionAppliesEdit(t *testing.T) {
 	}
 }
 
+// TestCreateTransactionOOBTotalsUseActiveMonthFromHXCurrentURL covers
+// Finding 3 from the final review: the create handler used to always
+// compute its OOB totals fragment from currentMonthRange() (today's month),
+// even when the page the request came from was displaying a different
+// month via ?thang=. htmx sends that page's full URL, query string
+// included, in the HX-Current-URL request header -- this asserts the
+// handler now reads it and returns totals for the month actually being
+// viewed, not always today's.
+func TestCreateTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-create-active-month@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "txn-create-active-month@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+	t.Cleanup(func() {
+		deps.DB.Exec(ctx, "DELETE FROM transactions WHERE user_id = $1", user.ID)
+	})
+
+	// A past month, distinct from today's month, that already has one
+	// transaction in it.
+	pastMonth := time.Now().AddDate(0, -3, 0)
+	if _, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 40000, Type: "expense",
+		Description: "existing past-month txn",
+		OccurredOn:  pgtype.Date{Time: time.Date(pastMonth.Year(), pastMonth.Month(), 5, 0, 0, 0, 0, time.UTC), Valid: true},
+	}); err != nil {
+		t.Fatalf("seed existing past-month transaction: %v", err)
+	}
+
+	// Simulate the page currently being on that past month (via ?thang=)
+	// and creating a second transaction backdated into the same month.
+	monthParam := pastMonth.Format("2006-01")
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(category.ID, 10)},
+		"amount":      {"25000"},
+		"type":        {"expense"},
+		"occurred_on": {time.Date(pastMonth.Year(), pastMonth.Month(), 12, 0, 0, 0, 0, time.UTC).Format("2006-01-02")},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Current-URL", "http://example.com/transactions?thang="+monthParam)
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	// The active (past) month's total is 40000+25000=65000 and count is 2.
+	// A handler still using currentMonthRange() would report today's month
+	// instead, which has no transactions for this fresh user (0₫, 0 count).
+	if !strings.Contains(body, "65.000") {
+		t.Fatalf("expected OOB totals to reflect the active past month's 65.000₫ total, got: %s", body)
+	}
+	if !strings.Contains(body, "2 giao dịch") {
+		t.Fatalf("expected OOB totals count of 2 for the active past month, got: %s", body)
+	}
+}
+
+// TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL covers the
+// delete side of Finding 3: deleting a transaction while viewing a past
+// month (via ?thang=, recovered server-side from HX-Current-URL) must
+// return OOB totals for that past month, not today's.
+func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-delete-active-month@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	user, err := deps.Queries.GetUserByEmail(ctx, "txn-delete-active-month@example.com")
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+	t.Cleanup(func() {
+		deps.DB.Exec(ctx, "DELETE FROM transactions WHERE user_id = $1", user.ID)
+	})
+
+	pastMonth := time.Now().AddDate(0, -2, 0)
+	pastTxn, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 40000, Type: "expense",
+		Description: "past month txn to delete",
+		OccurredOn:  pgtype.Date{Time: time.Date(pastMonth.Year(), pastMonth.Month(), 10, 0, 0, 0, 0, time.UTC), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("create past-month transaction: %v", err)
+	}
+	// A much larger current-month transaction: if the handler wrongly uses
+	// currentMonthRange(), its total will leak through as 99.000.
+	if _, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
+		UserID: user.ID, CategoryID: category.ID, Amount: 99000, Type: "expense",
+		Description: "current month txn", OccurredOn: pgtype.Date{Time: time.Now(), Valid: true},
+	}); err != nil {
+		t.Fatalf("create current-month transaction: %v", err)
+	}
+
+	monthParam := pastMonth.Format("2006-01")
+	tok := csrfTokenFor(t, router)
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/transactions/%d", pastTxn.ID), nil)
+	req.Header.Set("HX-Current-URL", "http://example.com/transactions?thang="+monthParam)
+	req.AddCookie(cookie)
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 deleting a transaction, got %d: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "99.000") {
+		t.Fatalf("expected OOB totals to reflect the active past month (now empty), not leak the current month's 99.000₫ total, got: %s", body)
+	}
+	if !strings.Contains(body, "0 giao dịch") {
+		t.Fatalf("expected OOB totals count of 0 for the now-empty active past month, got: %s", body)
+	}
+}
+
+// TestTransactionEmptyStateHidesOnCreateAndReappearsOnDelete covers Finding
+// 4 from the final review: the "Chưa có giao dịch nào..." empty-state block
+// is a sibling of #transaction-list, not inside it, so creating the first
+// transaction (an OOB/afterbegin insert into the list) used to leave the
+// empty-state message showing next to the new row until a manual reload. It
+// also covers the reverse: deleting the last remaining transaction should
+// bring the message back.
+func TestTransactionEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-empty-state@example.com", "s3cret-pass")
+	ctx := context.Background()
+
+	listReq := httptest.NewRequest(http.MethodGet, "/transactions", nil)
+	listReq.AddCookie(cookie)
+	listRec := httptest.NewRecorder()
+	router.ServeHTTP(listRec, listReq)
+	if !strings.Contains(listRec.Body.String(), "Chưa có giao dịch nào trong") {
+		t.Fatal("expected the empty state message before any transaction exists")
+	}
+
+	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
+	if err != nil || len(categories) == 0 {
+		t.Fatalf("list categories: %v", err)
+	}
+	category := firstCategoryOfType(t, categories, "expense")
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(category.ID, 10)},
+		"amount":      {"10000"},
+		"type":        {"expense"},
+		"occurred_on": {time.Now().Format("2006-01-02")},
+	}
+	createReq := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	createReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	createReq.AddCookie(cookie)
+	withCSRF(createReq, tok)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+
+	if createRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 creating transaction, got %d: %s", createRec.Code, createRec.Body.String())
+	}
+	if !strings.Contains(createRec.Body.String(), `id="transactions-empty" hx-swap-oob="true"`) {
+		t.Fatalf("expected the create response to include an OOB update targeting #transactions-empty, got: %s", createRec.Body.String())
+	}
+	if strings.Contains(createRec.Body.String(), "Chưa có giao dịch nào trong") {
+		t.Fatalf("expected the create response's empty-state OOB fragment to be cleared, got: %s", createRec.Body.String())
+	}
+
+	idx := strings.Index(createRec.Body.String(), `id="transaction-row-`)
+	if idx == -1 {
+		t.Fatal("expected a transaction row id in the create response")
+	}
+	rest := createRec.Body.String()[idx+len(`id="transaction-row-`):]
+	endIdx := strings.Index(rest, `"`)
+	if endIdx == -1 {
+		t.Fatal("expected a closing quote after the transaction row id")
+	}
+	txnID := rest[:endIdx]
+
+	tokDel := csrfTokenFor(t, router)
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/transactions/"+txnID, nil)
+	deleteReq.AddCookie(cookie)
+	withCSRF(deleteReq, tokDel)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 deleting transaction, got %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
+	if !strings.Contains(deleteRec.Body.String(), "Chưa có giao dịch nào trong") {
+		t.Fatalf("expected the delete response's OOB fragment to bring back the empty state, got: %s", deleteRec.Body.String())
+	}
+}
+
 func TestDeleteTransactionRemovesRow(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
