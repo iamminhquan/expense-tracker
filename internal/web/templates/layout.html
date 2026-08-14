@@ -139,13 +139,42 @@
   </style>
 </head>
 <body class="bg-app text-ink font-sans antialiased" hx-boost="true">
-  {{if .ShowNav}}{{template "nav_desktop" .}}{{end}}
+  {{if .ShowNav}}{{template "nav_desktop" .}}{{template "nav_mobile_header" .}}{{end}}
   <main class="{{if .ShowNav}}pb-24 md:pb-10{{end}}">
     {{template "content" .}}
   </main>
   {{if .ShowNav}}{{template "nav_mobile" .}}{{end}}
 </body>
 </html>
+{{end}}
+
+{{define "user_menu"}}
+<details class="relative shrink-0" data-user-menu>
+  <summary class="flex items-center gap-2 px-2 py-1 rounded-[7px] hover:bg-track cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+    <span class="w-6 h-6 rounded-full bg-border-nav flex items-center justify-center text-[11px] font-semibold text-ink-muted">{{.UserInitial}}</span>
+    <span class="text-[13px] text-ink-muted">{{.UserName}}</span>
+  </summary>
+  <div class="absolute right-0 top-full mt-1 w-[220px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
+    <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">GIAO DIỆN</p>
+    <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3">
+      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Sáng</span>
+      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center bg-accent/10 text-accent font-semibold">Tự động</span>
+      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Tối</span>
+    </div>
+    <button type="button" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
+      <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+      Đổi mật khẩu
+    </button>
+    <div class="h-px bg-border-card my-2"></div>
+    <form method="POST" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-expense hover:bg-expense/10 whitespace-nowrap">
+        <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25"/></svg>
+        Đăng xuất
+      </button>
+    </form>
+  </div>
+</details>
 {{end}}
 
 {{define "nav_desktop"}}
@@ -159,62 +188,33 @@
     <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
     <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Danh mục</a>
   </div>
-  <details class="relative shrink-0 ml-auto" data-user-menu>
-    <summary class="flex items-center gap-2 px-2 py-1 rounded-[7px] hover:bg-track cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-      <span class="w-6 h-6 rounded-full bg-border-nav flex items-center justify-center text-[11px] font-semibold text-ink-muted">{{.UserInitial}}</span>
-      <span class="text-[13px] text-ink-muted">{{.UserName}}</span>
-    </summary>
-    <div class="absolute right-0 top-full mt-1 w-[220px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
-      <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">GIAO DIỆN</p>
-      <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3">
-        <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Sáng</span>
-        <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center bg-accent/10 text-accent font-semibold">Tự động</span>
-        <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Tối</span>
-      </div>
-      <button type="button" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
-        <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
-        Đổi mật khẩu
-      </button>
-      <div class="h-px bg-border-card my-2"></div>
-      <form method="POST" action="/logout">
-        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-        <button type="submit" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-expense hover:bg-expense/10 whitespace-nowrap">
-          <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25"/></svg>
-          Đăng xuất
-        </button>
-      </form>
-    </div>
-  </details>
+  <div class="ml-auto">{{template "user_menu" .}}</div>
 </nav>
 {{end}}
 
+{{define "nav_mobile_header"}}
+<header class="md:hidden flex items-center justify-between h-[52px] px-4 bg-surface border-b border-border-nav sticky top-0 z-40">
+  <a href="/dashboard" class="flex items-center gap-2">
+    <span class="w-[16px] h-[16px] rounded-[5px] bg-accent block"></span>
+    <span class="text-[14px] font-semibold text-ink">Sổ chi tiêu</span>
+  </a>
+  {{template "user_menu" .}}
+</header>
+{{end}}
+
 {{define "nav_mobile"}}
-<nav class="md:hidden fixed bottom-0 inset-x-0 bg-surface border-t border-border-nav flex z-40" style="padding: 10px 0 22px 0;">
-  <a href="/dashboard" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
-    <span class="w-[5px] h-[5px] rounded-full {{if eq .ActiveNav "dashboard"}}bg-accent{{else}}bg-transparent{{end}}"></span>
+<nav class="md:hidden fixed bottom-4 inset-x-4 bg-surface border border-border-card rounded-[20px] shadow-lg flex z-40 p-[6px]">
+  <a href="/dashboard" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "dashboard"}}bg-accent/10{{end}}">
+    <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "dashboard"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"/></svg>
     <span class="text-[11px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Tổng quan</span>
   </a>
-  <a href="/transactions" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
-    <span class="w-[5px] h-[5px] rounded-full {{if eq .ActiveNav "transactions"}}bg-accent{{else}}bg-transparent{{end}}"></span>
+  <a href="/transactions" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "transactions"}}bg-accent/10{{end}}">
+    <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "transactions"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h18M16.5 3L21 7.5m0 0L16.5 12M21 7.5H3"/></svg>
     <span class="text-[11px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Giao dịch</span>
   </a>
-  <a href="/categories" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
-    <span class="w-[5px] h-[5px] rounded-full {{if eq .ActiveNav "categories"}}bg-accent{{else}}bg-transparent{{end}}"></span>
+  <a href="/categories" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "categories"}}bg-accent/10{{end}}">
+    <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "categories"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/><path d="M6 6h.008v.008H6V6z"/></svg>
     <span class="text-[11px] {{if eq .ActiveNav "categories"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Danh mục</span>
   </a>
-  <button type="button" onclick="document.getElementById('logout-dialog').showModal()" class="flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px]">
-    <span class="w-[5px] h-[5px] rounded-full bg-transparent"></span>
-    <span class="text-[11px] text-ink-faint">Đăng xuất</span>
-  </button>
 </nav>
-<dialog id="logout-dialog" class="rounded-xl p-5 max-w-[300px] w-[85vw] backdrop:bg-black/30">
-  <p class="text-[15px] font-semibold text-ink mb-4">Đăng xuất khỏi Sổ chi tiêu?</p>
-  <div class="flex gap-2 justify-end">
-    <button type="button" onclick="document.getElementById('logout-dialog').close()" class="px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Hủy</button>
-    <form method="POST" action="/logout">
-      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-      <button type="submit" class="px-4 h-9 rounded-lg bg-accent text-white text-[13px] font-semibold">Đăng xuất</button>
-    </form>
-  </div>
-</dialog>
 {{end}}
