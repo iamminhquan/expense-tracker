@@ -1,6 +1,6 @@
 {{define "content"}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4"></script>
-<div class="max-w-[880px] mx-auto px-5 md:px-6 pt-4 md:pt-7 pb-24 md:pb-9 flex flex-col gap-[14px] md:gap-[18px]">
+<div class="max-w-[880px] mx-auto px-5 md:px-6 pt-4 md:pt-7 pb-0 md:pb-9 flex flex-col gap-[14px] md:gap-[18px]">
   {{template "dashboard_month_section" .}}
 </div>
 {{end}}
@@ -46,14 +46,16 @@
     <a href="/transactions" class="inline-block mt-3 text-[13px] text-accent font-medium">Thêm giao dịch</a>
   </div>
   {{else}}
-  <div class="flex flex-col md:flex-row gap-4">
-    <div class="md:w-[440px] bg-surface border border-border-card rounded-xl p-[18px]">
+  <div class="flex flex-col md:flex-row md:items-stretch gap-4">
+    <div class="flex-1 bg-surface border border-border-card rounded-xl p-[18px]">
       <p class="text-[13px] font-semibold text-ink mb-3">Chi theo danh mục</p>
       {{if .CurrentMonthEmpty}}
       <p class="text-[13px] text-ink-faint text-center py-8">Chưa có chi tiêu tháng này</p>
       {{else}}
       <div class="flex items-center gap-4">
-        <canvas id="pie-chart" width="150" height="150" class="w-[108px] h-[108px] md:w-[150px] md:h-[150px] shrink-0"></canvas>
+        <div class="relative w-[108px] h-[108px] md:w-[150px] md:h-[150px] shrink-0">
+          <canvas id="pie-chart"></canvas>
+        </div>
         <div class="flex-1 flex flex-col gap-[9px] min-w-0">
           {{range .PieLegend}}
           <div class="flex items-center gap-2 text-[12px]">
@@ -99,7 +101,27 @@
             labels: chartData.pie.labels,
             datasets: [{ data: chartData.pie.values, backgroundColor: chartData.pie.colors, borderWidth: 2, borderColor: '#fff' }]
           },
-          options: { cutout: '62%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: false }
+          options: {
+            cutout: '62%',
+            animation: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                enabled: true,
+                backgroundColor: '#1B1A18',
+                padding: 8,
+                cornerRadius: 6,
+                displayColors: true,
+                boxPadding: 3,
+                bodyFont: { family: '"Be Vietnam Pro"', size: 12 },
+                callbacks: {
+                  label: function (ctx) {
+                    return ctx.label + ': ' + Number(ctx.parsed).toLocaleString('vi-VN') + '₫';
+                  }
+                }
+              }
+            }
+          }
         });
       }
 
