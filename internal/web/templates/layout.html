@@ -73,7 +73,7 @@
     .font-mono { font-variant-numeric: tabular-nums; }
   </style>
 </head>
-<body class="bg-app text-ink font-sans antialiased">
+<body class="bg-app text-ink font-sans antialiased" hx-boost="true">
   {{if .ShowNav}}{{template "nav_desktop" .}}{{end}}
   <main class="{{if .ShowNav}}pb-24 md:pb-10{{end}}">
     {{template "content" .}}

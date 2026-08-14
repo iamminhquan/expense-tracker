@@ -43,7 +43,7 @@ type Deps struct {
 // so a fragment is exactly what's expected back), or the full auth page
 // shell on a direct navigation/refresh/bookmark.
 func renderAuthFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data map[string]any) {
-	if r.Header.Get("HX-Request") == "true" {
+	if isFragmentRequest(r) {
 		renderNamed(w, r, deps, "auth", "auth_card_body", "", data)
 		return
 	}

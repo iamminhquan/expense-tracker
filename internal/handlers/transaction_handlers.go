@@ -72,7 +72,7 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		if r.Header.Get("HX-Request") == "true" {
+		if isFragmentRequest(r) {
 			renderNamed(w, r, deps, "transactions", "transactions_month_section", "", data)
 			return
 		}
