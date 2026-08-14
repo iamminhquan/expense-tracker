@@ -125,6 +125,12 @@ hashing/verification. Sessions last 7 days.
   characters.
 - Pull request titles are in English. PR bodies are in Vietnamese and should
   briefly summarize what the PR does.
+- Branching: small, low-risk changes (a typo, a one-line style tweak, a
+  doc-only edit) may be committed straight to `master`. Anything larger or
+  riskier — new features, multi-file refactors, behavior changes — goes on
+  a `<type>/<short-description>` branch (e.g. `feat/mobile-ux-polish`) and
+  gets merged into `master` (`git merge --no-ff`) once done, rather than
+  committed directly.
 
 ## Notes
 
