@@ -7,7 +7,7 @@
     <span class="truncate">{{.CategoryName}}</span>
   </span>
   <span class="flex-1 min-w-0 hidden md:block text-[13px] text-ink-faint truncate">{{.Description}}</span>
-  <span class="flex-1 min-w-0 md:hidden flex flex-col">
+  <span data-longpress-target="mobile-actions-{{.ID}}" class="flex-1 min-w-0 md:hidden flex flex-col">
     <span class="text-[14px] font-medium text-ink truncate">{{.CategoryName}}</span>
     <span class="text-[12px] text-ink-faintest truncate">{{dateShort .OccurredOn}}{{if .Description}} · {{.Description}}{{end}}</span>
   </span>
@@ -16,7 +16,6 @@
     <button type="button" hx-get="/transactions/{{.ID}}/delete-confirm" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-[#EAE8E4] rounded-md px-[7px] py-[3px]">Xóa</button>
   </span>
   <span class="shrink-0 text-right font-mono text-[14px] font-medium {{if eq .Type "expense"}}text-expense{{else}}text-income{{end}}">{{vndSigned .Amount .Type}}</span>
-  <button type="button" onclick="document.getElementById('mobile-actions-{{.ID}}').showModal()" class="md:hidden text-ink-faint text-[16px] px-1 leading-none">⋯</button>
   <dialog id="mobile-actions-{{.ID}}" class="md:hidden rounded-t-[16px] w-full max-w-full m-0 mt-auto mb-0 p-0 backdrop:bg-black/32">
     <div class="p-4 flex flex-col gap-1">
       <button type="button" onclick="document.getElementById('mobile-actions-{{.ID}}').close()" hx-get="/transactions/{{.ID}}/edit" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-left px-3 py-3 text-[14px] text-ink rounded-lg hover:bg-track">Sửa</button>
