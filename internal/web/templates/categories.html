@@ -1,10 +1,9 @@
 {{define "content"}}
-<div class="max-w-[880px] mx-auto px-6 pt-7 pb-9 flex flex-col md:flex-row gap-5">
+<div class="max-w-[880px] mx-auto px-6 pt-7 pb-[76px] md:pb-9 flex flex-col md:flex-row gap-5">
   <div class="flex-1 flex flex-col gap-5">
     <h1 class="hidden md:block text-[18px] font-semibold text-ink">Danh mục</h1>
     <div class="md:hidden flex items-center justify-between">
       <h1 class="text-[19px] font-semibold text-ink">Danh mục</h1>
-      <button type="button" onclick="openAddCategorySheet()" class="w-[34px] h-[34px] rounded-full bg-accent text-white text-[18px] leading-none">＋</button>
     </div>
 
     <div>
@@ -25,10 +24,12 @@
       <div class="text-center py-11 px-7">
         <p class="text-[13px] text-ink-faint">Bạn chưa tạo danh mục riêng</p>
         <p class="text-[13px] text-ink-faint mt-1">9 danh mục mặc định đã sẵn sàng. Tạo thêm khi bạn cần theo dõi khoản chi riêng.</p>
-        <button type="button" onclick="openAddCategorySheet()" class="md:hidden mt-3 px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Thêm danh mục</button>
       </div>
       {{end}}
     </div>
+
+    <button type="button" onclick="openAddCategorySheet()"
+      class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-white text-[15px] font-semibold">Thêm danh mục</button>
   </div>
 
   <div class="md:w-[300px] md:sticky md:top-[78px] md:self-start">
