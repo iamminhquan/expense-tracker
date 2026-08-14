@@ -32,7 +32,7 @@ func dashboardPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		if r.Header.Get("HX-Request") == "true" {
+		if isFragmentRequest(r) {
 			renderNamed(w, r, deps, "dashboard", "dashboard_month_section", "", data)
 			return
 		}

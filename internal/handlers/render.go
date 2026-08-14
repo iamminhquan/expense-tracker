@@ -10,6 +10,17 @@ import (
 	"expensetracker/internal/csrf"
 )
 
+// isFragmentRequest reports whether r is an explicit htmx fragment request
+// (e.g. the month-dropdown's hx-get) rather than a boosted top-level nav
+// click. Both carry HX-Request: true, but only the boosted click also
+// carries HX-Boosted: true, since hx-boost applies to the plain nav <a>
+// itself while the month dropdown declares its own hx-get/hx-target -- so a
+// handler that special-cases HX-Request alone would wrongly hand a boosted
+// nav click just the fragment instead of the full page shell.
+func isFragmentRequest(r *http.Request) bool {
+	return r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"
+}
+
 // render executes page's "layout" template. It always injects CSRFToken; if
 // active is non-empty it also injects the ShowNav/ActiveNav/UserName/
 // UserInitial fields layout.html's nav blocks need, by loading the

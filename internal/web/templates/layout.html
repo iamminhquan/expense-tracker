@@ -36,6 +36,63 @@
     document.addEventListener('DOMContentLoaded', function () { formatAmountInputsIn(document); });
     document.addEventListener('htmx:afterSwap', function () { formatAmountInputsIn(document); });
     document.addEventListener('htmx:afterSettle', function () { formatAmountInputsIn(document); });
+
+    // Long-press (~500ms) on any element carrying data-longpress-target opens
+    // the <dialog> whose id it names -- used by mobile transaction rows to
+    // open the Sửa/Xóa action sheet without a persistent "⋯" button.
+    (function () {
+      var timer = null, startX = 0, startY = 0, targetEl = null;
+      function start(evt) {
+        var el = evt.target.closest && evt.target.closest('[data-longpress-target]');
+        if (!el) return;
+        targetEl = el;
+        var pt = evt.touches ? evt.touches[0] : evt;
+        startX = pt.clientX; startY = pt.clientY;
+        timer = setTimeout(function () {
+          var dialog = document.getElementById(targetEl.getAttribute('data-longpress-target'));
+          if (dialog) dialog.showModal();
+          timer = null;
+        }, 500);
+      }
+      function move(evt) {
+        if (!timer) return;
+        var pt = evt.touches ? evt.touches[0] : evt;
+        if (Math.abs(pt.clientX - startX) > 10 || Math.abs(pt.clientY - startY) > 10) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      }
+      function cancel() {
+        if (timer) { clearTimeout(timer); timer = null; }
+      }
+      document.addEventListener('touchstart', start, { passive: true });
+      document.addEventListener('touchmove', move, { passive: true });
+      document.addEventListener('touchend', cancel);
+      document.addEventListener('touchcancel', cancel);
+      document.addEventListener('mousedown', start);
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', cancel);
+    })();
+
+    // htmx requests over 300ms: dim the submitting button and block further
+    // clicks until the request settles. No spinner, label stays put.
+    (function () {
+      var timers = new WeakMap();
+      document.addEventListener('htmx:beforeRequest', function (evt) {
+        var elt = evt.detail.elt;
+        if (!elt || elt.tagName !== 'BUTTON') return;
+        timers.set(elt, setTimeout(function () {
+          elt.classList.add('opacity-60', 'pointer-events-none');
+        }, 300));
+      });
+      document.addEventListener('htmx:afterRequest', function (evt) {
+        var elt = evt.detail.elt;
+        if (!elt || elt.tagName !== 'BUTTON') return;
+        var t = timers.get(elt);
+        if (t) { clearTimeout(t); timers.delete(elt); }
+        elt.classList.remove('opacity-60', 'pointer-events-none');
+      });
+    })();
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -73,7 +130,7 @@
     .font-mono { font-variant-numeric: tabular-nums; }
   </style>
 </head>
-<body class="bg-app text-ink font-sans antialiased">
+<body class="bg-app text-ink font-sans antialiased" hx-boost="true">
   {{if .ShowNav}}{{template "nav_desktop" .}}{{end}}
   <main class="{{if .ShowNav}}pb-24 md:pb-10{{end}}">
     {{template "content" .}}
