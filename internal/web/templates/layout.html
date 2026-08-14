@@ -73,6 +73,26 @@
       document.addEventListener('mousemove', move);
       document.addEventListener('mouseup', cancel);
     })();
+
+    // htmx requests over 300ms: dim the submitting button and block further
+    // clicks until the request settles. No spinner, label stays put.
+    (function () {
+      var timers = new WeakMap();
+      document.addEventListener('htmx:beforeRequest', function (evt) {
+        var elt = evt.detail.elt;
+        if (!elt || elt.tagName !== 'BUTTON') return;
+        timers.set(elt, setTimeout(function () {
+          elt.classList.add('opacity-60', 'pointer-events-none');
+        }, 300));
+      });
+      document.addEventListener('htmx:afterRequest', function (evt) {
+        var elt = evt.detail.elt;
+        if (!elt || elt.tagName !== 'BUTTON') return;
+        var t = timers.get(elt);
+        if (t) { clearTimeout(t); timers.delete(elt); }
+        elt.classList.remove('opacity-60', 'pointer-events-none');
+      });
+    })();
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
