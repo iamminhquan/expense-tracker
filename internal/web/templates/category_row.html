@@ -1,27 +1,34 @@
 {{define "category_row"}}
-<div id="category-row-{{.ID}}" {{if .OOBTarget}}hx-swap-oob="afterbegin:{{.OOBTarget}}"{{end}} class="flex items-center gap-3 px-[14px] py-3 border-b border-border-list last:border-b-0">
-  <span class="w-[10px] h-[10px] rounded-full shrink-0" style="background-color: {{.Color}}"></span>
-  <span class="text-[13px] font-medium text-ink">{{.Name}}</span>
-  {{if .UserID.Valid}}
-  <span class="text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px]">Tự tạo</span>
-  {{else}}
-  <span class="text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px]">Mặc định</span>
-  {{end}}
-  <span class="ml-auto text-[12px] text-ink-faintest font-mono">{{.TransactionCount}} giao dịch</span>
-  <div class="flex items-center gap-2 relative">
-    <button type="button" class="text-[12px] text-ink-faint" onclick="this.nextElementSibling.classList.toggle('hidden')">Đổi màu</button>
-    <div class="hidden absolute right-0 top-6 z-10 bg-white border border-border-card rounded-lg p-2 flex flex-wrap gap-2 w-[124px] shadow-sm">
-      {{range $swatch := swatches}}
-      <button type="button"
-        hx-patch="/categories/{{$.ID}}/color" hx-vals='{"color":"{{$swatch}}"}' hx-target="#category-row-{{$.ID}}" hx-swap="outerHTML"
-        class="w-[26px] h-[26px] rounded-full flex items-center justify-center border-2 {{if eq $swatch $.Color}}border-accent{{else}}border-transparent{{end}}">
-        <span class="w-[14px] h-[14px] rounded-full" style="background-color: {{$swatch}}"></span>
-      </button>
+<div id="category-row-{{.ID}}" {{if .OOBTarget}}hx-swap-oob="afterbegin:{{.OOBTarget}}"{{end}} class="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 px-[14px] py-3 border-b border-border-list last:border-b-0">
+  <div class="flex items-center gap-3">
+    <span class="w-[10px] h-[10px] rounded-full shrink-0" style="background-color: {{.Color}}"></span>
+    <span class="text-[14px] md:text-[13px] font-medium text-ink">{{.Name}}</span>
+  </div>
+  <div class="flex items-center gap-2 md:contents">
+    {{if .UserID.Valid}}
+    <span class="shrink-0 text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Tự tạo</span>
+    {{else}}
+    <span class="shrink-0 text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Mặc định</span>
+    {{end}}
+    <span class="md:ml-auto shrink-0 text-[12px] text-ink-faintest font-mono whitespace-nowrap">{{.TransactionCount}} giao dịch</span>
+    <div class="ml-auto md:ml-0 flex items-center gap-2 relative">
+      <button type="button" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap" onclick="this.nextElementSibling.classList.toggle('hidden')">Đổi màu</button>
+      <div class="hidden absolute right-0 top-6 z-10 bg-white border border-border-card rounded-lg p-2 flex flex-wrap gap-2 w-[124px] shadow-sm">
+        {{range $swatch := swatches}}
+        <button type="button"
+          hx-patch="/categories/{{$.ID}}/color" hx-vals='{"color":"{{$swatch}}"}' hx-target="#category-row-{{$.ID}}" hx-swap="outerHTML"
+          class="w-[26px] h-[26px] rounded-full flex items-center justify-center border-2 {{if eq $swatch $.Color}}border-accent{{else}}border-transparent{{end}}">
+          <span class="w-[14px] h-[14px] rounded-full" style="background-color: {{$swatch}}"></span>
+        </button>
+        {{end}}
+      </div>
+      {{if .UserID.Valid}}
+      <button type="button" hx-get="/categories/{{.ID}}/edit" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap">Sửa</button>
+      <button type="button" onclick="document.getElementById('delete-dialog-{{.ID}}').showModal()" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap">Xóa</button>
       {{end}}
     </div>
-    {{if .UserID.Valid}}
-    <button type="button" hx-get="/categories/{{.ID}}/edit" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint">Sửa</button>
-    <button type="button" onclick="document.getElementById('delete-dialog-{{.ID}}').showModal()" class="text-[12px] text-ink-faint">Xóa</button>
+  </div>
+  {{if .UserID.Valid}}
     <dialog id="delete-dialog-{{.ID}}" class="rounded-xl p-5 max-w-[320px] w-[85vw] backdrop:bg-black/30">
       <p class="text-[15px] font-semibold text-ink mb-2">Xóa danh mục "{{.Name}}"?</p>
       {{if and (gt .TransactionCount 0) (eq .Type "income")}}
@@ -39,8 +46,7 @@
       </div>
       {{end}}
     </dialog>
-    {{end}}
-  </div>
+  {{end}}
 </div>
 {{end}}
 
