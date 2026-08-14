@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sổ chi tiêu</title>
   <meta name="csrf-token" content="{{.CSRFToken}}">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%233B6ECF'/%3E%3Cpath fill='white' d='M6.273 8.625A3.483 3.483 0 019.25 7.5h9.5c.86 0 1.653.257 2.318.7A2.5 2.5 0 0019.25 6h-9.5a2.5 2.5 0 00-3.477 2.625zM6.273 11.125A3.483 3.483 0 019.25 10h9.5c.86 0 1.653.257 2.318.7A2.5 2.5 0 0019.25 8.5h-9.5a2.5 2.5 0 00-3.477 2.625z'/%3E%3Cpath fill='white' fill-rule='evenodd' d='M9.25 11.5a2.5 2.5 0 00-2.5 2.5v4.5a2.5 2.5 0 002.5 2.5h9.5a2.5 2.5 0 002.5-2.5V14a2.5 2.5 0 00-2.5-2.5h-1.5a.625.625 0 00-.625.625 1.875 1.875 0 01-3.75 0 .625.625 0 00-.625-.625h-3z' clip-rule='evenodd'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -180,7 +181,9 @@
 {{define "nav_desktop"}}
 <nav class="hidden md:flex items-center h-[60px] bg-surface border-b border-border-nav sticky top-0 z-40 px-9 gap-10">
   <a href="/dashboard" class="flex items-center gap-2 shrink-0">
-    <span class="w-[18px] h-[18px] rounded-[5px] bg-accent block"></span>
+    <span class="w-[18px] h-[18px] rounded-[5px] bg-accent flex items-center justify-center shrink-0">
+      <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="white"><path d="M6.273 8.625A3.483 3.483 0 019.25 7.5h9.5c.86 0 1.653.257 2.318.7A2.5 2.5 0 0019.25 6h-9.5a2.5 2.5 0 00-3.477 2.625zM6.273 11.125A3.483 3.483 0 019.25 10h9.5c.86 0 1.653.257 2.318.7A2.5 2.5 0 0019.25 8.5h-9.5a2.5 2.5 0 00-3.477 2.625z"/><path fill-rule="evenodd" d="M9.25 11.5a2.5 2.5 0 00-2.5 2.5v4.5a2.5 2.5 0 002.5 2.5h9.5a2.5 2.5 0 002.5-2.5V14a2.5 2.5 0 00-2.5-2.5h-1.5a.625.625 0 00-.625.625 1.875 1.875 0 01-3.75 0 .625.625 0 00-.625-.625h-3z" clip-rule="evenodd"/></svg>
+    </span>
     <span class="text-sm font-semibold text-ink">Sổ chi tiêu</span>
   </a>
   <div class="flex items-center gap-2">
@@ -195,7 +198,9 @@
 {{define "nav_mobile_header"}}
 <header class="md:hidden flex items-center justify-between h-[52px] px-4 bg-surface border-b border-border-nav sticky top-0 z-40">
   <a href="/dashboard" class="flex items-center gap-2">
-    <span class="w-[16px] h-[16px] rounded-[5px] bg-accent block"></span>
+    <span class="w-[16px] h-[16px] rounded-[5px] bg-accent flex items-center justify-center shrink-0">
+      <svg class="w-[11px] h-[11px]" viewBox="0 0 24 24" fill="white"><path d="M6.273 8.625A3.483 3.483 0 019.25 7.5h9.5c.86 0 1.653.257 2.318.7A2.5 2.5 0 0019.25 6h-9.5a2.5 2.5 0 00-3.477 2.625zM6.273 11.125A3.483 3.483 0 019.25 10h9.5c.86 0 1.653.257 2.318.7A2.5 2.5 0 0019.25 8.5h-9.5a2.5 2.5 0 00-3.477 2.625z"/><path fill-rule="evenodd" d="M9.25 11.5a2.5 2.5 0 00-2.5 2.5v4.5a2.5 2.5 0 002.5 2.5h9.5a2.5 2.5 0 002.5-2.5V14a2.5 2.5 0 00-2.5-2.5h-1.5a.625.625 0 00-.625.625 1.875 1.875 0 01-3.75 0 .625.625 0 00-.625-.625h-3z" clip-rule="evenodd"/></svg>
+    </span>
     <span class="text-[14px] font-semibold text-ink">Sổ chi tiêu</span>
   </a>
   {{template "user_menu" .}}
