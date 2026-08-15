@@ -21,9 +21,9 @@ import (
 )
 
 // migrationsSourceURL points at the migrations directory relative to the
-// process's working directory: repo root for `go run ./cmd/server` locally,
-// and /app (the Dockerfile's WORKDIR, which COPYs
-// internal/database/migrations to the same relative path) in the container.
+// process's working directory, i.e. the repo root for `go run ./cmd/server`.
+// A deployed binary must therefore be started from a directory that has
+// internal/database/migrations at the same relative path.
 const migrationsSourceURL = "file://internal/database/migrations"
 
 // runMigrations applies all pending golang-migrate migrations against dsn

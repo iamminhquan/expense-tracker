@@ -24,8 +24,9 @@ separate migrate step):
 go run ./cmd/server
 ```
 
-Requires `DATABASE_URL` etc. — copy `.env.example` to `.env` and adjust. Or
-`docker compose up` to run app + Postgres together.
+Requires `DATABASE_URL` etc. — copy `.env.example` to `.env` and adjust, and
+point it at a locally installed Postgres (the project intentionally ships no
+Docker/compose setup).
 
 Run the full test suite (DB-touching tests are skipped unless
 `TEST_DATABASE_URL` is set — point it at a scratch database, since tests
