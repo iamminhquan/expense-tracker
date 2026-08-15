@@ -109,7 +109,7 @@
 <div id="quick-add-form-wrapper" class="hidden md:block bg-surface border border-border-card rounded-xl p-4">
   <form id="quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
     hx-on:transaction-created="this.querySelector('[name=amount]').value=''; this.querySelector('[name=description]').value='';"
-    class="flex items-end gap-[10px] flex-wrap">
+    class="grid grid-cols-[auto_150px_130px_150px_minmax(90px,1fr)_auto] gap-[10px] items-end">
     <input type="hidden" name="ui_source" value="desktop">
     <div class="flex flex-col gap-[6px]">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Loại</label>
@@ -126,23 +126,23 @@
         </label>
       </div>
     </div>
-    <div class="flex flex-col gap-[6px] w-[168px]">
+    <div class="flex flex-col gap-[6px]">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Danh mục</label>
       {{template "category_options" .}}
     </div>
-    <div class="flex flex-col gap-[6px] w-[150px]">
+    <div class="flex flex-col gap-[6px]">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Số tiền</label>
-      <input name="amount" type="text" inputmode="numeric" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[14px] font-medium">
+      <input name="amount" type="text" inputmode="numeric" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[14px] font-medium w-full">
     </div>
-    <div class="flex flex-col gap-[6px] w-[168px]">
+    <div class="flex flex-col gap-[6px]">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Ngày</label>
-      <input name="occurred_on" type="date" value="{{.Today}}" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[13px]">
+      <input name="occurred_on" type="date" value="{{.Today}}" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[13px] w-full">
     </div>
-    <div class="flex flex-col gap-[6px] flex-1 min-w-[140px]">
+    <div class="flex flex-col gap-[6px] min-w-0">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Ghi chú</label>
-      <input name="description" type="text" placeholder="Không bắt buộc" class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+      <input name="description" type="text" placeholder="Không bắt buộc" class="h-9 px-3 rounded-lg border border-border-input text-[13px] w-full">
     </div>
-    <button type="submit" class="h-9 px-[18px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Thêm</button>
+    <button type="submit" class="h-9 px-[18px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold shrink-0">Thêm</button>
   </form>
   {{if .QuickAddError}}<p class="text-[12px] text-expense mt-2">{{.QuickAddError}}</p>{{end}}
 </div>
