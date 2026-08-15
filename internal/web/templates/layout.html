@@ -241,6 +241,19 @@
       color: rgb(var(--c-ink));
     }
     ::placeholder { color: rgb(var(--c-placeholder)); }
+
+    /* Theme toggle fades rather than snaps: the palette blocks above swap
+       instantly when applyTheme() changes the <html> class, but transitioning
+       the properties that *consume* the --c-* variables (rather than the
+       variables themselves, which aren't animatable) makes that swap read as
+       a fade. Scoped to color-ish properties only, so layout/interaction
+       transitions (htmx swaps, hover states) aren't affected. */
+    *, *::before, *::after {
+      transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, fill 200ms ease, stroke 200ms ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none; }
+    }
   </style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
