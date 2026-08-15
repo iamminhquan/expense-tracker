@@ -1,0 +1,56 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec) describing how this
+# app is deployed: a free web service on Render, with Postgres hosted
+# separately on Neon.
+#
+# The database is deliberately not declared here. Render's own free Postgres
+# instance is deleted after 30 days, which would take the expense history with
+# it, so the database lives on Neon's free tier and is wired in through
+# DATABASE_URL instead (see `sync: false` below).
+services:
+  - type: web
+    name: expense-tracker
+    # Render's native Go runtime, not `docker`: this project intentionally
+    # ships no Dockerfile (see commit 958b6a6), and the native runtime builds
+    # straight from go.mod without one.
+    runtime: go
+    plan: free
+    # Singapore is Render's closest region to Vietnam. Create the Neon project
+    # in the same region so a query doesn't cross an ocean on every request.
+    region: singapore
+    branch: master
+    # The server reads its templates and migrations from paths relative to the
+    # working directory, so the binary is built into -- and started from -- the
+    # repo root, which is where Render runs both commands.
+    buildCommand: go build -o server ./cmd/server
+    startCommand: ./server
+    # Every push to master rebuilds and redeploys. The server applies pending
+    # migrations at startup (see runMigrations in cmd/server/main.go), so a
+    # schema change ships with the same push -- there is no separate migrate
+    # step to run against production by hand.
+    autoDeploy: true
+    # Render probes this after each deploy to decide whether the new instance
+    # came up healthy. It is also the endpoint an external cron pings every
+    # ~10 minutes to keep the free instance from spinning down after 15
+    # minutes of inactivity (a cold start costs the next visitor ~30-60s).
+    healthCheckPath: /healthz
+    envVars:
+      # Render's default Go toolchain lags behind what go.mod requires; pin it
+      # so the build doesn't fail on an older compiler.
+      - key: GO_VERSION
+        value: "1.26.5"
+      # Set by hand in the Render dashboard: it carries the Neon password and
+      # must not be committed. Use Neon's *direct* connection string -- the
+      # one without `-pooler` in the host -- because golang-migrate takes a
+      # session-level advisory lock that Neon's pooled endpoint does not
+      # support.
+      - key: DATABASE_URL
+        sync: false
+      # Render serves the service over HTTPS, so the session cookie needs the
+      # Secure attribute; without it browsers silently refuse to store the
+      # cookie and nobody can stay logged in.
+      - key: SECURE_COOKIES
+        value: "true"
+      - key: SESSION_COOKIE_NAME
+        value: session_id
+      # PORT is intentionally absent: Render injects it into the container and
+      # config.Load() already reads it, defaulting to 8080 only for local runs.
