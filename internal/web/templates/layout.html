@@ -184,6 +184,7 @@
       --c-danger-bg: 254 242 242;
       --c-danger-border: 254 202 202;
       --c-on-solid: 255 255 255;
+      --c-dot: 27 26 24;
     }
 
     /* The dark palette, applied in two places so all three preferences work
@@ -217,6 +218,7 @@
         --c-danger-bg: 51 32 26;
         --c-danger-border: 92 52 40;
         --c-on-solid: 23 22 20;
+        --c-dot: 242 240 236;
       }
     }
     :root.dark {
@@ -243,6 +245,7 @@
       --c-danger-bg: 51 32 26;
       --c-danger-border: 92 52 40;
       --c-on-solid: 23 22 20;
+      --c-dot: 242 240 236;
     }
 
     /* The form controls and dialogs in these templates carry no background
@@ -254,6 +257,15 @@
       color: rgb(var(--c-ink));
     }
     ::placeholder { color: rgb(var(--c-placeholder)); }
+
+    /* Faint dot-grid texture on the page background. --c-dot pairs light and
+       dark values close to --c-ink so the pattern reads as texture, not a
+       competing visual element; the low alpha here (not the token) keeps it
+       barely-there. */
+    body {
+      background-image: radial-gradient(rgb(var(--c-dot) / 0.05) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
 
     /* Theme toggle fades rather than snaps: the palette blocks above swap
        instantly when applyTheme() changes the <html> class, but transitioning
