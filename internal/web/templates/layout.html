@@ -1,6 +1,6 @@
 {{define "layout"}}
 <!doctype html>
-<html lang="vi">
+<html lang="vi" class="{{.Theme}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -132,6 +132,66 @@
       --c-danger-tint: 254 247 245;
       --c-danger-bg: 254 242 242;
       --c-danger-border: 254 202 202;
+      --c-on-solid: 255 255 255;
+    }
+
+    /* The dark palette, applied in two places so all three preferences work
+       without JavaScript at load time: once behind prefers-color-scheme for
+       class="auto" (the media query is what resolves "auto", which is why
+       the server never needs to know the visitor's OS setting), and once on
+       class="dark" for an explicit override. The :not(.light) guard lets an
+       explicit light choice win on a dark-set OS. */
+    @media (prefers-color-scheme: dark) {
+      :root:not(.light) {
+        color-scheme: dark;
+        --c-app: 23 22 20;
+        --c-surface: 31 30 27;
+        --c-surface-alt: 35 34 32;
+        --c-track: 42 40 37;
+        --c-border-card: 50 47 43;
+        --c-border-input: 58 55 51;
+        --c-border-list: 43 41 38;
+        --c-border-nav: 46 44 40;
+        --c-ink: 242 240 236;
+        --c-ink-muted: 184 179 171;
+        --c-ink-faint: 140 135 129;
+        --c-ink-faintest: 116 111 105;
+        --c-placeholder: 107 102 96;
+        --c-ink-zero: 74 70 64;
+        --c-nav-idle: 169 164 156;
+        --c-accent: 127 165 240;
+        --c-expense: 240 136 90;
+        --c-income: 87 195 152;
+        --c-danger-tint: 42 28 23;
+        --c-danger-bg: 51 32 26;
+        --c-danger-border: 92 52 40;
+        --c-on-solid: 23 22 20;
+      }
+    }
+    :root.dark {
+      color-scheme: dark;
+      --c-app: 23 22 20;
+      --c-surface: 31 30 27;
+      --c-surface-alt: 35 34 32;
+      --c-track: 42 40 37;
+      --c-border-card: 50 47 43;
+      --c-border-input: 58 55 51;
+      --c-border-list: 43 41 38;
+      --c-border-nav: 46 44 40;
+      --c-ink: 242 240 236;
+      --c-ink-muted: 184 179 171;
+      --c-ink-faint: 140 135 129;
+      --c-ink-faintest: 116 111 105;
+      --c-placeholder: 107 102 96;
+      --c-ink-zero: 74 70 64;
+      --c-nav-idle: 169 164 156;
+      --c-accent: 127 165 240;
+      --c-expense: 240 136 90;
+      --c-income: 87 195 152;
+      --c-danger-tint: 42 28 23;
+      --c-danger-bg: 51 32 26;
+      --c-danger-border: 92 52 40;
+      --c-on-solid: 23 22 20;
     }
 
     /* The form controls and dialogs in these templates carry no background
@@ -171,6 +231,7 @@
             'danger-tint': 'rgb(var(--c-danger-tint) / <alpha-value>)',
             'danger-bg': 'rgb(var(--c-danger-bg) / <alpha-value>)',
             'danger-border': 'rgb(var(--c-danger-border) / <alpha-value>)',
+            'on-solid': 'rgb(var(--c-on-solid) / <alpha-value>)',
           },
           fontFamily: {
             sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],

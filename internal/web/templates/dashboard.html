@@ -9,8 +9,8 @@
   <div class="flex items-center justify-between">
     <h1 class="text-[19px] md:text-[18px] font-semibold text-ink">{{.MonthLabel}}</h1>
     <div class="relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute right-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute right-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
         <button type="button" hx-get="/dashboard?thang={{.CurrentMonthValue}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
         {{range .AvailableMonths}}
         <button type="button" hx-get="/dashboard?thang={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>

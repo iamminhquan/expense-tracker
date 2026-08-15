@@ -29,7 +29,7 @@
     </div>
 
     <button type="button" onclick="openAddCategorySheet()"
-      class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-white text-[15px] font-semibold">Thêm danh mục</button>
+      class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-on-solid text-[15px] font-semibold">Thêm danh mục</button>
   </div>
 
   <div class="md:w-[300px] md:sticky md:top-[78px] md:self-start">
@@ -69,8 +69,8 @@
     <div class="flex flex-col gap-[6px]">
       <label class="text-[12px] font-medium text-ink-muted">Loại</label>
       <div class="flex bg-track rounded-lg p-[3px] gap-1">
-        <label class="flex-1"><input type="radio" name="type" value="expense" {{if ne .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-white peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Chi</span></label>
-        <label class="flex-1"><input type="radio" name="type" value="income" {{if eq .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-white peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Thu</span></label>
+        <label class="flex-1"><input type="radio" name="type" value="expense" {{if ne .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Chi</span></label>
+        <label class="flex-1"><input type="radio" name="type" value="income" {{if eq .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Thu</span></label>
       </div>
     </div>
     <div class="flex flex-col gap-[6px]">
@@ -84,7 +84,7 @@
         {{end}}
       </div>
     </div>
-    <button type="submit" class="h-[38px] rounded-lg bg-accent text-white text-[13px] font-semibold">Thêm danh mục</button>
+    <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Thêm danh mục</button>
     <p class="text-[12px] text-placeholder">Danh mục mặc định không thể xóa, chỉ đổi được màu.</p>
   </form>
 </div>
