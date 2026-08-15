@@ -48,6 +48,12 @@ func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string,
 		data = map[string]any{}
 	}
 	data["CSRFToken"] = csrf.TokenFromRequest(r)
+	// Every page must carry a theme, including the pre-auth ones that have
+	// no user to read a preference from: html/template renders a missing map
+	// key as the literal "<no value>", which would otherwise land inside
+	// layout.html's class attribute. authPageData overwrites this with the
+	// stored preference for authenticated pages.
+	data["Theme"] = defaultTheme
 
 	if active != "" {
 		navData, err := authPageData(r, deps, active)
@@ -90,5 +96,6 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 		"ActiveNav":   active,
 		"UserName":    user.Name,
 		"UserInitial": initial,
+		"Theme":       user.Theme,
 	}, nil
 }

@@ -6,14 +6,14 @@
   </div>
   <div class="flex items-center gap-2 md:contents">
     {{if .UserID.Valid}}
-    <span class="shrink-0 text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Tự tạo</span>
+    <span class="shrink-0 text-[11px] text-placeholder border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Tự tạo</span>
     {{else}}
-    <span class="shrink-0 text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Mặc định</span>
+    <span class="shrink-0 text-[11px] text-placeholder border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Mặc định</span>
     {{end}}
     <span class="md:ml-auto shrink-0 text-[12px] text-ink-faintest font-mono whitespace-nowrap">{{.TransactionCount}} giao dịch</span>
     <div class="ml-auto md:ml-0 flex items-center gap-2 relative">
       <button type="button" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap" onclick="this.nextElementSibling.classList.toggle('hidden')">Đổi màu</button>
-      <div class="hidden absolute right-0 top-6 z-10 bg-white border border-border-card rounded-lg p-2 flex flex-wrap gap-2 w-[124px] shadow-sm">
+      <div class="hidden absolute right-0 top-6 z-10 bg-surface border border-border-card rounded-lg p-2 flex flex-wrap gap-2 w-[124px] shadow-sm">
         {{range $swatch := swatches}}
         <button type="button"
           hx-patch="/categories/{{$.ID}}/color" hx-vals='{"color":"{{$swatch}}"}' hx-target="#category-row-{{$.ID}}" hx-swap="outerHTML"
@@ -42,7 +42,7 @@
       </p>
       <div class="flex gap-2 justify-end">
         <button type="button" onclick="document.getElementById('delete-dialog-{{.ID}}').close()" class="px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Hủy</button>
-        <button type="button" hx-delete="/categories/{{.ID}}" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="px-4 h-9 rounded-lg bg-expense text-white text-[13px] font-semibold">Xóa</button>
+        <button type="button" hx-delete="/categories/{{.ID}}" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="px-4 h-9 rounded-lg bg-expense text-on-solid text-[13px] font-semibold">Xóa</button>
       </div>
       {{end}}
     </dialog>

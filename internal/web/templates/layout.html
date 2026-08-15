@@ -1,6 +1,6 @@
 {{define "layout"}}
 <!doctype html>
-<html lang="vi">
+<html lang="vi" class="{{.Theme}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -96,6 +96,44 @@
       });
     })();
 
+    // Theme switch (account menu). The hx-put on each button persists the
+    // choice; this recolours the page immediately rather than waiting for
+    // that round trip, since the response carries no markup to swap. The
+    // class on <html> is what layout.html's palette blocks key off, and it
+    // survives hx-boost navigations because boosting only replaces <body>.
+    (function () {
+      var ACTIVE = ['bg-accent/10', 'text-accent', 'font-semibold'];
+      var IDLE = ['text-ink-faint'];
+
+      function applyTheme(theme) {
+        document.documentElement.className = theme;
+        document.querySelectorAll('[data-theme-switch] [data-theme]').forEach(function (b) {
+          var on = b.getAttribute('data-theme') === theme;
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          ACTIVE.forEach(function (c) { b.classList.toggle(c, on); });
+          IDLE.forEach(function (c) { b.classList.toggle(c, !on); });
+        });
+        // Chart.js reads its colours once at construction, so anything
+        // already drawn has to be told to rebuild against the new palette.
+        document.dispatchEvent(new CustomEvent('themechange'));
+      }
+
+      document.addEventListener('click', function (evt) {
+        var btn = evt.target.closest && evt.target.closest('[data-theme-switch] [data-theme]');
+        if (btn) applyTheme(btn.getAttribute('data-theme'));
+      });
+
+      // On "auto", the OS flipping between light and dark changes nothing in
+      // the DOM -- only the media query -- so charts need the same nudge.
+      var media = window.matchMedia('(prefers-color-scheme: dark)');
+      media.addEventListener('change', function () {
+        var cls = document.documentElement.classList;
+        if (!cls.contains('light') && !cls.contains('dark')) {
+          document.dispatchEvent(new CustomEvent('themechange'));
+        }
+      });
+    })();
+
     // Close the user menu (<details data-user-menu>) when clicking outside it.
     document.addEventListener('click', function (evt) {
       document.querySelectorAll('details[data-user-menu][open]').forEach(function (el) {
@@ -103,29 +141,135 @@
       });
     });
   </script>
+  <style>
+    /* Design tokens. Stored as space-separated RGB channels rather than hex
+       so Tailwind's opacity modifiers (bg-accent/10, hover:bg-expense/10)
+       can compose them through the <alpha-value> placeholder in
+       tailwind.config below -- a plain hex in a CSS variable silently drops
+       the opacity. */
+    :root {
+      color-scheme: light;
+      --c-app: 250 249 247;
+      --c-surface: 255 255 255;
+      --c-surface-alt: 252 251 249;
+      --c-track: 244 243 240;
+      --c-border-card: 233 231 228;
+      --c-border-input: 226 224 220;
+      --c-border-list: 241 239 236;
+      --c-border-nav: 237 235 231;
+      --c-ink: 27 26 24;
+      --c-ink-muted: 87 83 78;
+      --c-ink-faint: 138 135 129;
+      --c-ink-faintest: 156 152 145;
+      --c-placeholder: 168 164 157;
+      --c-ink-zero: 198 194 187;
+      --c-nav-idle: 107 104 98;
+      --c-accent: 59 110 207;
+      --c-expense: 194 65 12;
+      --c-income: 47 125 91;
+      --c-danger-tint: 254 247 245;
+      --c-danger-bg: 254 242 242;
+      --c-danger-border: 254 202 202;
+      --c-on-solid: 255 255 255;
+    }
+
+    /* The dark palette, applied in two places so all three preferences work
+       without JavaScript at load time: once behind prefers-color-scheme for
+       class="auto" (the media query is what resolves "auto", which is why
+       the server never needs to know the visitor's OS setting), and once on
+       class="dark" for an explicit override. The :not(.light) guard lets an
+       explicit light choice win on a dark-set OS. */
+    @media (prefers-color-scheme: dark) {
+      :root:not(.light) {
+        color-scheme: dark;
+        --c-app: 23 22 20;
+        --c-surface: 31 30 27;
+        --c-surface-alt: 35 34 32;
+        --c-track: 42 40 37;
+        --c-border-card: 50 47 43;
+        --c-border-input: 58 55 51;
+        --c-border-list: 43 41 38;
+        --c-border-nav: 46 44 40;
+        --c-ink: 242 240 236;
+        --c-ink-muted: 184 179 171;
+        --c-ink-faint: 140 135 129;
+        --c-ink-faintest: 116 111 105;
+        --c-placeholder: 107 102 96;
+        --c-ink-zero: 74 70 64;
+        --c-nav-idle: 169 164 156;
+        --c-accent: 127 165 240;
+        --c-expense: 240 136 90;
+        --c-income: 87 195 152;
+        --c-danger-tint: 42 28 23;
+        --c-danger-bg: 51 32 26;
+        --c-danger-border: 92 52 40;
+        --c-on-solid: 23 22 20;
+      }
+    }
+    :root.dark {
+      color-scheme: dark;
+      --c-app: 23 22 20;
+      --c-surface: 31 30 27;
+      --c-surface-alt: 35 34 32;
+      --c-track: 42 40 37;
+      --c-border-card: 50 47 43;
+      --c-border-input: 58 55 51;
+      --c-border-list: 43 41 38;
+      --c-border-nav: 46 44 40;
+      --c-ink: 242 240 236;
+      --c-ink-muted: 184 179 171;
+      --c-ink-faint: 140 135 129;
+      --c-ink-faintest: 116 111 105;
+      --c-placeholder: 107 102 96;
+      --c-ink-zero: 74 70 64;
+      --c-nav-idle: 169 164 156;
+      --c-accent: 127 165 240;
+      --c-expense: 240 136 90;
+      --c-income: 87 195 152;
+      --c-danger-tint: 42 28 23;
+      --c-danger-bg: 51 32 26;
+      --c-danger-border: 92 52 40;
+      --c-on-solid: 23 22 20;
+    }
+
+    /* The form controls and dialogs in these templates carry no background
+       of their own and would otherwise keep the browser's default white.
+       Element selectors lose to Tailwind's class utilities, so an explicit
+       bg-* on a control still wins over this. */
+    input, select, textarea, dialog {
+      background-color: rgb(var(--c-surface));
+      color: rgb(var(--c-ink));
+    }
+    ::placeholder { color: rgb(var(--c-placeholder)); }
+  </style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            app: '#FAF9F7',
-            surface: '#FFFFFF',
-            'surface-alt': '#FCFBF9',
-            track: '#F4F3F0',
-            'border-card': '#E9E7E4',
-            'border-input': '#E2E0DC',
-            'border-list': '#F1EFEC',
-            'border-nav': '#EDEBE7',
-            ink: '#1B1A18',
-            'ink-muted': '#57534E',
-            'ink-faint': '#8A8781',
-            'ink-faintest': '#9C9891',
-            placeholder: '#A8A49D',
-            'ink-zero': '#C6C2BB',
-            accent: '#3B6ECF',
-            expense: '#C2410C',
-            income: '#2F7D5B',
+            app: 'rgb(var(--c-app) / <alpha-value>)',
+            surface: 'rgb(var(--c-surface) / <alpha-value>)',
+            'surface-alt': 'rgb(var(--c-surface-alt) / <alpha-value>)',
+            track: 'rgb(var(--c-track) / <alpha-value>)',
+            'border-card': 'rgb(var(--c-border-card) / <alpha-value>)',
+            'border-input': 'rgb(var(--c-border-input) / <alpha-value>)',
+            'border-list': 'rgb(var(--c-border-list) / <alpha-value>)',
+            'border-nav': 'rgb(var(--c-border-nav) / <alpha-value>)',
+            ink: 'rgb(var(--c-ink) / <alpha-value>)',
+            'ink-muted': 'rgb(var(--c-ink-muted) / <alpha-value>)',
+            'ink-faint': 'rgb(var(--c-ink-faint) / <alpha-value>)',
+            'ink-faintest': 'rgb(var(--c-ink-faintest) / <alpha-value>)',
+            placeholder: 'rgb(var(--c-placeholder) / <alpha-value>)',
+            'ink-zero': 'rgb(var(--c-ink-zero) / <alpha-value>)',
+            'nav-idle': 'rgb(var(--c-nav-idle) / <alpha-value>)',
+            accent: 'rgb(var(--c-accent) / <alpha-value>)',
+            expense: 'rgb(var(--c-expense) / <alpha-value>)',
+            income: 'rgb(var(--c-income) / <alpha-value>)',
+            'danger-tint': 'rgb(var(--c-danger-tint) / <alpha-value>)',
+            'danger-bg': 'rgb(var(--c-danger-bg) / <alpha-value>)',
+            'danger-border': 'rgb(var(--c-danger-border) / <alpha-value>)',
+            'on-solid': 'rgb(var(--c-on-solid) / <alpha-value>)',
           },
           fontFamily: {
             sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
@@ -157,10 +301,17 @@
   </summary>
   <div class="absolute right-0 top-full mt-1 w-[220px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
     <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">GIAO DIỆN</p>
-    <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3">
-      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Sáng</span>
-      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center bg-accent/10 text-accent font-semibold">Tự động</span>
-      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Tối</span>
+    <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3" data-theme-switch>
+      {{$theme := .Theme}}
+      <button type="button" data-theme="light" aria-pressed="{{if eq $theme "light"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"light"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "light"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Sáng</button>
+      <button type="button" data-theme="auto" aria-pressed="{{if eq $theme "auto"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"auto"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "auto"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Tự động</button>
+      <button type="button" data-theme="dark" aria-pressed="{{if eq $theme "dark"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"dark"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "dark"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Tối</button>
     </div>
     <button type="button" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
       <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
@@ -187,9 +338,9 @@
     <span class="text-sm font-semibold text-ink">Sổ chi tiêu</span>
   </a>
   <div class="flex items-center gap-2">
-    <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
-    <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
-    <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Danh mục</a>
+    <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
+    <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
+    <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Danh mục</a>
   </div>
   <div class="ml-auto">{{template "user_menu" .}}</div>
 </nav>

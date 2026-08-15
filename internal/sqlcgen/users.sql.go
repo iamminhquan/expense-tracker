@@ -12,7 +12,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, name)
 VALUES ($1, $2, $3)
-RETURNING id, email, password_hash, name, created_at
+RETURNING id, email, password_hash, name, created_at, theme
 `
 
 type CreateUserParams struct {
@@ -30,12 +30,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PasswordHash,
 		&i.Name,
 		&i.CreatedAt,
+		&i.Theme,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, name, created_at FROM users WHERE email = $1
+SELECT id, email, password_hash, name, created_at, theme FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -47,12 +48,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PasswordHash,
 		&i.Name,
 		&i.CreatedAt,
+		&i.Theme,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, name, created_at FROM users WHERE id = $1
+SELECT id, email, password_hash, name, created_at, theme FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -64,6 +66,21 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.PasswordHash,
 		&i.Name,
 		&i.CreatedAt,
+		&i.Theme,
 	)
 	return i, err
+}
+
+const updateUserTheme = `-- name: UpdateUserTheme :exec
+UPDATE users SET theme = $2 WHERE id = $1
+`
+
+type UpdateUserThemeParams struct {
+	ID    int64  `json:"id"`
+	Theme string `json:"theme"`
+}
+
+func (q *Queries) UpdateUserTheme(ctx context.Context, arg UpdateUserThemeParams) error {
+	_, err := q.db.Exec(ctx, updateUserTheme, arg.ID, arg.Theme)
+	return err
 }

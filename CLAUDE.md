@@ -86,6 +86,23 @@ template funcs via `handlers.TemplateFuncs()`; the formatting rules (dots as
 thousands separators, trailing ₫, dd/mm/yyyy) come from
 `docs/design/design_handoff_expense_tracker/SPEC.md`.
 
+**Theming**: All colour flows through CSS variables declared in
+`layout.html`'s `<style>` block and referenced from `tailwind.config` as
+`rgb(var(--c-x) / <alpha-value>)`. The variables hold space-separated RGB
+channels, not hex — that is what keeps opacity modifiers like `bg-accent/10`
+working, so never put a hex value in one. Never hardcode a colour in a
+template either (`text-[#6B6862]`, `style="background-color:#FEF7F5"`); add
+or reuse a token. The dark palette is declared twice, once under
+`@media (prefers-color-scheme: dark) :root:not(.light)` and once under
+`:root.dark`, so the three preferences (`auto`/`light`/`dark`) all resolve in
+CSS with no load-time JavaScript and no flash. The preference lives in
+`users.theme` and is rendered onto `<html class="...">`; `renderNamed`
+defaults it to `auto` for pre-auth pages, because `html/template` prints a
+missing map key as the literal `<no value>`. Chart.js cannot read CSS
+variables, so `dashboard.html` resolves them via `chartColor()` at
+construction and rebuilds both charts on the `themechange` event that the
+switch (and an OS flip while on `auto`) dispatches.
+
 **htmx conventions**: Mutation handlers (add/edit/delete transaction or
 category) return HTML fragments swapped into the DOM rather than JSON.
 Session expiry mid-interaction is handled specially: `auth.RequireAuth`

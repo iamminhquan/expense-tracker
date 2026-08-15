@@ -9,8 +9,8 @@
   <div class="flex items-center justify-between">
     <h1 class="text-[19px] md:text-[18px] font-semibold text-ink">{{.MonthLabel}}</h1>
     <div class="relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute right-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute right-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
         <button type="button" hx-get="/dashboard?thang={{.CurrentMonthValue}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
         {{range .AvailableMonths}}
         <button type="button" hx-get="/dashboard?thang={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
@@ -59,7 +59,7 @@
           {{range .PieLegend}}
           <div class="flex items-center gap-2 text-[12px]">
             <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span>
-            <span class="flex-1 min-w-0 truncate text-[#57534E]">{{.Name}}</span>
+            <span class="flex-1 min-w-0 truncate text-ink-muted">{{.Name}}</span>
             <span class="font-mono text-ink-faintest w-[34px] text-right shrink-0">{{.Percent}}</span>
             <span class="hidden md:inline font-mono font-medium w-[86px] text-right shrink-0">{{.Amount}}</span>
           </div>
@@ -72,8 +72,8 @@
       <div class="flex items-center justify-between mb-3">
         <p class="text-[13px] font-semibold text-ink">4 tháng gần nhất</p>
         <div class="flex items-center gap-3">
-          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px]" style="background-color:#C2410C"></span>Chi</span>
-          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px]" style="background-color:#2F7D5B"></span>Thu</span>
+          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px] bg-expense"></span>Chi</span>
+          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px] bg-income"></span>Thu</span>
         </div>
       </div>
       <canvas id="bar-chart" class="w-full h-[118px] md:h-[158px]"></canvas>
@@ -85,7 +85,15 @@
     {"pie": {"labels": {{.PieLabelsJSON}}, "values": {{.PieValuesJSON}}, "colors": {{.PieColorsJSON}}}, "bars": {"labels": {{.BarLabelsJSON}}, "chi": {{.BarChiJSON}}, "thu": {{.BarThuJSON}}}}
   </script>
   <script>
-    (function () {
+    // Chart.js takes plain colour values, not CSS variables, so the palette
+    // has to be read out of the document at build time -- and the charts
+    // rebuilt whenever it changes (layout.html fires "themechange" on both a
+    // switch click and an OS flip while on "auto").
+    function chartColor(name) {
+      return 'rgb(' + getComputedStyle(document.documentElement).getPropertyValue(name).trim() + ')';
+    }
+
+    window.__initCharts = function () {
       if (window.__pieChart) { window.__pieChart.destroy(); window.__pieChart = null; }
       if (window.__barChart) { window.__barChart.destroy(); window.__barChart = null; }
       var dataEl = document.getElementById('chart-data');
@@ -98,7 +106,7 @@
           type: 'doughnut',
           data: {
             labels: chartData.pie.labels,
-            datasets: [{ data: chartData.pie.values, backgroundColor: chartData.pie.colors, borderWidth: 2, borderColor: '#fff' }]
+            datasets: [{ data: chartData.pie.values, backgroundColor: chartData.pie.colors, borderWidth: 2, borderColor: chartColor('--c-surface') }]
           },
           options: {
             cutout: '62%',
@@ -107,7 +115,9 @@
               legend: { display: false },
               tooltip: {
                 enabled: true,
-                backgroundColor: '#1B1A18',
+                backgroundColor: chartColor('--c-ink'),
+                titleColor: chartColor('--c-app'),
+                bodyColor: chartColor('--c-app'),
                 padding: 8,
                 cornerRadius: 6,
                 displayColors: true,
@@ -131,19 +141,19 @@
           data: {
             labels: chartData.bars.labels,
             datasets: [
-              { label: 'Chi', data: chartData.bars.chi, backgroundColor: '#C2410C', borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 },
-              { label: 'Thu', data: chartData.bars.thu, backgroundColor: '#2F7D5B', borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 }
+              { label: 'Chi', data: chartData.bars.chi, backgroundColor: chartColor('--c-expense'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 },
+              { label: 'Thu', data: chartData.bars.thu, backgroundColor: chartColor('--c-income'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 }
             ]
           },
           options: {
             animation: false,
             plugins: { legend: { display: false } },
             scales: {
-              x: { grid: { display: false }, border: { display: false }, ticks: { color: '#9C9891', font: { family: 'JetBrains Mono' } } },
+              x: { grid: { display: false }, border: { display: false }, ticks: { color: chartColor('--c-ink-faintest'), font: { family: 'JetBrains Mono' } } },
               y: {
-                beginAtZero: true, grid: { color: '#F1EFEC' }, border: { display: false },
+                beginAtZero: true, grid: { color: chartColor('--c-border-list') }, border: { display: false },
                 ticks: {
-                  color: '#B5B1AA', maxTicksLimit: 4, font: { family: 'JetBrains Mono' },
+                  color: chartColor('--c-ink-zero'), maxTicksLimit: 4, font: { family: 'JetBrains Mono' },
                   callback: function (value) { return value >= 1000000 ? (value / 1000000) + 'tr' : value; }
                 }
               }
@@ -151,7 +161,15 @@
           }
         });
       }
-    })();
+    };
+
+    window.__initCharts();
+    // This block re-runs on every dashboard render (a month switch swaps the
+    // whole section back in), so drop the previous listener before binding a
+    // new one -- otherwise each swap leaves another copy behind.
+    if (window.__onThemeChange) document.removeEventListener('themechange', window.__onThemeChange);
+    window.__onThemeChange = function () { window.__initCharts(); };
+    document.addEventListener('themechange', window.__onThemeChange);
   </script>
 </div>
 {{end}}

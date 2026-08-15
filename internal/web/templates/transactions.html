@@ -3,7 +3,7 @@
   {{template "quick_add_form" .}}
   {{template "transactions_month_section" .}}
   <button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()"
-    class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-white text-[15px] font-semibold">Thêm giao dịch</button>
+    class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-on-solid text-[15px] font-semibold">Thêm giao dịch</button>
 </div>
 
 <dialog id="mobile-add-sheet" class="md:hidden w-full max-w-full m-0 mt-auto mb-0 rounded-t-[20px] rounded-b-none p-0 backdrop:bg-black/32">
@@ -40,7 +40,7 @@
     <input name="description" type="text" placeholder="Ghi chú" class="flex-1 h-12 px-3 rounded-[10px] border border-border-input text-[14px]">
   </div>
   {{if .QuickAddError}}<p class="text-[12px] text-expense">{{.QuickAddError}}</p>{{end}}
-  <button type="submit" class="h-[50px] rounded-[10px] bg-accent text-white text-[14px] font-semibold">Lưu giao dịch</button>
+  <button type="submit" class="h-[50px] rounded-[10px] bg-accent text-on-solid text-[14px] font-semibold">Lưu giao dịch</button>
 </form>
 {{end}}
 
@@ -49,8 +49,8 @@
   <div class="flex items-center justify-between">
     <h1 class="md:hidden text-[19px] font-semibold text-ink">Giao dịch</h1>
     <div class="hidden md:flex items-center gap-2 relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute left-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute left-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
         <button type="button" hx-get="/transactions?thang={{.CurrentMonthValue}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
         {{range .AvailableMonths}}
         <button type="button" hx-get="/transactions?thang={{.Value}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
@@ -59,8 +59,8 @@
       <span id="transaction-count" class="text-[12px] text-ink-faint">{{len .Transactions}} giao dịch</span>
     </div>
     <div class="md:hidden relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute right-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute right-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
         <button type="button" hx-get="/transactions?thang={{.CurrentMonthValue}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
         {{range .AvailableMonths}}
         <button type="button" hx-get="/transactions?thang={{.Value}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
@@ -93,7 +93,7 @@
       <div class="text-center py-11 px-7">
         <p class="text-[15px] font-semibold text-ink">Chưa có giao dịch nào trong {{.MonthLabelLower}}</p>
         <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Thêm giao dịch đầu tiên bằng form phía trên, hoặc chọn tháng khác để xem lại.</p>
-        <button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()" class="md:hidden mt-5 h-11 px-7 rounded-xl bg-accent text-white text-[14px] font-semibold">Thêm giao dịch</button>
+        <button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()" class="md:hidden mt-5 h-11 px-7 rounded-xl bg-accent text-on-solid text-[14px] font-semibold">Thêm giao dịch</button>
       </div>
       {{end}}
     </div>
@@ -142,7 +142,7 @@
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Ghi chú</label>
       <input name="description" type="text" placeholder="Không bắt buộc" class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
     </div>
-    <button type="submit" class="h-9 px-[18px] rounded-lg bg-accent text-white text-[13px] font-semibold">Thêm</button>
+    <button type="submit" class="h-9 px-[18px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Thêm</button>
   </form>
   {{if .QuickAddError}}<p class="text-[12px] text-expense mt-2">{{.QuickAddError}}</p>{{end}}
 </div>
@@ -150,7 +150,7 @@
 
 {{define "category_options"}}
 <div id="category-select" class="relative">
-  <select name="category_id" class="w-full h-9 pl-3 pr-7 rounded-lg border border-border-input text-[13px] bg-white appearance-none">
+  <select name="category_id" class="w-full h-9 pl-3 pr-7 rounded-lg border border-border-input text-[13px] bg-surface appearance-none">
     {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">{{.Name}}</option>{{end}}
   </select>
   <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-placeholder text-[10px]">▾</span>
