@@ -31,13 +31,17 @@ reference, không phải production code — không copy markup, chỉ đọc đ
 | Chữ rất mờ | `#9C9891` | ngày trong dòng giao dịch, tick biểu đồ |
 | Placeholder | `#A8A49D` | |
 | Chữ trong empty state (số 0₫) | `#C6C2BB` | |
-| **Accent** | `oklch(0.55 0.13 250)` ≈ `#3B6ECF` | nút chính, nav active, focus ring |
+| **Accent** | `#BC5A29` (tối: `#E08A5A`) | nút chính, nav active, focus ring |
 | Accent nền nhạt | `color-mix(in oklab, accent 10%, transparent)` | nền nav item active |
-| Chi (expense) | `#C2410C` | số tiền âm, cột "Chi" |
-| Thu (income) | `#2F7D5B` | số tiền dương, cột "Thu" |
+| Chi (expense) | `#B42318` (tối: `#F97066`) | số tiền âm, cột "Chi" |
+| Thu (income) | `#2F7D5B` (tối: `#57C398`) | số tiền dương, cột "Thu" |
 
 Accent là **màu duy nhất** mang tính thương hiệu. Không dùng gradient. Không dùng màu danh mục
 làm nền của bất cứ thứ gì.
+
+Bảng trên là bản sáng; giá trị trong ngoặc là bản tối. Nguồn thi hành là các CSS variable
+`--c-*` trong `internal/web/templates/layout.html` — sửa màu ở đó, không sửa rải rác trong
+template.
 
 Palette màu danh mục (chỉ dùng cho chấm 8–10px và cho biểu đồ):
 
@@ -122,7 +126,7 @@ Từ trên xuống:
 bỏ link `Quên mật khẩu?`, nút thành `Tạo tài khoản`. Đổi tab bằng htmx swap phần thân card
 (giữ nguyên logo và tab bar) — không điều hướng trang.
 
-**Lỗi**: một khối trên nút chính — nền `#FEF2F2`, viền `#FECACA`, chữ `#C2410C` 12px, radius 8px.
+**Lỗi**: một khối trên nút chính — nền `#FEF2F2`, viền `#FECACA`, chữ màu Chi 12px, radius 8px.
 Nội dung: `Email hoặc mật khẩu không đúng.` / `Email này đã được dùng.` /
 `Mật khẩu phải có ít nhất 8 ký tự.` Server trả về fragment card kèm lỗi, giữ nguyên email đã nhập,
 xóa mật khẩu.
