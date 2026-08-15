@@ -103,29 +103,74 @@
       });
     });
   </script>
+  <style>
+    /* Design tokens. Stored as space-separated RGB channels rather than hex
+       so Tailwind's opacity modifiers (bg-accent/10, hover:bg-expense/10)
+       can compose them through the <alpha-value> placeholder in
+       tailwind.config below -- a plain hex in a CSS variable silently drops
+       the opacity. */
+    :root {
+      color-scheme: light;
+      --c-app: 250 249 247;
+      --c-surface: 255 255 255;
+      --c-surface-alt: 252 251 249;
+      --c-track: 244 243 240;
+      --c-border-card: 233 231 228;
+      --c-border-input: 226 224 220;
+      --c-border-list: 241 239 236;
+      --c-border-nav: 237 235 231;
+      --c-ink: 27 26 24;
+      --c-ink-muted: 87 83 78;
+      --c-ink-faint: 138 135 129;
+      --c-ink-faintest: 156 152 145;
+      --c-placeholder: 168 164 157;
+      --c-ink-zero: 198 194 187;
+      --c-nav-idle: 107 104 98;
+      --c-accent: 59 110 207;
+      --c-expense: 194 65 12;
+      --c-income: 47 125 91;
+      --c-danger-tint: 254 247 245;
+      --c-danger-bg: 254 242 242;
+      --c-danger-border: 254 202 202;
+    }
+
+    /* The form controls and dialogs in these templates carry no background
+       of their own and would otherwise keep the browser's default white.
+       Element selectors lose to Tailwind's class utilities, so an explicit
+       bg-* on a control still wins over this. */
+    input, select, textarea, dialog {
+      background-color: rgb(var(--c-surface));
+      color: rgb(var(--c-ink));
+    }
+    ::placeholder { color: rgb(var(--c-placeholder)); }
+  </style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            app: '#FAF9F7',
-            surface: '#FFFFFF',
-            'surface-alt': '#FCFBF9',
-            track: '#F4F3F0',
-            'border-card': '#E9E7E4',
-            'border-input': '#E2E0DC',
-            'border-list': '#F1EFEC',
-            'border-nav': '#EDEBE7',
-            ink: '#1B1A18',
-            'ink-muted': '#57534E',
-            'ink-faint': '#8A8781',
-            'ink-faintest': '#9C9891',
-            placeholder: '#A8A49D',
-            'ink-zero': '#C6C2BB',
-            accent: '#3B6ECF',
-            expense: '#C2410C',
-            income: '#2F7D5B',
+            app: 'rgb(var(--c-app) / <alpha-value>)',
+            surface: 'rgb(var(--c-surface) / <alpha-value>)',
+            'surface-alt': 'rgb(var(--c-surface-alt) / <alpha-value>)',
+            track: 'rgb(var(--c-track) / <alpha-value>)',
+            'border-card': 'rgb(var(--c-border-card) / <alpha-value>)',
+            'border-input': 'rgb(var(--c-border-input) / <alpha-value>)',
+            'border-list': 'rgb(var(--c-border-list) / <alpha-value>)',
+            'border-nav': 'rgb(var(--c-border-nav) / <alpha-value>)',
+            ink: 'rgb(var(--c-ink) / <alpha-value>)',
+            'ink-muted': 'rgb(var(--c-ink-muted) / <alpha-value>)',
+            'ink-faint': 'rgb(var(--c-ink-faint) / <alpha-value>)',
+            'ink-faintest': 'rgb(var(--c-ink-faintest) / <alpha-value>)',
+            placeholder: 'rgb(var(--c-placeholder) / <alpha-value>)',
+            'ink-zero': 'rgb(var(--c-ink-zero) / <alpha-value>)',
+            'nav-idle': 'rgb(var(--c-nav-idle) / <alpha-value>)',
+            accent: 'rgb(var(--c-accent) / <alpha-value>)',
+            expense: 'rgb(var(--c-expense) / <alpha-value>)',
+            income: 'rgb(var(--c-income) / <alpha-value>)',
+            'danger-tint': 'rgb(var(--c-danger-tint) / <alpha-value>)',
+            'danger-bg': 'rgb(var(--c-danger-bg) / <alpha-value>)',
+            'danger-border': 'rgb(var(--c-danger-border) / <alpha-value>)',
           },
           fontFamily: {
             sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
@@ -187,9 +232,9 @@
     <span class="text-sm font-semibold text-ink">Sổ chi tiêu</span>
   </a>
   <div class="flex items-center gap-2">
-    <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
-    <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
-    <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-[#6B6862] hover:bg-track hover:text-ink{{end}}">Danh mục</a>
+    <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
+    <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
+    <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Danh mục</a>
   </div>
   <div class="ml-auto">{{template "user_menu" .}}</div>
 </nav>

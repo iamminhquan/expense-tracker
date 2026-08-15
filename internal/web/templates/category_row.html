@@ -6,9 +6,9 @@
   </div>
   <div class="flex items-center gap-2 md:contents">
     {{if .UserID.Valid}}
-    <span class="shrink-0 text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Tự tạo</span>
+    <span class="shrink-0 text-[11px] text-placeholder border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Tự tạo</span>
     {{else}}
-    <span class="shrink-0 text-[11px] text-[#A8A49D] border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Mặc định</span>
+    <span class="shrink-0 text-[11px] text-placeholder border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Mặc định</span>
     {{end}}
     <span class="md:ml-auto shrink-0 text-[12px] text-ink-faintest font-mono whitespace-nowrap">{{.TransactionCount}} giao dịch</span>
     <div class="ml-auto md:ml-0 flex items-center gap-2 relative">

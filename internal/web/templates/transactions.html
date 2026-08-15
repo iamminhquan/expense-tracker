@@ -49,8 +49,8 @@
   <div class="flex items-center justify-between">
     <h1 class="md:hidden text-[19px] font-semibold text-ink">Giao dịch</h1>
     <div class="hidden md:flex items-center gap-2 relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute left-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute left-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
         <button type="button" hx-get="/transactions?thang={{.CurrentMonthValue}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
         {{range .AvailableMonths}}
         <button type="button" hx-get="/transactions?thang={{.Value}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
@@ -59,8 +59,8 @@
       <span id="transaction-count" class="text-[12px] text-ink-faint">{{len .Transactions}} giao dịch</span>
     </div>
     <div class="md:hidden relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-white text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute right-0 top-9 z-20 bg-white border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
+      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
+      <div class="hidden absolute right-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
         <button type="button" hx-get="/transactions?thang={{.CurrentMonthValue}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
         {{range .AvailableMonths}}
         <button type="button" hx-get="/transactions?thang={{.Value}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
@@ -150,7 +150,7 @@
 
 {{define "category_options"}}
 <div id="category-select" class="relative">
-  <select name="category_id" class="w-full h-9 pl-3 pr-7 rounded-lg border border-border-input text-[13px] bg-white appearance-none">
+  <select name="category_id" class="w-full h-9 pl-3 pr-7 rounded-lg border border-border-input text-[13px] bg-surface appearance-none">
     {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">{{.Name}}</option>{{end}}
   </select>
   <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-placeholder text-[10px]">▾</span>
