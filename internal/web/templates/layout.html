@@ -140,6 +140,19 @@
         if (!el.contains(evt.target)) el.removeAttribute('open');
       });
     });
+
+    // Category color-picker popovers (data-color-picker-toggle / -panel pairs
+    // in category_row.html): opening one closes any other that's open, and
+    // clicking outside a panel closes it too, instead of every open picker
+    // staying open at once.
+    document.addEventListener('click', function (evt) {
+      var toggle = evt.target.closest && evt.target.closest('[data-color-picker-toggle]');
+      var panel = evt.target.closest && evt.target.closest('[data-color-picker-panel]');
+      document.querySelectorAll('[data-color-picker-panel]').forEach(function (p) {
+        if (p !== panel && p !== (toggle && toggle.nextElementSibling)) p.classList.add('hidden');
+      });
+      if (toggle) toggle.nextElementSibling.classList.toggle('hidden');
+    });
   </script>
   <style>
     /* Design tokens. Stored as space-separated RGB channels rather than hex
