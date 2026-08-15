@@ -50,6 +50,7 @@ func NewRouter(deps Deps) http.Handler {
 		pr.Patch("/transactions/{id}", updateTransactionHandler(deps))
 		pr.Delete("/transactions/{id}", deleteTransactionHandler(deps))
 		pr.Get("/dashboard", dashboardPage(deps))
+		pr.Put("/settings/theme", updateThemeHandler(deps))
 	})
 
 	return r

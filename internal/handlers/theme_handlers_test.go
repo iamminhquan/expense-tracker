@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -36,6 +37,21 @@ func getPage(t *testing.T, router http.Handler, cookie *http.Cookie, path string
 		t.Fatalf("GET %s: expected 200, got %d", path, rec.Code)
 	}
 	return rec.Body.String()
+}
+
+func putTheme(t *testing.T, router http.Handler, cookie *http.Cookie, theme string) *httptest.ResponseRecorder {
+	t.Helper()
+	tok := csrfTokenFor(t, router)
+	form := url.Values{"theme": {theme}}
+	req := httptest.NewRequest(http.MethodPut, "/settings/theme", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
 }
 
 func TestRegisterDefaultsThemeToAuto(t *testing.T) {
@@ -82,6 +98,93 @@ func TestAuthPageRendersAutoThemeWithoutNoValueLeak(t *testing.T) {
 	if !strings.Contains(body, `<html lang="vi" class="auto">`) {
 		t.Fatalf("expected the login page to fall back to the auto theme; got head:\n%s", head(body))
 	}
+}
+
+func TestUpdateThemeHandlerPersistsPreference(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "theme-persist@example.com"
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	rec := putTheme(t, router, cookie, "dark")
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 storing a valid theme, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := themeOf(t, deps, email); got != "dark" {
+		t.Fatalf("expected stored theme %q, got %q", "dark", got)
+	}
+}
+
+func TestUpdateThemeHandlerRejectsUnknownValue(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "theme-invalid@example.com"
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	if rec := putTheme(t, router, cookie, "light"); rec.Code != http.StatusNoContent {
+		t.Fatalf("setup: expected 204 storing %q, got %d", "light", rec.Code)
+	}
+
+	rec := putTheme(t, router, cookie, "neon")
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an unknown theme, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := themeOf(t, deps, email); got != "light" {
+		t.Fatalf("expected the rejected request to leave theme at %q, got %q", "light", got)
+	}
+}
+
+func TestUpdateThemeRequiresAuth(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+
+	rec := putTheme(t, router, nil, "dark")
+
+	if rec.Code == http.StatusNoContent {
+		t.Fatal("expected an unauthenticated theme update to be rejected, got 204")
+	}
+}
+
+// The switch reflects the stored preference on load, so a user reopening the
+// menu sees which mode is actually active rather than a fixed default.
+func TestUserMenuMarksTheStoredThemeAsActive(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "theme-switch@example.com"
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	if rec := putTheme(t, router, cookie, "dark"); rec.Code != http.StatusNoContent {
+		t.Fatalf("setup: expected 204, got %d", rec.Code)
+	}
+
+	body := getPage(t, router, cookie, "/dashboard")
+
+	sw := themeSwitchMarkup(t, body)
+	if !strings.Contains(sw, `data-theme="dark" aria-pressed="true"`) {
+		t.Fatalf("expected the dark button to be marked active, got switch:\n%s", sw)
+	}
+	if strings.Count(sw, `aria-pressed="true"`) != 1 {
+		t.Fatalf("expected exactly one active theme button, got switch:\n%s", sw)
+	}
+}
+
+// themeSwitchMarkup extracts the [data-theme-switch] container so failures
+// print the switch rather than the whole page. It anchors on the closing
+// angle bracket of the container's own tag, since the bare attribute name
+// also appears earlier in the page inside the switch's JS selectors.
+func themeSwitchMarkup(t *testing.T, body string) string {
+	t.Helper()
+	start := strings.Index(body, "data-theme-switch>")
+	if start < 0 {
+		t.Fatalf("no [data-theme-switch] container in the rendered page")
+	}
+	end := start + 900
+	if end > len(body) {
+		end = len(body)
+	}
+	return body[start:end]
 }
 
 // head trims a rendered page down to its opening markup, so a failure

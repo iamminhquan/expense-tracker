@@ -96,6 +96,44 @@
       });
     })();
 
+    // Theme switch (account menu). The hx-put on each button persists the
+    // choice; this recolours the page immediately rather than waiting for
+    // that round trip, since the response carries no markup to swap. The
+    // class on <html> is what layout.html's palette blocks key off, and it
+    // survives hx-boost navigations because boosting only replaces <body>.
+    (function () {
+      var ACTIVE = ['bg-accent/10', 'text-accent', 'font-semibold'];
+      var IDLE = ['text-ink-faint'];
+
+      function applyTheme(theme) {
+        document.documentElement.className = theme;
+        document.querySelectorAll('[data-theme-switch] [data-theme]').forEach(function (b) {
+          var on = b.getAttribute('data-theme') === theme;
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          ACTIVE.forEach(function (c) { b.classList.toggle(c, on); });
+          IDLE.forEach(function (c) { b.classList.toggle(c, !on); });
+        });
+        // Chart.js reads its colours once at construction, so anything
+        // already drawn has to be told to rebuild against the new palette.
+        document.dispatchEvent(new CustomEvent('themechange'));
+      }
+
+      document.addEventListener('click', function (evt) {
+        var btn = evt.target.closest && evt.target.closest('[data-theme-switch] [data-theme]');
+        if (btn) applyTheme(btn.getAttribute('data-theme'));
+      });
+
+      // On "auto", the OS flipping between light and dark changes nothing in
+      // the DOM -- only the media query -- so charts need the same nudge.
+      var media = window.matchMedia('(prefers-color-scheme: dark)');
+      media.addEventListener('change', function () {
+        var cls = document.documentElement.classList;
+        if (!cls.contains('light') && !cls.contains('dark')) {
+          document.dispatchEvent(new CustomEvent('themechange'));
+        }
+      });
+    })();
+
     // Close the user menu (<details data-user-menu>) when clicking outside it.
     document.addEventListener('click', function (evt) {
       document.querySelectorAll('details[data-user-menu][open]').forEach(function (el) {
@@ -263,10 +301,17 @@
   </summary>
   <div class="absolute right-0 top-full mt-1 w-[220px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
     <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">GIAO DIỆN</p>
-    <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3">
-      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Sáng</span>
-      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center bg-accent/10 text-accent font-semibold">Tự động</span>
-      <span class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center text-ink-faint">Tối</span>
+    <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3" data-theme-switch>
+      {{$theme := .Theme}}
+      <button type="button" data-theme="light" aria-pressed="{{if eq $theme "light"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"light"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "light"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Sáng</button>
+      <button type="button" data-theme="auto" aria-pressed="{{if eq $theme "auto"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"auto"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "auto"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Tự động</button>
+      <button type="button" data-theme="dark" aria-pressed="{{if eq $theme "dark"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"dark"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "dark"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Tối</button>
     </div>
     <button type="button" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
       <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
