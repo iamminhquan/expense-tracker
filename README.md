@@ -56,21 +56,6 @@ dashboard's category breakdown chart.
 4. Visit `http://localhost:8080` (redirects to `/dashboard`, which in turn
    redirects anonymous visitors to `/login`).
 
-## Running with Docker
-
-```
-docker compose up
-```
-
-This builds the app image (multi-stage `Dockerfile`) and starts it alongside
-a Postgres container, wired together via `docker-compose.yml`. The app
-container applies migrations automatically on startup, same as running it
-directly with `go run`. Note: the full `docker compose up` orchestration
-(container build, Postgres readiness, inter-container networking) has not
-been verified in every environment — if you hit issues, check that the `app`
-service can reach the `postgres` service's hostname on the compose network
-before assuming the app itself is broken.
-
 ## Running tests
 
 Tests that touch the database are skipped unless `TEST_DATABASE_URL` is set.

@@ -72,7 +72,7 @@ func createThrowawayDatabase(t *testing.T, baseDSN string) string {
 func TestMigrationsApplyCleanly(t *testing.T) {
 	baseDSN := os.Getenv("TEST_DATABASE_URL")
 	if baseDSN == "" {
-		t.Skip("TEST_DATABASE_URL not set; start docker-compose postgres and export it to run this test")
+		t.Skip("TEST_DATABASE_URL not set; point it at a local Postgres and export it to run this test")
 	}
 
 	dsn := createThrowawayDatabase(t, baseDSN)
@@ -170,7 +170,7 @@ func TestMigrationsApplyCleanly(t *testing.T) {
 func TestMigrations000006PreservesExistingData(t *testing.T) {
 	baseDSN := os.Getenv("TEST_DATABASE_URL")
 	if baseDSN == "" {
-		t.Skip("TEST_DATABASE_URL not set; start docker-compose postgres and export it to run this test")
+		t.Skip("TEST_DATABASE_URL not set; point it at a local Postgres and export it to run this test")
 	}
 
 	dsn := createThrowawayDatabase(t, baseDSN)
