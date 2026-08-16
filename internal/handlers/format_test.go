@@ -55,3 +55,21 @@ func TestDateFormatting(t *testing.T) {
 		t.Errorf("dateFull(invalid) = %q, want empty string", got)
 	}
 }
+
+func TestCountOf(t *testing.T) {
+	cases := []struct {
+		in   any
+		want string
+	}{
+		{0, "0 transactions"},
+		{1, "1 transaction"},
+		{2, "2 transactions"},
+		{int64(1), "1 transaction"},
+		{int64(12), "12 transactions"},
+	}
+	for _, tc := range cases {
+		if got := countOf(tc.in, "transaction"); got != tc.want {
+			t.Errorf("countOf(%v) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

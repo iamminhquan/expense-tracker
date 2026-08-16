@@ -10,7 +10,7 @@
     {{else}}
     <span class="shrink-0 text-[11px] text-placeholder border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Default</span>
     {{end}}
-    <span class="md:ml-auto shrink-0 text-[12px] text-ink-faintest font-mono whitespace-nowrap">{{.TransactionCount}} transactions</span>
+    <span class="md:ml-auto shrink-0 text-[12px] text-ink-faintest font-mono whitespace-nowrap">{{countOf .TransactionCount "transaction"}}</span>
     <div class="ml-auto md:ml-0 flex items-center gap-2 relative">
       <button type="button" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap" data-color-picker-toggle>Change color</button>
       <div class="hidden absolute right-0 top-6 z-10 bg-surface border border-border-card rounded-lg p-2 flex flex-wrap gap-2 w-[124px] shadow-sm" data-color-picker-panel>
