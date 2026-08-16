@@ -125,7 +125,7 @@
                 bodyFont: { family: '"Be Vietnam Pro"', size: 12 },
                 callbacks: {
                   label: function (ctx) {
-                    return ctx.label + ': ' + Number(ctx.parsed).toLocaleString('vi-VN') + '₫';
+                    return ctx.label + ': ' + Number(ctx.parsed).toLocaleString('en-US') + '₫';
                   }
                 }
               }
@@ -141,8 +141,8 @@
           data: {
             labels: chartData.bars.labels,
             datasets: [
-              { label: 'Chi', data: chartData.bars.chi, backgroundColor: chartColor('--c-expense'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 },
-              { label: 'Thu', data: chartData.bars.thu, backgroundColor: chartColor('--c-income'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 }
+              { label: 'Spent', data: chartData.bars.chi, backgroundColor: chartColor('--c-expense'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 },
+              { label: 'Earned', data: chartData.bars.thu, backgroundColor: chartColor('--c-income'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 }
             ]
           },
           options: {
@@ -154,7 +154,10 @@
                 beginAtZero: true, grid: { color: chartColor('--c-border-list') }, border: { display: false },
                 ticks: {
                   color: chartColor('--c-ink-zero'), maxTicksLimit: 4, font: { family: 'JetBrains Mono' },
-                  callback: function (value) { return value >= 1000000 ? (value / 1000000) + 'tr' : value; }
+                  // "M" for million, matching the English UI. Chart.js gets
+                  // no say in the page's other numbers, so this callback is
+                  // the one place the axis abbreviation is decided.
+                  callback: function (value) { return value >= 1000000 ? (value / 1000000) + 'M' : value; }
                 }
               }
             }
