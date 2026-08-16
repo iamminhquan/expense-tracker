@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -20,8 +19,8 @@ func pgDate(t time.Time) pgtype.Date {
 	return pgtype.Date{Time: t, Valid: true}
 }
 
-func monthLabel(t time.Time) string      { return fmt.Sprintf("Tháng %d, %d", int(t.Month()), t.Year()) }
-func monthLabelLower(t time.Time) string { return fmt.Sprintf("tháng %d", int(t.Month())) }
+func monthLabel(t time.Time) string      { return t.Format("January 2006") }
+func monthLabelLower(t time.Time) string { return t.Format("January") }
 
 // monthRangeFor returns the [from, to) bounds for the "YYYY-MM" value the
 // month dropdown sends via ?thang=, falling back to the current Vietnam-

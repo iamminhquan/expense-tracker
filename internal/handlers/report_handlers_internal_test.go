@@ -11,28 +11,28 @@ import (
 )
 
 func TestComparisonText(t *testing.T) {
-	if got := comparisonText(0, 0, false); got != "Chưa có dữ liệu tháng trước" {
+	if got := comparisonText(0, 0, false); got != "No data for last month" {
 		t.Errorf("comparisonText(no prev data) = %q", got)
 	}
-	if got := comparisonText(8800000, 10000000, true); got != "Tháng trước 10.000.000₫ · giảm 12%" {
+	if got := comparisonText(8800000, 10000000, true); got != "Last month 10,000,000₫ · down 12%" {
 		t.Errorf("comparisonText(decrease) = %q", got)
 	}
-	if got := comparisonText(11000000, 10000000, true); got != "Tháng trước 10.000.000₫ · tăng 10%" {
+	if got := comparisonText(11000000, 10000000, true); got != "Last month 10,000,000₫ · up 10%" {
 		t.Errorf("comparisonText(increase) = %q", got)
 	}
 }
 
 func TestComparisonTextMobile(t *testing.T) {
-	if got := comparisonTextMobile(0, 0, false); got != "Chưa có dữ liệu tháng trước" {
+	if got := comparisonTextMobile(0, 0, false); got != "No data for last month" {
 		t.Errorf("comparisonTextMobile(no prev data) = %q", got)
 	}
-	if got := comparisonTextMobile(8800000, 10000000, true); got != "Giảm 12% so với tháng trước" {
+	if got := comparisonTextMobile(8800000, 10000000, true); got != "Down 12% vs last month" {
 		t.Errorf("comparisonTextMobile(decrease) = %q", got)
 	}
-	if got := comparisonTextMobile(11000000, 10000000, true); got != "Tăng 10% so với tháng trước" {
+	if got := comparisonTextMobile(11000000, 10000000, true); got != "Up 10% vs last month" {
 		t.Errorf("comparisonTextMobile(increase) = %q", got)
 	}
-	if got := comparisonTextMobile(10000000, 10000000, true); got != "Không đổi so với tháng trước" {
+	if got := comparisonTextMobile(10000000, 10000000, true); got != "Unchanged vs last month" {
 		t.Errorf("comparisonTextMobile(no change) = %q", got)
 	}
 }
@@ -70,8 +70,8 @@ func TestBuildBarSeriesZeroPadsMissingMonths(t *testing.T) {
 	if len(labels) != 4 || len(chi) != 4 || len(thu) != 4 {
 		t.Fatalf("expected 4 months of series data, got %d labels", len(labels))
 	}
-	if labels[3] != "Th 8" {
-		t.Fatalf("expected the last label to be the current month (Th 8), got %q", labels[3])
+	if labels[3] != "Aug" {
+		t.Fatalf("expected the last label to be the current month (Aug), got %q", labels[3])
 	}
 	if chi[3] != 5000 || thu[3] != 9000 {
 		t.Fatalf("expected the current month's totals to carry through, got chi=%d thu=%d", chi[3], thu[3])

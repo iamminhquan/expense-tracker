@@ -11,8 +11,10 @@ import (
 )
 
 // TemplateFuncs returns the FuncMap every page template needs for
-// formatting money and dates per SPEC.md section 1: thousands-dot-separated
-// integers with a trailing ₫, and dd/mm/yyyy dates.
+// formatting money and dates. SPEC.md section 1 wrote these in Vietnamese
+// convention (dots for thousands, dd/mm/yyyy); with the UI in English they
+// are comma-separated and the month is spelled out -- see SPEC.md's English
+// formatting note.
 func TemplateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"vnd":        vnd,
@@ -25,8 +27,8 @@ func TemplateFuncs() template.FuncMap {
 	}
 }
 
-// vnd formats the magnitude of n as thousands-dot-separated đồng, e.g.
-// 50000 -> "50.000₫". The sign is never shown here; callers needing a sign
+// vnd formats the magnitude of n as comma-separated đồng, e.g.
+// 50000 -> "50,000₫". The sign is never shown here; callers needing a sign
 // use vndSigned (transaction rows) or vndBalance (a total that can itself
 // be negative).
 func vnd(n int64) string {
@@ -68,23 +70,27 @@ func formatThousands(n int64) string {
 		s = s[:len(s)-3]
 	}
 	parts = append([]string{s}, parts...)
-	return strings.Join(parts, ".")
+	return strings.Join(parts, ",")
 }
 
-// dateFull formats a DATE column as dd/mm/yyyy, e.g. "11/08/2026" -- used in
-// forms and the desktop transaction list's date column.
+// dateFull formats a DATE column as "11 Aug 2026" -- used in forms and the
+// desktop transaction list's date column.
+//
+// The month is spelled out rather than numeric because an English-reading
+// audience splits on what 11/08 means: British reads the day first, American
+// the month, and nothing in the string itself settles it.
 func dateFull(d pgtype.Date) string {
 	if !d.Valid {
 		return ""
 	}
-	return d.Time.Format("02/01/2006")
+	return d.Time.Format("02 Jan 2006")
 }
 
-// dateShort formats a DATE column as dd/mm, e.g. "11/08" -- used in the
-// transaction list row and mobile card.
+// dateShort formats a DATE column as "11 Aug" -- used in the transaction
+// list row and mobile card, where the year is implied by the month filter.
 func dateShort(d pgtype.Date) string {
 	if !d.Valid {
 		return ""
 	}
-	return d.Time.Format("02/01")
+	return d.Time.Format("02 Jan")
 }

@@ -60,7 +60,7 @@ func TestDashboardShowsMonthlyTotal(t *testing.T) {
 	if dashRec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", dashRec.Code, dashRec.Body.String())
 	}
-	if !strings.Contains(dashRec.Body.String(), "100.000") {
+	if !strings.Contains(dashRec.Body.String(), "100,000") {
 		t.Fatal("expected dashboard to reflect the new transaction's amount")
 	}
 }
@@ -109,11 +109,11 @@ func TestDashboardShowsPreviousMonthComparison(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "Tháng trước") {
+	if !strings.Contains(rec.Body.String(), "Last month") {
 		t.Fatalf("expected a previous-month comparison line, got: %s", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "giảm") {
-		t.Fatalf("expected 'giảm' (current 100.000 < previous 200.000), got: %s", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "down") {
+		t.Fatalf("expected 'down' (current 100,000 < previous 200,000), got: %s", rec.Body.String())
 	}
 }
 

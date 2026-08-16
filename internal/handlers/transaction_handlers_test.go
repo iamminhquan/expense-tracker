@@ -703,8 +703,8 @@ func TestCreateTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 	// The active (past) month's total is 40000+25000=65000 and count is 2.
 	// A handler still using currentMonthRange() would report today's month
 	// instead, which has no transactions for this fresh user (0₫, 0 count).
-	if !strings.Contains(body, "65.000") {
-		t.Fatalf("expected OOB totals to reflect the active past month's 65.000₫ total, got: %s", body)
+	if !strings.Contains(body, "65,000") {
+		t.Fatalf("expected OOB totals to reflect the active past month's 65,000₫ total, got: %s", body)
 	}
 	if !strings.Contains(body, "2 giao dịch") {
 		t.Fatalf("expected OOB totals count of 2 for the active past month, got: %s", body)
@@ -744,7 +744,7 @@ func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 		t.Fatalf("create past-month transaction: %v", err)
 	}
 	// A much larger current-month transaction: if the handler wrongly uses
-	// currentMonthRange(), its total will leak through as 99.000.
+	// currentMonthRange(), its total will leak through as 99,000.
 	if _, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
 		UserID: user.ID, CategoryID: category.ID, Amount: 99000, Type: "expense",
 		Description: "current month txn", OccurredOn: pgtype.Date{Time: time.Now(), Valid: true},
@@ -765,8 +765,8 @@ func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 		t.Fatalf("expected 200 deleting a transaction, got %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, "99.000") {
-		t.Fatalf("expected OOB totals to reflect the active past month (now empty), not leak the current month's 99.000₫ total, got: %s", body)
+	if strings.Contains(body, "99,000") {
+		t.Fatalf("expected OOB totals to reflect the active past month (now empty), not leak the current month's 99,000₫ total, got: %s", body)
 	}
 	if !strings.Contains(body, "0 giao dịch") {
 		t.Fatalf("expected OOB totals count of 0 for the now-empty active past month, got: %s", body)

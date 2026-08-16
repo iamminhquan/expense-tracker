@@ -188,18 +188,18 @@ func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart t
 }
 
 func shortMonthLabel(t time.Time) string {
-	return fmt.Sprintf("Th %d", int(t.Month()))
+	return t.Format("Jan")
 }
 
-// comparisonText builds SPEC.md section 5's "Tháng trước X · tăng/giảm Y%"
+// comparisonText builds SPEC.md section 5's "Last month X · up/down Y%"
 // line, or its "no data" fallback when the previous month had zero
 // transactions of any kind.
 func comparisonText(current, previous int64, hasPrevData bool) string {
 	if !hasPrevData {
-		return "Chưa có dữ liệu tháng trước"
+		return "No data for last month"
 	}
 	if previous == 0 {
-		return fmt.Sprintf("Tháng trước %s", vnd(previous))
+		return fmt.Sprintf("Last month %s", vnd(previous))
 	}
 	diff := current - previous
 	// Rounds to the nearest percent (matching percentOf's rounding above)
@@ -207,31 +207,31 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 	// too, not "12%".
 	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
 	if diff == 0 {
-		return fmt.Sprintf("Tháng trước %s · không đổi", vnd(previous))
+		return fmt.Sprintf("Last month %s · unchanged", vnd(previous))
 	}
-	direction := "tăng"
+	direction := "up"
 	if diff < 0 {
-		direction = "giảm"
+		direction = "down"
 	}
-	return fmt.Sprintf("Tháng trước %s · %s %d%%", vnd(previous), direction, pct)
+	return fmt.Sprintf("Last month %s · %s %d%%", vnd(previous), direction, pct)
 }
 
 // comparisonTextMobile builds SPEC.md section 5's mobile-only shortened
-// comparison line (e.g. "Giảm 11% so với tháng trước"), shown below 768px
-// in place of comparisonText's fuller "Tháng trước X · giảm Y%" -- the
-// amount is dropped to fit the narrower stat card.
+// comparison line (e.g. "Down 11% vs last month"), shown below 768px in
+// place of comparisonText's fuller "Last month X · down Y%" -- the amount is
+// dropped to fit the narrower stat card.
 func comparisonTextMobile(current, previous int64, hasPrevData bool) string {
 	if !hasPrevData || previous == 0 {
-		return "Chưa có dữ liệu tháng trước"
+		return "No data for last month"
 	}
 	diff := current - previous
 	if diff == 0 {
-		return "Không đổi so với tháng trước"
+		return "Unchanged vs last month"
 	}
 	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
-	direction := "Tăng"
+	direction := "Up"
 	if diff < 0 {
-		direction = "Giảm"
+		direction = "Down"
 	}
-	return fmt.Sprintf("%s %d%% so với tháng trước", direction, pct)
+	return fmt.Sprintf("%s %d%% vs last month", direction, pct)
 }
