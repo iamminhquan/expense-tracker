@@ -181,8 +181,17 @@ func (q *Queries) GetTransactionWithCategory(ctx context.Context, arg GetTransac
 	row := q.db.QueryRow(ctx, getTransactionWithCategory, arg.ID, arg.UserID)
 	var i GetTransactionWithCategoryRow
 	err := row.Scan(
-		&i.ID, &i.UserID, &i.CategoryID, &i.Amount, &i.Type, &i.Description,
-		&i.OccurredOn, &i.CreatedAt, &i.UpdatedAt, &i.CategoryName, &i.CategoryColor,
+		&i.ID,
+		&i.UserID,
+		&i.CategoryID,
+		&i.Amount,
+		&i.Type,
+		&i.Description,
+		&i.OccurredOn,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CategoryName,
+		&i.CategoryColor,
 	)
 	return i, err
 }

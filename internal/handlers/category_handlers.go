@@ -53,7 +53,7 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		rows, err := deps.Queries.ListCategoriesWithTransactionCounts(r.Context(), pgInt64(userID))
+		rows, err := deps.Queries.ListCategoriesWithTransactionCounts(r.Context(), userID)
 		if err != nil {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return
@@ -177,7 +177,7 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "invalid id", http.StatusBadRequest)
 			return
 		}
-		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: pgInt64(userID)})
+		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
@@ -198,7 +198,7 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "invalid id", http.StatusBadRequest)
 			return
 		}
-		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: pgInt64(userID)})
+		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return

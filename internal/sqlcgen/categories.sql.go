@@ -84,25 +84,6 @@ func (q *Queries) GetCategoryForUser(ctx context.Context, arg GetCategoryForUser
 	return i, err
 }
 
-const getDefaultCategoryForReassignment = `-- name: GetDefaultCategoryForReassignment :one
-SELECT id, user_id, name, type, color, created_at FROM categories
-WHERE user_id IS NULL AND type = 'expense' AND name = 'Khác'
-`
-
-func (q *Queries) GetDefaultCategoryForReassignment(ctx context.Context) (Category, error) {
-	row := q.db.QueryRow(ctx, getDefaultCategoryForReassignment)
-	var i Category
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Name,
-		&i.Type,
-		&i.Color,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const getCategoryWithTransactionCount = `-- name: GetCategoryWithTransactionCount :one
 SELECT c.id, c.user_id, c.name, c.type, c.color, c.created_at, COUNT(t.id) AS transaction_count
 FROM categories c
@@ -112,8 +93,8 @@ GROUP BY c.id
 `
 
 type GetCategoryWithTransactionCountParams struct {
-	ID     int64       `json:"id"`
-	UserID pgtype.Int8 `json:"user_id"`
+	ID     int64 `json:"id"`
+	UserID int64 `json:"user_id"`
 }
 
 type GetCategoryWithTransactionCountRow struct {
@@ -137,6 +118,25 @@ func (q *Queries) GetCategoryWithTransactionCount(ctx context.Context, arg GetCa
 		&i.Color,
 		&i.CreatedAt,
 		&i.TransactionCount,
+	)
+	return i, err
+}
+
+const getDefaultCategoryForReassignment = `-- name: GetDefaultCategoryForReassignment :one
+SELECT id, user_id, name, type, color, created_at FROM categories
+WHERE user_id IS NULL AND type = 'expense' AND name = 'Khác'
+`
+
+func (q *Queries) GetDefaultCategoryForReassignment(ctx context.Context) (Category, error) {
+	row := q.db.QueryRow(ctx, getDefaultCategoryForReassignment)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -193,7 +193,7 @@ type ListCategoriesWithTransactionCountsRow struct {
 	TransactionCount int64              `json:"transaction_count"`
 }
 
-func (q *Queries) ListCategoriesWithTransactionCounts(ctx context.Context, userID pgtype.Int8) ([]ListCategoriesWithTransactionCountsRow, error) {
+func (q *Queries) ListCategoriesWithTransactionCounts(ctx context.Context, userID int64) ([]ListCategoriesWithTransactionCountsRow, error) {
 	rows, err := q.db.Query(ctx, listCategoriesWithTransactionCounts, userID)
 	if err != nil {
 		return nil, err
