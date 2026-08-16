@@ -30,7 +30,10 @@
 
     function formatAmountInput(el) {
       var digits = el.value.replace(/\D/g, '');
-      el.value = digits ? Number(digits).toLocaleString('vi-VN') : '';
+      // en-US, not vi-VN: this is what the user watches appear as they type
+      // an amount, and it has to match the commas vnd() renders everywhere
+      // else on the page.
+      el.value = digits ? Number(digits).toLocaleString('en-US') : '';
     }
     document.addEventListener('input', function (evt) {
       if (evt.target.matches && evt.target.matches('input[name="amount"]')) {
