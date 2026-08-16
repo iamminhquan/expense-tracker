@@ -19,8 +19,8 @@
     </div>
   </div>
 
-  <div class="flex flex-col md:flex-row gap-3 md:gap-4">
-    <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+    <div class="bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
       <p class="text-[12px] font-medium text-ink-faint">Spent this month</p>
       <p class="font-mono text-[27px] md:text-[32px] font-semibold text-expense" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalExpense}}{{end}}</p>
       {{if not .CurrentMonthEmpty}}
@@ -28,7 +28,7 @@
       <p class="hidden md:block text-[12px] text-ink-faint">{{.ExpenseComparison}}</p>
       {{end}}
     </div>
-    <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
+    <div class="bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
       <p class="text-[12px] font-medium text-ink-faint">Earned this month</p>
       <p class="font-mono text-[27px] md:text-[32px] font-semibold text-income" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalIncome}}{{end}}</p>
       {{if not .CurrentMonthEmpty}}
@@ -45,14 +45,14 @@
     <a href="/transactions" class="inline-block mt-3 text-[13px] text-accent font-medium">Add a transaction</a>
   </div>
   {{else}}
-  <div class="flex flex-col md:flex-row md:items-stretch gap-4">
-    <div class="flex-1 bg-surface border border-border-card rounded-xl p-[18px]">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+    <div class="bg-surface border border-border-card rounded-xl p-[18px]">
       <p class="text-[13px] font-semibold text-ink mb-3">Spending by category</p>
       {{if .CurrentMonthEmpty}}
       <p class="text-[13px] text-ink-faint text-center py-8">No spending this month</p>
       {{else}}
       <div class="flex items-center gap-4">
-        <div class="relative w-[108px] h-[108px] md:w-[150px] md:h-[150px] shrink-0">
+        <div class="relative w-[108px] h-[108px] md:w-[120px] md:h-[120px] shrink-0">
           <canvas id="pie-chart"></canvas>
         </div>
         <div class="flex-1 flex flex-col gap-[9px] min-w-0">
@@ -61,14 +61,14 @@
             <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span>
             <span class="flex-1 min-w-0 truncate text-ink-muted">{{.Name}}</span>
             <span class="font-mono text-ink-faintest w-[34px] text-right shrink-0">{{.Percent}}</span>
-            <span class="hidden md:inline font-mono font-medium w-[86px] text-right shrink-0">{{.Amount}}</span>
+            <span class="hidden lg:inline font-mono font-medium w-[78px] text-right shrink-0">{{.Amount}}</span>
           </div>
           {{end}}
         </div>
       </div>
       {{end}}
     </div>
-    <div class="flex-1 bg-surface border border-border-card rounded-xl p-[18px]">
+    <div class="bg-surface border border-border-card rounded-xl p-[18px]">
       <div class="flex items-center justify-between mb-3">
         <p class="text-[13px] font-semibold text-ink">Last 4 months</p>
         <div class="flex items-center gap-3">
