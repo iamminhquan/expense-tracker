@@ -10,6 +10,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Playfair Display 800 is the wordmark font and nothing else. It ships as
+       its own request rather than joining the line above because Google Fonts'
+       &text= subsetting applies to every family in a URL, and cutting the UI
+       and money fonts down to five glyphs would break the whole page. -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@800&text=%24pend&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4"></script>
   <script>
@@ -319,6 +324,19 @@
   </script>
   <style>
     .font-mono { font-variant-numeric: tabular-nums; }
+
+    /* The "$pend" wordmark -- everything but the size, which each call site
+       sets. line-height is pinned so the box keeps its height while Playfair
+       is still loading and Georgia stands in, and the colour comes from the
+       ink token so the mark inverts with the palette instead of staying
+       near-black on the dark background. */
+    .wordmark {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1;
+      color: rgb(var(--c-ink));
+    }
   </style>
 </head>
 <body class="bg-app text-ink font-sans antialiased" hx-boost="true">
@@ -329,6 +347,17 @@
   {{if .ShowNav}}{{template "nav_mobile" .}}{{end}}
 </body>
 </html>
+{{end}}
+
+{{/* Wordmark, two variants. "logo_nav" is the clickable one in the top bars
+     (18px on mobile, 19px on desktop -- each bar only renders at one of the
+     two breakpoints); "logo_auth" is the static one on login/register. */}}
+{{define "logo_nav"}}
+<a href="/dashboard" class="wordmark shrink-0 text-[18px] md:text-[19px]" aria-label="$pend — Sổ chi tiêu">$pend</a>
+{{end}}
+
+{{define "logo_auth"}}
+<span role="img" aria-label="$pend — Sổ chi tiêu" class="wordmark text-[34px] md:text-[38px]">$pend</span>
 {{end}}
 
 {{define "user_menu"}}
@@ -369,12 +398,7 @@
 
 {{define "nav_desktop"}}
 <nav class="hidden md:flex items-center h-[60px] bg-surface border-b border-border-nav sticky top-0 z-40 px-9 gap-10">
-  <a href="/dashboard" class="flex items-center gap-2 shrink-0">
-    <span class="w-[18px] h-[18px] rounded-[5px] bg-accent flex items-center justify-center shrink-0">
-      <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="white"><path fill-rule="evenodd" d="M12 4a8 8 0 100 16 8 8 0 000-16zM12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z" clip-rule="evenodd"/></svg>
-    </span>
-    <span class="text-sm font-semibold text-ink">Sổ chi tiêu</span>
-  </a>
+  {{template "logo_nav" .}}
   <div class="flex items-center gap-2">
     <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
     <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
@@ -386,12 +410,7 @@
 
 {{define "nav_mobile_header"}}
 <header class="md:hidden flex items-center justify-between h-[52px] px-4 bg-surface border-b border-border-nav sticky top-0 z-40">
-  <a href="/dashboard" class="flex items-center gap-2">
-    <span class="w-[16px] h-[16px] rounded-[5px] bg-accent flex items-center justify-center shrink-0">
-      <svg class="w-[11px] h-[11px]" viewBox="0 0 24 24" fill="white"><path fill-rule="evenodd" d="M12 4a8 8 0 100 16 8 8 0 000-16zM12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z" clip-rule="evenodd"/></svg>
-    </span>
-    <span class="text-[14px] font-semibold text-ink">Sổ chi tiêu</span>
-  </a>
+  {{template "logo_nav" .}}
   {{template "user_menu" .}}
 </header>
 {{end}}
