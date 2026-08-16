@@ -11,9 +11,9 @@
     <div class="relative">
       <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
       <div class="hidden absolute right-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
-        <button type="button" hx-get="/dashboard?thang={{.CurrentMonthValue}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">Tháng này</button>
+        <button type="button" hx-get="/dashboard?month={{.CurrentMonthValue}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
         {{range .AvailableMonths}}
-        <button type="button" hx-get="/dashboard?thang={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
+        <button type="button" hx-get="/dashboard?month={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
         {{end}}
       </div>
     </div>
@@ -21,7 +21,7 @@
 
   <div class="flex flex-col md:flex-row gap-3 md:gap-4">
     <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
-      <p class="text-[12px] font-medium text-ink-faint">Tổng chi tháng này</p>
+      <p class="text-[12px] font-medium text-ink-faint">Spent this month</p>
       <p class="font-mono text-[27px] md:text-[32px] font-semibold text-expense" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalExpense}}{{end}}</p>
       {{if not .CurrentMonthEmpty}}
       <p class="text-[12px] text-ink-faint md:hidden">{{.ExpenseComparisonMobile}}</p>
@@ -29,7 +29,7 @@
       {{end}}
     </div>
     <div class="flex-1 bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
-      <p class="text-[12px] font-medium text-ink-faint">Tổng thu tháng này</p>
+      <p class="text-[12px] font-medium text-ink-faint">Earned this month</p>
       <p class="font-mono text-[27px] md:text-[32px] font-semibold text-income" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalIncome}}{{end}}</p>
       {{if not .CurrentMonthEmpty}}
       <p class="text-[12px] text-ink-faint md:hidden">{{.IncomeComparisonMobile}}</p>
@@ -40,16 +40,16 @@
 
   {{if and .CurrentMonthEmpty (not .HasAnyMonthData)}}
   <div class="bg-surface border border-border-card rounded-xl text-center py-11 px-7">
-    <p class="text-[15px] font-semibold text-ink">Chưa đủ dữ liệu để vẽ biểu đồ</p>
-    <p class="text-[13px] text-ink-faint mt-1">Hai thẻ số liệu vẫn hiển thị 0₫. Biểu đồ xuất hiện sau giao dịch đầu tiên.</p>
-    <a href="/transactions" class="inline-block mt-3 text-[13px] text-accent font-medium">Thêm giao dịch</a>
+    <p class="text-[15px] font-semibold text-ink">Not enough data to chart yet</p>
+    <p class="text-[13px] text-ink-faint mt-1">Both totals still read 0₫. Charts appear once you add your first transaction.</p>
+    <a href="/transactions" class="inline-block mt-3 text-[13px] text-accent font-medium">Add a transaction</a>
   </div>
   {{else}}
   <div class="flex flex-col md:flex-row md:items-stretch gap-4">
     <div class="flex-1 bg-surface border border-border-card rounded-xl p-[18px]">
-      <p class="text-[13px] font-semibold text-ink mb-3">Chi theo danh mục</p>
+      <p class="text-[13px] font-semibold text-ink mb-3">Spending by category</p>
       {{if .CurrentMonthEmpty}}
-      <p class="text-[13px] text-ink-faint text-center py-8">Chưa có chi tiêu tháng này</p>
+      <p class="text-[13px] text-ink-faint text-center py-8">No spending this month</p>
       {{else}}
       <div class="flex items-center gap-4">
         <div class="relative w-[108px] h-[108px] md:w-[150px] md:h-[150px] shrink-0">
@@ -70,10 +70,10 @@
     </div>
     <div class="flex-1 bg-surface border border-border-card rounded-xl p-[18px]">
       <div class="flex items-center justify-between mb-3">
-        <p class="text-[13px] font-semibold text-ink">4 tháng gần nhất</p>
+        <p class="text-[13px] font-semibold text-ink">Last 4 months</p>
         <div class="flex items-center gap-3">
-          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px] bg-expense"></span>Chi</span>
-          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px] bg-income"></span>Thu</span>
+          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px] bg-expense"></span>Spent</span>
+          <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px] bg-income"></span>Earned</span>
         </div>
       </div>
       <canvas id="bar-chart" class="w-full h-[118px] md:h-[158px]"></canvas>

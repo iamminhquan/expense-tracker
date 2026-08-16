@@ -200,7 +200,7 @@ func TestLoginSuccessSendsHXRedirect(t *testing.T) {
 	}
 }
 
-// TestRegisterPasswordMismatchShowsError covers the new "Nhập lại mật khẩu"
+// TestRegisterPasswordMismatchShowsError covers the new "Confirm password"
 // field SPEC.md section 2 adds to the register tab.
 func TestRegisterPasswordMismatchShowsError(t *testing.T) {
 	deps := newTestDeps(t)
@@ -220,7 +220,7 @@ func TestRegisterPasswordMismatchShowsError(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 re-rendering the form, got %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "Mật khẩu nhập lại không khớp") {
+	if !strings.Contains(rec.Body.String(), "The two passwords do not match") {
 		t.Fatalf("expected password-mismatch error, got: %s", rec.Body.String())
 	}
 	if _, err := deps.Queries.GetUserByEmail(context.Background(), email); err == nil {
@@ -291,7 +291,7 @@ func TestRegisterValidatesInput(t *testing.T) {
 
 // TestRegisterDuplicateEmailShowsSpecificMessage covers the other half of
 // Finding 4: only a real unique-constraint violation (Postgres code 23505)
-// should show "Email đã được sử dụng" -- other CreateUser errors must not
+// should show "That email is already registered" -- other CreateUser errors must not
 // be misreported as that.
 func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 	deps := newTestDeps(t)
@@ -322,7 +322,7 @@ func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 	if dupRec.Code != http.StatusOK {
 		t.Fatalf("expected duplicate registration to re-render the form with 200, got %d: %s", dupRec.Code, dupRec.Body.String())
 	}
-	if !strings.Contains(dupRec.Body.String(), "Email này đã được dùng.") {
+	if !strings.Contains(dupRec.Body.String(), "That email is already registered.") {
 		t.Fatalf("expected duplicate-email message, got: %s", dupRec.Body.String())
 	}
 }

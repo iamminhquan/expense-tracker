@@ -99,7 +99,7 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	}
 
 	if name == "" {
-		fail("Vui lòng nhập tên danh mục.")
+		fail("Please enter a category name.")
 		return
 	}
 	if typ != "expense" && typ != "income" {
@@ -120,11 +120,11 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			fail("Đã có danh mục tên này.")
+			fail("You already have a category with that name.")
 			return
 		}
 		log.Printf("create category: %v", err)
-		fail("Không thể tạo danh mục, vui lòng thử lại.")
+		fail("Could not create the category, please try again.")
 		return
 	}
 
@@ -155,7 +155,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 
 		// UpdateCategoryColor's WHERE clause matches a row owned by this
 		// user OR a shared default (user_id IS NULL) -- SPEC.md section 4.1
-		// explicitly lets defaults have a working "Đổi màu" action with no
+		// explicitly lets defaults have a working "Change color" action with no
 		// ownership carve-out, unlike rename/delete.
 		updated, err := deps.Queries.UpdateCategoryColor(r.Context(), sqlcgen.UpdateCategoryColorParams{
 			ID: id, UserID: pgInt64(userID), Color: color,
@@ -233,7 +233,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		name := strings.TrimSpace(r.FormValue("name"))
 		if name == "" {
 			data := categoryRowData(existing.ID, existing.UserID, existing.Slug, existing.Name, existing.Type, existing.Color, 0, "")
-			data["Error"] = "Vui lòng nhập tên danh mục."
+			data["Error"] = "Please enter a category name."
 			renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
 			return
 		}
@@ -243,7 +243,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				data := categoryRowData(existing.ID, existing.UserID, existing.Slug, name, existing.Type, existing.Color, 0, "")
-				data["Error"] = "Đã có danh mục tên này."
+				data["Error"] = "You already have a category with that name."
 				renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
 				return
 			}

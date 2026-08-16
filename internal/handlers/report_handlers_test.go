@@ -130,7 +130,7 @@ func TestDashboardEmptyStateWhenNoTransactions(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "Chưa đủ dữ liệu để vẽ biểu đồ") {
+	if !strings.Contains(rec.Body.String(), "Not enough data to chart yet") {
 		t.Fatalf("expected the empty-state message for a brand-new user with no transactions, got: %s", rec.Body.String())
 	}
 }

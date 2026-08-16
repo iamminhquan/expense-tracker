@@ -27,7 +27,7 @@ func dashboardPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
 
-		data, err := buildDashboardData(r, deps, userID, r.URL.Query().Get("thang"))
+		data, err := buildDashboardData(r, deps, userID, r.URL.Query().Get("month"))
 		if err != nil {
 			http.Error(w, "could not load dashboard", http.StatusInternalServerError)
 			return

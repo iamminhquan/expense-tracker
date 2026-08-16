@@ -7,8 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A server-rendered expense tracker (Go monolith) for personal/family use. Each
 user has their own account and tracks income/expenses independently — no
 bill-splitting or shared budgets. Amounts are stored and displayed in VND as
-plain integers (no decimals). Categories are either personal (created by a
-user) or shared defaults seeded by migrations (Ăn uống, Di chuyển, Lương, ...).
+plain integers (no decimals). The UI is in English. Categories are either
+personal (created by a user) or shared defaults seeded by migrations (Food &
+Drink, Transport, Salary, ...); a default carries a `slug` and renders through
+`internal/i18n`'s `CategoryName`, while a personal one has a NULL slug and
+renders the name its owner typed. Nothing may identify a default category by
+its displayed name — match on the slug.
 
 Stack: `chi` router, `html/template` server-rendered pages + htmx for partial
 updates, PostgreSQL via `sqlc`-generated queries (`pgx/v5`), Chart.js (CDN)
@@ -82,9 +86,15 @@ by page name. `internal/handlers/render.go` has two entry points:
 
 Money/date formatting helpers (`vnd`, `vndSigned`, `vndBalance`, `dateFull`,
 `dateShort`) live in `internal/handlers/format.go` and are registered as
-template funcs via `handlers.TemplateFuncs()`; the formatting rules (dots as
-thousands separators, trailing ₫, dd/mm/yyyy) come from
-`docs/design/design_handoff_expense_tracker/SPEC.md`.
+template funcs via `handlers.TemplateFuncs()`, alongside `catName`
+(`i18n.CategoryName`). The rules are commas for thousands, a trailing ₫, and a
+spelled-out month (`11 Aug 2026`) — `docs/design/design_handoff_expense_tracker/SPEC.md`
+still states the original Vietnamese convention and carries a dated note
+recording what replaced it.
+
+Only category names go through `internal/i18n`. Every other string is written
+in English directly in the template or handler that shows it; there is no
+message catalog, and a language switcher would be a separate piece of work.
 
 **Theming**: All colour flows through CSS variables declared in
 `layout.html`'s `<style>` block and referenced from `tailwind.config` as

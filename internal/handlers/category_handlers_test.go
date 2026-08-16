@@ -116,12 +116,12 @@ func TestDeleteExpenseCategoryReassignsTransactions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get reassigned transaction: %v", err)
 	}
-	khac, err := deps.Queries.GetDefaultCategoryForReassignment(ctx)
+	other, err := deps.Queries.GetDefaultCategoryForReassignment(ctx)
 	if err != nil {
-		t.Fatalf("get Khác default: %v", err)
+		t.Fatalf("get Other default: %v", err)
 	}
-	if moved.CategoryID != khac.ID {
-		t.Fatalf("expected transaction to be reassigned to Khác (id %d), got category_id %d", khac.ID, moved.CategoryID)
+	if moved.CategoryID != other.ID {
+		t.Fatalf("expected transaction to be reassigned to Other (id %d), got category_id %d", other.ID, moved.CategoryID)
 	}
 	if _, err := deps.Queries.GetCategoryForUser(ctx, sqlcgen.GetCategoryForUserParams{ID: category.ID, UserID: pgtype.Int8{Int64: user.ID, Valid: true}}); err == nil {
 		t.Fatal("expected the deleted category to no longer exist")
@@ -245,7 +245,7 @@ func TestUpdateCategoryColorAppliesToDefaultCategory(t *testing.T) {
 }
 
 // TestCategoryEmptyStateHidesOnCreateAndReappearsOnDelete covers Finding 4
-// from the final review: the "Bạn chưa tạo danh mục riêng" empty-state
+// from the final review: the "You haven't created any categories yet" empty-state
 // block is a sibling of the category list, not inside it, so creating the
 // first custom category (an OOB insert into the list) used to leave the
 // empty-state message showing alongside the new row until a manual reload.
@@ -260,7 +260,7 @@ func TestCategoryEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
 	listReq.AddCookie(cookie)
 	listRec := httptest.NewRecorder()
 	router.ServeHTTP(listRec, listReq)
-	if !strings.Contains(listRec.Body.String(), "Bạn chưa tạo danh mục riêng") {
+	if !strings.Contains(listRec.Body.String(), "created any categories yet") {
 		t.Fatal("expected the empty state message before any custom category exists")
 	}
 
@@ -279,7 +279,7 @@ func TestCategoryEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
 	if !strings.Contains(createRec.Body.String(), `id="categories-empty" hx-swap-oob="true"`) {
 		t.Fatalf("expected the create response to include an OOB update targeting #categories-empty, got: %s", createRec.Body.String())
 	}
-	if strings.Contains(createRec.Body.String(), "Bạn chưa tạo danh mục riêng") {
+	if strings.Contains(createRec.Body.String(), "created any categories yet") {
 		t.Fatalf("expected the create response's empty-state OOB fragment to be cleared, got: %s", createRec.Body.String())
 	}
 
@@ -307,7 +307,7 @@ func TestCategoryEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
 	if deleteRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 deleting category, got %d: %s", deleteRec.Code, deleteRec.Body.String())
 	}
-	if !strings.Contains(deleteRec.Body.String(), "Bạn chưa tạo danh mục riêng") {
+	if !strings.Contains(deleteRec.Body.String(), "created any categories yet") {
 		t.Fatalf("expected the delete response's OOB fragment to bring back the empty state, got: %s", deleteRec.Body.String())
 	}
 }

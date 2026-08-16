@@ -100,6 +100,23 @@ luôn có dấu.
 
 Ngày: `11/08/2026` trong form và cột ngày desktop; `11/08` trong dòng giao dịch.
 
+> **Cập nhật 2026-08-16 — giao diện chuyển sang tiếng Anh.** Toàn bộ mục
+> "Format tiền" ở trên mô tả quy ước Việt và **không còn đúng với code**. Quy
+> ước hiện hành:
+>
+> - Tiền: dấu **phẩy** phân cách nghìn — `50,000₫`, `-85,000₫`, `+18,500,000₫`.
+>   Ký hiệu `₫` vẫn liền sau số, vẫn không có phần thập phân.
+> - Ngày: `11 Aug 2026` trong form và cột ngày desktop, `11 Aug` trong dòng
+>   giao dịch. Tháng viết chữ để `11/08` không bị đọc thành hai ngày khác nhau
+>   tuỳ người đọc là Anh hay Mỹ.
+> - Nhãn tháng: `August 2026`; trục biểu đồ cột: `Aug`.
+> - Dòng so sánh: `Last month 12,150,000₫ · down 11%`, bản mobile
+>   `Down 11% vs last month`.
+>
+> Mọi chuỗi tiếng Việt còn lại trong tài liệu này là bản gốc của thiết kế, giữ
+> nguyên làm tham chiếu; bản dịch tiếng Anh nằm trong template. Xem
+> `docs/superpowers/specs/2026-08-16-english-ui-design.md`.
+
 ---
 
 ## 2. Màn hình: Đăng nhập / Đăng ký

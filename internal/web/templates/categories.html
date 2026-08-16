@@ -1,20 +1,20 @@
 {{define "content"}}
 <div class="max-w-[880px] mx-auto px-6 pt-7 pb-0 md:pb-9 flex flex-col gap-5">
-  <h1 class="hidden md:block text-[18px] font-semibold text-ink">Danh mục</h1>
+  <h1 class="hidden md:block text-[18px] font-semibold text-ink">Categories</h1>
   <div class="md:hidden flex items-center justify-between">
-    <h1 class="text-[19px] font-semibold text-ink">Danh mục</h1>
+    <h1 class="text-[19px] font-semibold text-ink">Categories</h1>
   </div>
 
   <div class="flex flex-col md:flex-row gap-5">
     <div class="flex-1 flex flex-col gap-5">
       <div>
-        <p class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Chi</p>
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Expense</p>
         <div id="category-list-expense" class="bg-surface border border-border-card rounded-xl">
           {{range .ExpenseCategories}}{{template "category_row" .}}{{end}}
         </div>
       </div>
       <div>
-        <p class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Thu</p>
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Income</p>
         <div id="category-list-income" class="bg-surface border border-border-card rounded-xl">
           {{range .IncomeCategories}}{{template "category_row" .}}{{end}}
         </div>
@@ -23,14 +23,14 @@
       <div id="categories-empty">
         {{if not .HasCustomCategories}}
         <div class="text-center py-11 px-7">
-          <p class="text-[13px] text-ink-faint">Bạn chưa tạo danh mục riêng</p>
-          <p class="text-[13px] text-ink-faint mt-1">9 danh mục mặc định đã sẵn sàng. Tạo thêm khi bạn cần theo dõi khoản chi riêng.</p>
+          <p class="text-[13px] text-ink-faint">You haven't created any categories yet</p>
+          <p class="text-[13px] text-ink-faint mt-1">The 9 defaults are ready to use. Add your own when you want to track something specific.</p>
         </div>
         {{end}}
       </div>
 
       <button type="button" onclick="openAddCategorySheet()"
-        class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-on-solid text-[15px] font-semibold">Thêm danh mục</button>
+        class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-on-solid text-[15px] font-semibold">Add category</button>
     </div>
 
     <div class="md:w-[300px] md:sticky md:top-[78px] md:self-start">
@@ -61,22 +61,22 @@
 
 {{define "add_category_form"}}
 <div id="add-category-form" class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
-  <p class="text-[14px] font-semibold text-ink">Thêm danh mục</p>
+  <p class="text-[14px] font-semibold text-ink">Add category</p>
   <form hx-post="/categories" hx-swap="none" hx-on::after-request="if(event.detail.successful) this.querySelector('[name=name]').value=''" class="flex flex-col gap-[15px]">
     <div class="flex flex-col gap-[6px]">
-      <label class="text-[12px] font-medium text-ink-muted" for="new-category-name">Tên danh mục</label>
-      <input id="new-category-name" name="name" value="{{.CategoryName}}" placeholder="VD: Học phí" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="new-category-name">Category name</label>
+      <input id="new-category-name" name="name" value="{{.CategoryName}}" placeholder="e.g. Tuition" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
       {{if .CategoryError}}<span class="text-[12px] text-expense">{{.CategoryError}}</span>{{end}}
     </div>
     <div class="flex flex-col gap-[6px]">
-      <label class="text-[12px] font-medium text-ink-muted">Loại</label>
+      <label class="text-[12px] font-medium text-ink-muted">Type</label>
       <div class="flex bg-track rounded-lg p-[3px] gap-1">
-        <label class="flex-1"><input type="radio" name="type" value="expense" {{if ne .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Chi</span></label>
-        <label class="flex-1"><input type="radio" name="type" value="income" {{if eq .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Thu</span></label>
+        <label class="flex-1"><input type="radio" name="type" value="expense" {{if ne .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Expense</span></label>
+        <label class="flex-1"><input type="radio" name="type" value="income" {{if eq .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Income</span></label>
       </div>
     </div>
     <div class="flex flex-col gap-[6px]">
-      <label class="text-[12px] font-medium text-ink-muted">Màu</label>
+      <label class="text-[12px] font-medium text-ink-muted">Color</label>
       <div class="flex flex-wrap gap-2">
         {{range $i, $swatch := swatches}}
         <label class="w-[26px] h-[26px] rounded-full flex items-center justify-center border-2 border-transparent has-[:checked]:border-accent">
@@ -86,8 +86,8 @@
         {{end}}
       </div>
     </div>
-    <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Thêm danh mục</button>
-    <p class="text-[12px] text-placeholder">Danh mục mặc định không thể xóa, chỉ đổi được màu.</p>
+    <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Add category</button>
+    <p class="text-[12px] text-placeholder">Default categories can be recolored but not deleted.</p>
   </form>
 </div>
 {{end}}
