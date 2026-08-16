@@ -2,12 +2,11 @@
 <div class="min-h-screen flex items-center justify-center px-5 py-12 md:py-[72px]">
   <div class="w-full max-w-[380px] flex flex-col gap-5">
     <div class="hidden md:flex flex-col items-center gap-2">
-      <span class="w-[30px] h-[30px] rounded-[9px] bg-accent block"></span>
-      <p class="text-[17px] font-semibold text-ink">Sổ chi tiêu</p>
+      {{template "logo_auth" .}}
       <p class="text-[13px] text-ink-faint">Ghi lại thu chi hằng ngày của bạn</p>
     </div>
-    <div class="md:hidden flex flex-col gap-3">
-      <span class="w-[34px] h-[34px] rounded-[9px] bg-accent block"></span>
+    <div class="md:hidden flex flex-col gap-[10px]">
+      {{template "logo_auth" .}}
       <p class="text-[22px] font-semibold text-ink">{{if eq .Tab "register"}}Đăng ký{{else}}Đăng nhập{{end}}</p>
     </div>
     <div id="auth-card" class="flex flex-col gap-4 md:border md:border-border-card md:rounded-xl md:p-[22px]">
