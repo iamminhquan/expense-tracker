@@ -27,7 +27,7 @@ RETURNING *;
 
 -- name: GetDefaultCategoryForReassignment :one
 SELECT * FROM categories
-WHERE user_id IS NULL AND type = 'expense' AND name = 'Khác';
+WHERE slug = 'other';
 
 -- name: ListCategoriesWithTransactionCounts :many
 SELECT c.*, COUNT(t.id) AS transaction_count

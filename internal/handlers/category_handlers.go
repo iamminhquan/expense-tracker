@@ -16,8 +16,8 @@ import (
 
 // categorySwatches is the fixed 8-color palette SPEC.md section 1 offers in
 // the category color picker. #A1A1AA (the 9th seeded color) is deliberately
-// excluded here -- it's reserved for the "Khác" default and the chart's
-// synthetic "Khác" aggregation, never user-selectable.
+// excluded here -- it's reserved for the "Other" default and the chart's
+// synthetic "Other" aggregation, never user-selectable.
 var categorySwatches = []string{
 	"#D97757", "#5B8DEF", "#8B7BD8", "#6BA292",
 	"#E0A82E", "#D97AA0", "#4FA871", "#7CA65C",
@@ -37,9 +37,13 @@ func isValidSwatch(color string) bool {
 // row goes through this so the template never has to distinguish a raw
 // sqlc struct from a hand-built one -- see Task 4's design notes for why
 // that distinction matters for the optional OOBTarget field.
-func categoryRowData(id int64, userID pgtype.Int8, name, typ, color string, txnCount int64, oobTarget string) map[string]any {
+// slug is what tells a shared default apart from a category the user made:
+// the template resolves the display name through catName, which needs it,
+// and a map key that is simply absent makes html/template fail the whole
+// render rather than fall back -- so every path must pass it, NULL included.
+func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, color string, txnCount int64, oobTarget string) map[string]any {
 	return map[string]any{
-		"ID": id, "UserID": userID, "Name": name, "Type": typ, "Color": color,
+		"ID": id, "UserID": userID, "Slug": slug, "Name": name, "Type": typ, "Color": color,
 		"TransactionCount": txnCount, "OOBTarget": oobTarget,
 	}
 }
@@ -53,7 +57,7 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		rows, err := deps.Queries.ListCategoriesWithTransactionCounts(r.Context(), pgInt64(userID))
+		rows, err := deps.Queries.ListCategoriesWithTransactionCounts(r.Context(), userID)
 		if err != nil {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return
@@ -62,7 +66,7 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 		var expense, income []map[string]any
 		hasCustom := false
 		for _, row := range rows {
-			data := categoryRowData(row.ID, row.UserID, row.Name, row.Type, row.Color, row.TransactionCount, "")
+			data := categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount, "")
 			if row.Type == "expense" {
 				expense = append(expense, data)
 			} else {
@@ -95,7 +99,7 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	}
 
 	if name == "" {
-		fail("Vui lòng nhập tên danh mục.")
+		fail("Please enter a category name.")
 		return
 	}
 	if typ != "expense" && typ != "income" {
@@ -116,17 +120,17 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			fail("Đã có danh mục tên này.")
+			fail("You already have a category with that name.")
 			return
 		}
 		log.Printf("create category: %v", err)
-		fail("Không thể tạo danh mục, vui lòng thử lại.")
+		fail("Could not create the category, please try again.")
 		return
 	}
 
 	renderNamed(w, r, deps, "categories", "category_create_response", "", map[string]any{
 		"Row": categoryRowData(
-			created.ID, created.UserID, created.Name, created.Type, created.Color, 0, "#category-list-"+created.Type,
+			created.ID, created.UserID, created.Slug, created.Name, created.Type, created.Color, 0, "#category-list-"+created.Type,
 		),
 		// Creating a category always means the user now has at least one
 		// custom category, so the "no custom categories yet" empty state
@@ -151,7 +155,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 
 		// UpdateCategoryColor's WHERE clause matches a row owned by this
 		// user OR a shared default (user_id IS NULL) -- SPEC.md section 4.1
-		// explicitly lets defaults have a working "Đổi màu" action with no
+		// explicitly lets defaults have a working "Change color" action with no
 		// ownership carve-out, unlike rename/delete.
 		updated, err := deps.Queries.UpdateCategoryColor(r.Context(), sqlcgen.UpdateCategoryColorParams{
 			ID: id, UserID: pgInt64(userID), Color: color,
@@ -165,7 +169,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category color: count transactions: %v", err)
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Name, updated.Type, updated.Color, count, ""))
+		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count, ""))
 	}
 }
 
@@ -177,7 +181,7 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "invalid id", http.StatusBadRequest)
 			return
 		}
-		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: pgInt64(userID)})
+		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
@@ -186,7 +190,7 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "default categories cannot be renamed", http.StatusForbidden)
 			return
 		}
-		renderNamed(w, r, deps, "categories", "category_row_edit", "", categoryRowData(row.ID, row.UserID, row.Name, row.Type, row.Color, row.TransactionCount, ""))
+		renderNamed(w, r, deps, "categories", "category_row_edit", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount, ""))
 	}
 }
 
@@ -198,12 +202,12 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "invalid id", http.StatusBadRequest)
 			return
 		}
-		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: pgInt64(userID)})
+		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(row.ID, row.UserID, row.Name, row.Type, row.Color, row.TransactionCount, ""))
+		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount, ""))
 	}
 }
 
@@ -228,8 +232,8 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 
 		name := strings.TrimSpace(r.FormValue("name"))
 		if name == "" {
-			data := categoryRowData(existing.ID, existing.UserID, existing.Name, existing.Type, existing.Color, 0, "")
-			data["Error"] = "Vui lòng nhập tên danh mục."
+			data := categoryRowData(existing.ID, existing.UserID, existing.Slug, existing.Name, existing.Type, existing.Color, 0, "")
+			data["Error"] = "Please enter a category name."
 			renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
 			return
 		}
@@ -238,8 +242,8 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				data := categoryRowData(existing.ID, existing.UserID, name, existing.Type, existing.Color, 0, "")
-				data["Error"] = "Đã có danh mục tên này."
+				data := categoryRowData(existing.ID, existing.UserID, existing.Slug, name, existing.Type, existing.Color, 0, "")
+				data["Error"] = "You already have a category with that name."
 				renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
 				return
 			}
@@ -252,7 +256,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category name: count transactions: %v", err)
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Name, updated.Type, updated.Color, count, ""))
+		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count, ""))
 	}
 }
 
@@ -307,7 +311,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if count > 0 && category.Type == "income" {
-			// No income-side "Khác" exists in the 9-category default set to
+			// No income-side "Other" exists in the 9-category default set to
 			// reassign into (confirmed with the human via AskUserQuestion),
 			// so an income category with existing transactions can't be
 			// deleted at all.
@@ -326,7 +330,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 
 			khac, err := qtx.GetDefaultCategoryForReassignment(r.Context())
 			if err != nil {
-				log.Printf("delete category: load Khác default: %v", err)
+				log.Printf("delete category: load Other default: %v", err)
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
 			}

@@ -249,7 +249,7 @@ func TestCreateTransactionRejectsTypeCategoryMismatch(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 re-rendering with a validation error, got %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "không khớp") {
+	if !strings.Contains(rec.Body.String(), "does not match") {
 		t.Fatalf("expected a type/category mismatch error, got: %s", rec.Body.String())
 	}
 	if got := rec.Header().Get("HX-Retarget"); got != "#quick-add-form-wrapper" {
@@ -297,7 +297,7 @@ func TestCreateTransactionConsecutiveDesktopValidationErrorsBothRetarget(t *test
 		if got := rec.Header().Get("HX-Retarget"); got != "#quick-add-form-wrapper" {
 			t.Fatalf("%s submission: expected HX-Retarget: #quick-add-form-wrapper, got %q", label, got)
 		}
-		if !strings.Contains(rec.Body.String(), "không khớp") {
+		if !strings.Contains(rec.Body.String(), "does not match") {
 			t.Fatalf("%s submission: expected a type/category mismatch error, got: %s", label, rec.Body.String())
 		}
 		// The swapped-in fragment must itself carry the wrapper's id and
@@ -348,7 +348,7 @@ func TestCreateTransactionRejectsLongDescription(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 re-rendering with a validation error, got %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "200 ký tự") {
+	if !strings.Contains(rec.Body.String(), "200 characters") {
 		t.Fatalf("expected a description-length error, got: %s", rec.Body.String())
 	}
 }
@@ -387,7 +387,7 @@ func TestCreateTransactionRejectsFarFutureDate(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 re-rendering with a validation error, got %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "tương lai") {
+	if !strings.Contains(rec.Body.String(), "too far in the future") {
 		t.Fatalf("expected a far-future-date error, got: %s", rec.Body.String())
 	}
 }
@@ -430,12 +430,12 @@ func TestTransactionsPageFiltersByMonthParam(t *testing.T) {
 	}
 
 	monthParam := pastMonth.Format("2006-01")
-	pastReq := httptest.NewRequest(http.MethodGet, "/transactions?thang="+monthParam, nil)
+	pastReq := httptest.NewRequest(http.MethodGet, "/transactions?month="+monthParam, nil)
 	pastReq.AddCookie(cookie)
 	pastRec := httptest.NewRecorder()
 	router.ServeHTTP(pastRec, pastReq)
 	if !strings.Contains(pastRec.Body.String(), "Old month txn") {
-		t.Fatalf("expected ?thang=%s to include the past-month transaction, got: %s", monthParam, pastRec.Body.String())
+		t.Fatalf("expected ?month=%s to include the past-month transaction, got: %s", monthParam, pastRec.Body.String())
 	}
 }
 
@@ -444,7 +444,7 @@ func TestMonthDropdownReturnsFragmentOnly(t *testing.T) {
 	router := handlers.NewRouter(deps)
 	cookie := loginAndGetCookie(t, router, deps, "txn-month-fragment@example.com", "s3cret-pass")
 
-	req := httptest.NewRequest(http.MethodGet, "/transactions?thang="+time.Now().Format("2006-01"), nil)
+	req := httptest.NewRequest(http.MethodGet, "/transactions?month="+time.Now().Format("2006-01"), nil)
 	req.AddCookie(cookie)
 	req.Header.Set("HX-Request", "true")
 	rec := httptest.NewRecorder()
@@ -501,7 +501,7 @@ func TestCreateTransactionAcceptsNearFutureDate(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if strings.Contains(rec.Body.String(), "tương lai") {
+	if strings.Contains(rec.Body.String(), "too far in the future") {
 		t.Fatalf("expected a 3-day-future date (within the 7-day threshold) to be accepted, got error in body: %s", rec.Body.String())
 	}
 }
@@ -644,7 +644,7 @@ func TestUpdateTransactionAppliesEdit(t *testing.T) {
 // Finding 3 from the final review: the create handler used to always
 // compute its OOB totals fragment from currentMonthRange() (today's month),
 // even when the page the request came from was displaying a different
-// month via ?thang=. htmx sends that page's full URL, query string
+// month via ?month=. htmx sends that page's full URL, query string
 // included, in the HX-Current-URL request header -- this asserts the
 // handler now reads it and returns totals for the month actually being
 // viewed, not always today's.
@@ -678,7 +678,7 @@ func TestCreateTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 		t.Fatalf("seed existing past-month transaction: %v", err)
 	}
 
-	// Simulate the page currently being on that past month (via ?thang=)
+	// Simulate the page currently being on that past month (via ?month=)
 	// and creating a second transaction backdated into the same month.
 	monthParam := pastMonth.Format("2006-01")
 	tok := csrfTokenFor(t, router)
@@ -690,7 +690,7 @@ func TestCreateTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 	}
 	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("HX-Current-URL", "http://example.com/transactions?thang="+monthParam)
+	req.Header.Set("HX-Current-URL", "http://example.com/transactions?month="+monthParam)
 	req.AddCookie(cookie)
 	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
@@ -703,17 +703,17 @@ func TestCreateTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 	// The active (past) month's total is 40000+25000=65000 and count is 2.
 	// A handler still using currentMonthRange() would report today's month
 	// instead, which has no transactions for this fresh user (0₫, 0 count).
-	if !strings.Contains(body, "65.000") {
-		t.Fatalf("expected OOB totals to reflect the active past month's 65.000₫ total, got: %s", body)
+	if !strings.Contains(body, "65,000") {
+		t.Fatalf("expected OOB totals to reflect the active past month's 65,000₫ total, got: %s", body)
 	}
-	if !strings.Contains(body, "2 giao dịch") {
+	if !strings.Contains(body, "2 transactions") {
 		t.Fatalf("expected OOB totals count of 2 for the active past month, got: %s", body)
 	}
 }
 
 // TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL covers the
 // delete side of Finding 3: deleting a transaction while viewing a past
-// month (via ?thang=, recovered server-side from HX-Current-URL) must
+// month (via ?month=, recovered server-side from HX-Current-URL) must
 // return OOB totals for that past month, not today's.
 func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) {
 	deps := newTestDeps(t)
@@ -744,7 +744,7 @@ func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 		t.Fatalf("create past-month transaction: %v", err)
 	}
 	// A much larger current-month transaction: if the handler wrongly uses
-	// currentMonthRange(), its total will leak through as 99.000.
+	// currentMonthRange(), its total will leak through as 99,000.
 	if _, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
 		UserID: user.ID, CategoryID: category.ID, Amount: 99000, Type: "expense",
 		Description: "current month txn", OccurredOn: pgtype.Date{Time: time.Now(), Valid: true},
@@ -755,7 +755,7 @@ func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 	monthParam := pastMonth.Format("2006-01")
 	tok := csrfTokenFor(t, router)
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/transactions/%d", pastTxn.ID), nil)
-	req.Header.Set("HX-Current-URL", "http://example.com/transactions?thang="+monthParam)
+	req.Header.Set("HX-Current-URL", "http://example.com/transactions?month="+monthParam)
 	req.AddCookie(cookie)
 	withCSRF(req, tok)
 	rec := httptest.NewRecorder()
@@ -765,16 +765,16 @@ func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 		t.Fatalf("expected 200 deleting a transaction, got %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, "99.000") {
-		t.Fatalf("expected OOB totals to reflect the active past month (now empty), not leak the current month's 99.000₫ total, got: %s", body)
+	if strings.Contains(body, "99,000") {
+		t.Fatalf("expected OOB totals to reflect the active past month (now empty), not leak the current month's 99,000₫ total, got: %s", body)
 	}
-	if !strings.Contains(body, "0 giao dịch") {
+	if !strings.Contains(body, "0 transactions") {
 		t.Fatalf("expected OOB totals count of 0 for the now-empty active past month, got: %s", body)
 	}
 }
 
 // TestTransactionEmptyStateHidesOnCreateAndReappearsOnDelete covers Finding
-// 4 from the final review: the "Chưa có giao dịch nào..." empty-state block
+// 4 from the final review: the "No transactions in ..." empty-state block
 // is a sibling of #transaction-list, not inside it, so creating the first
 // transaction (an OOB/afterbegin insert into the list) used to leave the
 // empty-state message showing next to the new row until a manual reload. It
@@ -790,7 +790,7 @@ func TestTransactionEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
 	listReq.AddCookie(cookie)
 	listRec := httptest.NewRecorder()
 	router.ServeHTTP(listRec, listReq)
-	if !strings.Contains(listRec.Body.String(), "Chưa có giao dịch nào trong") {
+	if !strings.Contains(listRec.Body.String(), "No transactions in") {
 		t.Fatal("expected the empty state message before any transaction exists")
 	}
 
@@ -820,7 +820,7 @@ func TestTransactionEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
 	if !strings.Contains(createRec.Body.String(), `id="transactions-empty" hx-swap-oob="true"`) {
 		t.Fatalf("expected the create response to include an OOB update targeting #transactions-empty, got: %s", createRec.Body.String())
 	}
-	if strings.Contains(createRec.Body.String(), "Chưa có giao dịch nào trong") {
+	if strings.Contains(createRec.Body.String(), "No transactions in") {
 		t.Fatalf("expected the create response's empty-state OOB fragment to be cleared, got: %s", createRec.Body.String())
 	}
 
@@ -845,7 +845,7 @@ func TestTransactionEmptyStateHidesOnCreateAndReappearsOnDelete(t *testing.T) {
 	if deleteRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 deleting transaction, got %d: %s", deleteRec.Code, deleteRec.Body.String())
 	}
-	if !strings.Contains(deleteRec.Body.String(), "Chưa có giao dịch nào trong") {
+	if !strings.Contains(deleteRec.Body.String(), "No transactions in") {
 		t.Fatalf("expected the delete response's OOB fragment to bring back the empty state, got: %s", deleteRec.Body.String())
 	}
 }

@@ -63,7 +63,7 @@ func loginPage(deps Deps) http.HandlerFunc {
 		user, err := deps.Queries.GetUserByEmail(r.Context(), email)
 		if err != nil || !auth.VerifyPassword(user.PasswordHash, password) {
 			renderNamed(w, r, deps, "auth", "auth_card_body", "", map[string]any{
-				"Tab": "login", "Error": "Email hoặc mật khẩu không đúng.", "Email": email,
+				"Tab": "login", "Error": "Incorrect email or password.", "Email": email,
 			})
 			return
 		}
@@ -93,25 +93,25 @@ func registerPage(deps Deps) http.HandlerFunc {
 		}
 
 		if name == "" {
-			fail("Vui lòng nhập họ tên")
+			fail("Please enter your name.")
 			return
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
-			fail("Email không hợp lệ")
+			fail("That email address is not valid.")
 			return
 		}
 		if len([]rune(password)) < 8 {
-			fail("Mật khẩu phải có ít nhất 8 ký tự.")
+			fail("Password must be at least 8 characters.")
 			return
 		}
 		if password != passwordConfirm {
-			fail("Mật khẩu nhập lại không khớp.")
+			fail("The two passwords do not match.")
 			return
 		}
 
 		hash, err := auth.HashPassword(password)
 		if err != nil {
-			fail("Không thể tạo tài khoản")
+			fail("Could not create your account.")
 			return
 		}
 
@@ -123,11 +123,11 @@ func registerPage(deps Deps) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				fail("Email này đã được dùng.")
+				fail("That email is already registered.")
 				return
 			}
 			log.Printf("register: create user: %v", err)
-			fail("Không thể tạo tài khoản, vui lòng thử lại")
+			fail("Could not create your account, please try again.")
 			return
 		}
 

@@ -3,11 +3,11 @@
   <div class="w-full max-w-[380px] flex flex-col gap-5">
     <div class="hidden md:flex flex-col items-center gap-2">
       {{template "logo_auth" .}}
-      <p class="text-[13px] text-ink-faint">Ghi lại thu chi hằng ngày của bạn</p>
+      <p class="text-[13px] text-ink-faint">Track what you earn and spend, day by day</p>
     </div>
     <div class="md:hidden flex flex-col gap-[10px]">
       {{template "logo_auth" .}}
-      <p class="text-[22px] font-semibold text-ink">{{if eq .Tab "register"}}Đăng ký{{else}}Đăng nhập{{end}}</p>
+      <p class="text-[22px] font-semibold text-ink">{{if eq .Tab "register"}}Sign up{{else}}Log in{{end}}</p>
     </div>
     <div id="auth-card" class="flex flex-col gap-4 md:border md:border-border-card md:rounded-xl md:p-[22px]">
       {{template "auth_card_body" .}}

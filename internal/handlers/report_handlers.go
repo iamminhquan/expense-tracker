@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/i18n"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -26,7 +27,7 @@ func dashboardPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
 
-		data, err := buildDashboardData(r, deps, userID, r.URL.Query().Get("thang"))
+		data, err := buildDashboardData(r, deps, userID, r.URL.Query().Get("month"))
 		if err != nil {
 			http.Error(w, "could not load dashboard", http.StatusInternalServerError)
 			return
@@ -117,7 +118,7 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 }
 
 // buildPieData turns CategoryBreakdown's already-total-desc-ordered rows
-// into the top pieTopN slices plus a synthetic "Khác" aggregate for
+// into the top pieTopN slices plus a synthetic "Other" aggregate for
 // everything past that, per SPEC.md section 5.
 func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) (labels []string, values []int64, colors []string, legend []pieLegendEntry) {
 	shown := breakdown
@@ -129,20 +130,27 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 		}
 	}
 	for _, row := range shown {
-		labels = append(labels, row.CategoryName)
+		// Resolved here rather than in the template: the same name goes
+		// into the legend (HTML) and into labels, which is serialised to
+		// JSON for Chart.js, where a template func cannot reach it.
+		name := i18n.CategoryName(row.CategorySlug, row.CategoryName)
+		labels = append(labels, name)
 		values = append(values, row.Total)
 		colors = append(colors, row.CategoryColor)
 		legend = append(legend, pieLegendEntry{
-			Name: row.CategoryName, Color: row.CategoryColor,
+			Name: name, Color: row.CategoryColor,
 			Percent: percentOf(row.Total, totalExpense), Amount: vnd(row.Total),
 		})
 	}
 	if otherSum > 0 {
-		labels = append(labels, "Khác")
+		// The same label the real "other" category uses, so the aggregate
+		// slice and that category never read as two different things.
+		otherName := i18n.NameForSlug("other")
+		labels = append(labels, otherName)
 		values = append(values, otherSum)
 		colors = append(colors, "#A1A1AA")
 		legend = append(legend, pieLegendEntry{
-			Name: "Khác", Color: "#A1A1AA",
+			Name: otherName, Color: "#A1A1AA",
 			Percent: percentOf(otherSum, totalExpense), Amount: vnd(otherSum),
 		})
 	}
@@ -180,18 +188,18 @@ func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart t
 }
 
 func shortMonthLabel(t time.Time) string {
-	return fmt.Sprintf("Th %d", int(t.Month()))
+	return t.Format("Jan")
 }
 
-// comparisonText builds SPEC.md section 5's "Tháng trước X · tăng/giảm Y%"
+// comparisonText builds SPEC.md section 5's "Last month X · up/down Y%"
 // line, or its "no data" fallback when the previous month had zero
 // transactions of any kind.
 func comparisonText(current, previous int64, hasPrevData bool) string {
 	if !hasPrevData {
-		return "Chưa có dữ liệu tháng trước"
+		return "No data for last month"
 	}
 	if previous == 0 {
-		return fmt.Sprintf("Tháng trước %s", vnd(previous))
+		return fmt.Sprintf("Last month %s", vnd(previous))
 	}
 	diff := current - previous
 	// Rounds to the nearest percent (matching percentOf's rounding above)
@@ -199,31 +207,31 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 	// too, not "12%".
 	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
 	if diff == 0 {
-		return fmt.Sprintf("Tháng trước %s · không đổi", vnd(previous))
+		return fmt.Sprintf("Last month %s · unchanged", vnd(previous))
 	}
-	direction := "tăng"
+	direction := "up"
 	if diff < 0 {
-		direction = "giảm"
+		direction = "down"
 	}
-	return fmt.Sprintf("Tháng trước %s · %s %d%%", vnd(previous), direction, pct)
+	return fmt.Sprintf("Last month %s · %s %d%%", vnd(previous), direction, pct)
 }
 
 // comparisonTextMobile builds SPEC.md section 5's mobile-only shortened
-// comparison line (e.g. "Giảm 11% so với tháng trước"), shown below 768px
-// in place of comparisonText's fuller "Tháng trước X · giảm Y%" -- the
-// amount is dropped to fit the narrower stat card.
+// comparison line (e.g. "Down 11% vs last month"), shown below 768px in
+// place of comparisonText's fuller "Last month X · down Y%" -- the amount is
+// dropped to fit the narrower stat card.
 func comparisonTextMobile(current, previous int64, hasPrevData bool) string {
 	if !hasPrevData || previous == 0 {
-		return "Chưa có dữ liệu tháng trước"
+		return "No data for last month"
 	}
 	diff := current - previous
 	if diff == 0 {
-		return "Không đổi so với tháng trước"
+		return "Unchanged vs last month"
 	}
 	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
-	direction := "Tăng"
+	direction := "Up"
 	if diff < 0 {
-		direction = "Giảm"
+		direction = "Down"
 	}
-	return fmt.Sprintf("%s %d%% so với tháng trước", direction, pct)
+	return fmt.Sprintf("%s %d%% vs last month", direction, pct)
 }

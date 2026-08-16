@@ -78,7 +78,7 @@ func TestAuthenticatedPageRendersStoredThemeOnHTMLElement(t *testing.T) {
 
 	body := getPage(t, router, cookie, "/dashboard")
 
-	if !strings.Contains(body, `<html lang="vi" class="dark">`) {
+	if !strings.Contains(body, `<html lang="en" class="dark">`) {
 		t.Fatalf("expected the stored theme to reach the <html> element; got head:\n%s", head(body))
 	}
 }
@@ -95,7 +95,7 @@ func TestAuthPageRendersAutoThemeWithoutNoValueLeak(t *testing.T) {
 	if strings.Contains(body, "<no value>") {
 		t.Fatalf("login page leaked a missing template key into the output:\n%s", head(body))
 	}
-	if !strings.Contains(body, `<html lang="vi" class="auto">`) {
+	if !strings.Contains(body, `<html lang="en" class="auto">`) {
 		t.Fatalf("expected the login page to fall back to the auto theme; got head:\n%s", head(body))
 	}
 }

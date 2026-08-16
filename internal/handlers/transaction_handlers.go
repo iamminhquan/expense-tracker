@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -20,11 +19,11 @@ func pgDate(t time.Time) pgtype.Date {
 	return pgtype.Date{Time: t, Valid: true}
 }
 
-func monthLabel(t time.Time) string      { return fmt.Sprintf("Tháng %d, %d", int(t.Month()), t.Year()) }
-func monthLabelLower(t time.Time) string { return fmt.Sprintf("tháng %d", int(t.Month())) }
+func monthLabel(t time.Time) string      { return t.Format("January 2006") }
+func monthLabelLower(t time.Time) string { return t.Format("January") }
 
 // monthRangeFor returns the [from, to) bounds for the "YYYY-MM" value the
-// month dropdown sends via ?thang=, falling back to the current Vietnam-
+// month dropdown sends via ?month=, falling back to the current Vietnam-
 // local month when param is empty or malformed.
 func monthRangeFor(param string) (from, to pgtype.Date) {
 	t, err := time.ParseInLocation("2006-01", param, vietnamLocation)
@@ -38,7 +37,7 @@ func monthRangeFor(param string) (from, to pgtype.Date) {
 // monthRangeFromRequest determines which month a mutation response's OOB
 // totals fragment should reflect: the month the page the request originated
 // from was actually displaying, not necessarily today's month. A create/
-// update/delete request's own URL never carries "?thang=" (only the page's
+// update/delete request's own URL never carries "?month=" (only the page's
 // GET request does), but htmx sends the full URL of that originating page,
 // query string included, in the HX-Current-URL header on every request it
 // issues -- so that header, not r.URL, is where the active month lives.
@@ -54,7 +53,7 @@ func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
 	if err != nil {
 		return currentMonthRange()
 	}
-	return monthRangeFor(u.Query().Get("thang"))
+	return monthRangeFor(u.Query().Get("month"))
 }
 
 func transactionsPage(deps Deps) http.HandlerFunc {
@@ -66,7 +65,7 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		data, err := buildTransactionsPageData(r, deps, userID, r.URL.Query().Get("thang"), "", "")
+		data, err := buildTransactionsPageData(r, deps, userID, r.URL.Query().Get("month"), "", "")
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
 			return
@@ -109,7 +108,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 	var available []map[string]any
 	for _, m := range months {
 		if m.Time.Year() == currentFrom.Time.Year() && m.Time.Month() == currentFrom.Time.Month() {
-			continue // already offered as the pinned "Tháng này" entry
+			continue // already offered as the pinned "This month" entry
 		}
 		available = append(available, map[string]any{
 			"Value": m.Time.Format("2006-01"),
@@ -194,11 +193,11 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	var formErr string
 	switch {
 	case category.Type != txnType:
-		formErr = "Loại giao dịch không khớp với danh mục đã chọn"
+		formErr = "That category does not match the transaction type"
 	case len([]rune(r.FormValue("description"))) > 200:
-		formErr = "Ghi chú tối đa 200 ký tự"
+		formErr = "Note must be 200 characters or fewer"
 	case occurredOn.After(time.Now().In(vietnamLocation).AddDate(0, 0, 7)):
-		formErr = "Ngày giao dịch không được ở quá xa trong tương lai"
+		formErr = "That date is too far in the future"
 	}
 	if formErr != "" {
 		retarget(formErr)
@@ -210,7 +209,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		Description: r.FormValue("description"), OccurredOn: pgDate(occurredOn),
 	})
 	if err != nil {
-		retarget("Không thể thêm giao dịch, vui lòng thử lại.")
+		retarget("Could not add the transaction, please try again.")
 		return
 	}
 
@@ -229,7 +228,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	w.Header().Set("HX-Trigger", "transaction-created")
 	renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
 		"Row": map[string]any{
-			"ID": created.ID, "CategoryName": category.Name, "CategoryColor": category.Color,
+			"ID": created.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 			"Description": created.Description, "OccurredOn": created.OccurredOn,
 			"Amount": created.Amount, "Type": created.Type,
 		},
@@ -389,7 +388,7 @@ func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 		}
 
 		renderNamed(w, r, deps, "transactions", "transaction_row", "", map[string]any{
-			"ID": txn.ID, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
+			"ID": txn.ID, "CategorySlug": txn.CategorySlug, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
 			"Description": txn.Description, "OccurredOn": txn.OccurredOn, "Amount": txn.Amount, "Type": txn.Type,
 		})
 	}
@@ -452,11 +451,11 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		var formErr string
 		switch {
 		case category.Type != existing.Type:
-			formErr = "Loại giao dịch không khớp với danh mục đã chọn"
+			formErr = "That category does not match the transaction type"
 		case len([]rune(description)) > 200:
-			formErr = "Ghi chú tối đa 200 ký tự"
+			formErr = "Note must be 200 characters or fewer"
 		case occurredOn.After(time.Now().In(vietnamLocation).AddDate(0, 0, 7)):
-			formErr = "Ngày giao dịch không được ở quá xa trong tương lai"
+			formErr = "That date is too far in the future"
 		}
 		if formErr != "" {
 			allCategories, _ := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
@@ -500,7 +499,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// exactly what a successful edit needs too.
 		renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
 			"Row": map[string]any{
-				"ID": updated.ID, "CategoryName": category.Name, "CategoryColor": category.Color,
+				"ID": updated.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
 				"Amount": updated.Amount, "Type": updated.Type,
 			},

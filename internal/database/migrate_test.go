@@ -119,12 +119,28 @@ func TestMigrationsApplyCleanly(t *testing.T) {
 		t.Fatalf("expected 'Thu nhập khác' to be gone on a fresh install, found %d rows", thuNhapKhacCount)
 	}
 
-	var anUongColor string
-	if err := db.QueryRow("SELECT color FROM categories WHERE user_id IS NULL AND name = 'Ăn uống'").Scan(&anUongColor); err != nil {
-		t.Fatalf("query Ăn uống color: %v", err)
+	// Addressed by slug rather than by name: 000008 moved the display names
+	// to English precisely so nothing has to identify a default category by
+	// the string on screen.
+	var foodDrinkName, foodDrinkColor string
+	if err := db.QueryRow(
+		"SELECT name, color FROM categories WHERE slug = 'food_drink'",
+	).Scan(&foodDrinkName, &foodDrinkColor); err != nil {
+		t.Fatalf("query food_drink category: %v", err)
 	}
-	if anUongColor != "#D97757" {
-		t.Fatalf("expected Ăn uống to be seeded with #D97757, got %q", anUongColor)
+	if foodDrinkName != "Food & Drink" || foodDrinkColor != "#D97757" {
+		t.Fatalf("expected food_drink to be Food & Drink/#D97757, got %q/%q", foodDrinkName, foodDrinkColor)
+	}
+
+	// Every default category must carry a slug after 000008; any that does
+	// not would render from its name column and be invisible to a future
+	// language switcher.
+	var slugless int
+	if err := db.QueryRow("SELECT count(*) FROM categories WHERE user_id IS NULL AND slug IS NULL").Scan(&slugless); err != nil {
+		t.Fatalf("query slugless defaults: %v", err)
+	}
+	if slugless != 0 {
+		t.Fatalf("expected every default category to have a slug, found %d without one", slugless)
 	}
 
 	if _, err := db.Exec(
@@ -280,8 +296,11 @@ func TestMigrations000006PreservesExistingData(t *testing.T) {
 		t.Fatalf("insert second duplicate-named category: %v", err)
 	}
 
-	// Apply 000006 (and any later migrations, though none currently exist).
-	if err := m.Up(); err != nil {
+	// Apply exactly one step -- 000006, the migration under test. Not m.Up():
+	// later migrations rename these same default categories (000008 moves
+	// them to English), so running past 000006 would test their end state
+	// instead of this one's.
+	if err := m.Steps(1); err != nil {
 		t.Fatalf("migrate up through 000006: %v", err)
 	}
 
@@ -366,5 +385,117 @@ func TestMigrations000006PreservesExistingData(t *testing.T) {
 	// documented-lossy reverse -- see 000006_redesign_categories.down.sql).
 	if err := m.Steps(-1); err != nil {
 		t.Fatalf("migrate down one step (000006 down): %v", err)
+	}
+}
+
+// TestMigrations000008PreservesLegacyOtherIncome covers the one default
+// category that a fresh install does not have. 000006 deletes "Thu nhập
+// khác" only when no transaction references it, so an account that used it
+// still carries the row -- and it is therefore the row most likely to be
+// missed when the defaults are renamed. If 000008 skipped it, that account
+// would show one Vietnamese category among nine English ones, with no slug
+// for a later language switcher to key off.
+func TestMigrations000008PreservesLegacyOtherIncome(t *testing.T) {
+	baseDSN := os.Getenv("TEST_DATABASE_URL")
+	if baseDSN == "" {
+		t.Skip("TEST_DATABASE_URL not set; point it at a local Postgres and export it to run this test")
+	}
+
+	dsn := createThrowawayDatabase(t, baseDSN)
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		t.Fatalf("postgres driver: %v", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance("file://migrations", "postgres", driver)
+	if err != nil {
+		t.Fatalf("new migrate instance: %v", err)
+	}
+	defer m.Close()
+
+	// Stop at 000005, where "Thu nhập khác" still exists, and give it a
+	// transaction so 000006's conditional DELETE has to keep it.
+	if err := m.Steps(5); err != nil {
+		t.Fatalf("migrate up through 000005: %v", err)
+	}
+
+	var userID int64
+	if err := db.QueryRow(
+		`INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id`,
+		"legacy-other-income@example.com", "x", "Legacy Other Income User",
+	).Scan(&userID); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+
+	var legacyID int64
+	if err := db.QueryRow(
+		`SELECT id FROM categories WHERE user_id IS NULL AND name = 'Thu nhập khác'`,
+	).Scan(&legacyID); err != nil {
+		t.Fatalf("query legacy 'Thu nhập khác' default: %v", err)
+	}
+
+	var txnID int64
+	if err := db.QueryRow(
+		`INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
+		 VALUES ($1, $2, 100000, 'income', 'legacy other-income txn', '2026-01-05') RETURNING id`,
+		userID, legacyID,
+	).Scan(&txnID); err != nil {
+		t.Fatalf("insert transaction on legacy category: %v", err)
+	}
+
+	// A custom category, to prove 000008 leaves the user's own words alone.
+	var customID int64
+	if err := db.QueryRow(
+		`INSERT INTO categories (user_id, name, type, color) VALUES ($1, 'Cà phê', 'expense', '#D97757') RETURNING id`,
+		userID,
+	).Scan(&customID); err != nil {
+		t.Fatalf("insert custom category: %v", err)
+	}
+
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up through 000008: %v", err)
+	}
+
+	var slug, name string
+	if err := db.QueryRow(
+		`SELECT c.slug, c.name FROM transactions t JOIN categories c ON c.id = t.category_id WHERE t.id = $1`,
+		txnID,
+	).Scan(&slug, &name); err != nil {
+		t.Fatalf("resolve legacy category via transaction join: %v", err)
+	}
+	if slug != "other_income" || name != "Other income" {
+		t.Fatalf("expected the legacy category to become other_income/Other income, got %q/%q", slug, name)
+	}
+
+	var customSlug sql.NullString
+	var customName string
+	if err := db.QueryRow(`SELECT slug, name FROM categories WHERE id = $1`, customID).Scan(&customSlug, &customName); err != nil {
+		t.Fatalf("query custom category: %v", err)
+	}
+	if customSlug.Valid {
+		t.Fatalf("expected a user-created category to have no slug, got %q", customSlug.String)
+	}
+	if customName != "Cà phê" {
+		t.Fatalf("expected the user's own category name to be untouched, got %q", customName)
+	}
+
+	// Down must put the Vietnamese names back exactly -- unlike 000006's
+	// documented-lossy reverse, 000008 records enough to undo itself.
+	if err := m.Steps(-1); err != nil {
+		t.Fatalf("migrate down one step (000008 down): %v", err)
+	}
+	var revertedName string
+	if err := db.QueryRow(`SELECT name FROM categories WHERE id = $1`, legacyID).Scan(&revertedName); err != nil {
+		t.Fatalf("query reverted category: %v", err)
+	}
+	if revertedName != "Thu nhập khác" {
+		t.Fatalf("expected 000008 down to restore 'Thu nhập khác', got %q", revertedName)
 	}
 }

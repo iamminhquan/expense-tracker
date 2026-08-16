@@ -1,10 +1,10 @@
 {{define "layout"}}
 <!doctype html>
-<html lang="vi" class="{{.Theme}}">
+<html lang="en" class="{{.Theme}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sổ chi tiêu</title>
+  <title>$pend — Expenses</title>
   <meta name="csrf-token" content="{{.CSRFToken}}">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23BC5A29'/%3E%3Cpath fill='white' fill-rule='evenodd' d='M12 4a8 8 0 100 16 8 8 0 000-16zM12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z' clip-rule='evenodd'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,7 +46,7 @@
 
     // Long-press (~500ms) on any element carrying data-longpress-target opens
     // the <dialog> whose id it names -- used by mobile transaction rows to
-    // open the Sửa/Xóa action sheet without a persistent "⋯" button.
+    // open the Edit/Delete action sheet without a persistent "⋯" button.
     (function () {
       var timer = null, startX = 0, startY = 0, targetEl = null;
       function start(evt) {
@@ -353,11 +353,11 @@
      (18px on mobile, 19px on desktop -- each bar only renders at one of the
      two breakpoints); "logo_auth" is the static one on login/register. */}}
 {{define "logo_nav"}}
-<a href="/dashboard" class="wordmark shrink-0 text-[18px] md:text-[19px]" aria-label="$pend — Sổ chi tiêu">$pend</a>
+<a href="/dashboard" class="wordmark shrink-0 text-[18px] md:text-[19px]" aria-label="$pend — Expenses">$pend</a>
 {{end}}
 
 {{define "logo_auth"}}
-<span role="img" aria-label="$pend — Sổ chi tiêu" class="wordmark text-[34px] md:text-[38px]">$pend</span>
+<span role="img" aria-label="$pend — Expenses" class="wordmark text-[34px] md:text-[38px]">$pend</span>
 {{end}}
 
 {{define "user_menu"}}
@@ -367,29 +367,29 @@
     <span class="text-[13px] text-ink-muted">{{.UserName}}</span>
   </summary>
   <div class="absolute right-0 top-full mt-1 w-[220px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
-    <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">GIAO DIỆN</p>
+    <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">APPEARANCE</p>
     <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3" data-theme-switch>
       {{$theme := .Theme}}
       <button type="button" data-theme="light" aria-pressed="{{if eq $theme "light"}}true{{else}}false{{end}}"
         hx-put="/settings/theme" hx-vals='{"theme":"light"}' hx-swap="none"
-        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "light"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Sáng</button>
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "light"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Light</button>
       <button type="button" data-theme="auto" aria-pressed="{{if eq $theme "auto"}}true{{else}}false{{end}}"
         hx-put="/settings/theme" hx-vals='{"theme":"auto"}' hx-swap="none"
-        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "auto"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Tự động</button>
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "auto"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Auto</button>
       <button type="button" data-theme="dark" aria-pressed="{{if eq $theme "dark"}}true{{else}}false{{end}}"
         hx-put="/settings/theme" hx-vals='{"theme":"dark"}' hx-swap="none"
-        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "dark"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Tối</button>
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "dark"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Dark</button>
     </div>
     <button type="button" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
       <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
-      Đổi mật khẩu
+      Change password
     </button>
     <div class="h-px bg-border-card my-2"></div>
     <form method="POST" action="/logout">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
       <button type="submit" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-expense hover:bg-expense/10 whitespace-nowrap">
         <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25"/></svg>
-        Đăng xuất
+        Log out
       </button>
     </form>
   </div>
@@ -400,9 +400,9 @@
 <nav class="hidden md:flex items-center h-[60px] bg-surface border-b border-border-nav sticky top-0 z-40 px-9 gap-10">
   {{template "logo_nav" .}}
   <div class="flex items-center gap-2">
-    <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Tổng quan</a>
-    <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Giao dịch</a>
-    <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Danh mục</a>
+    <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Overview</a>
+    <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Transactions</a>
+    <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Categories</a>
   </div>
   <div class="ml-auto">{{template "user_menu" .}}</div>
 </nav>
@@ -419,15 +419,15 @@
 <nav class="md:hidden fixed bottom-4 inset-x-4 bg-surface border border-border-card rounded-[20px] shadow-lg flex z-40 p-[6px]">
   <a href="/dashboard" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "dashboard"}}bg-accent/10{{end}}">
     <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "dashboard"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"/></svg>
-    <span class="text-[11px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Tổng quan</span>
+    <span class="text-[11px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Overview</span>
   </a>
   <a href="/transactions" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "transactions"}}bg-accent/10{{end}}">
     <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "transactions"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h18M16.5 3L21 7.5m0 0L16.5 12M21 7.5H3"/></svg>
-    <span class="text-[11px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Giao dịch</span>
+    <span class="text-[11px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Transactions</span>
   </a>
   <a href="/categories" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "categories"}}bg-accent/10{{end}}">
     <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "categories"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/><path d="M6 6h.008v.008H6V6z"/></svg>
-    <span class="text-[11px] {{if eq .ActiveNav "categories"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Danh mục</span>
+    <span class="text-[11px] {{if eq .ActiveNav "categories"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Categories</span>
   </a>
 </nav>
 {{end}}
