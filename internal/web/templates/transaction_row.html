@@ -4,11 +4,11 @@
   <span class="hidden md:inline w-[46px] shrink-0 font-mono text-[12px] text-ink-faintest">{{dateShort .OccurredOn}}</span>
   <span class="hidden md:flex w-[150px] shrink-0 items-center gap-2 text-[13px] font-medium text-ink">
     <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.CategoryColor}}"></span>
-    <span class="truncate">{{.CategoryName}}</span>
+    <span class="truncate">{{catName .CategorySlug .CategoryName}}</span>
   </span>
   <span class="flex-1 min-w-0 hidden md:block text-[13px] text-ink-faint truncate">{{.Description}}</span>
   <span data-longpress-target="mobile-actions-{{.ID}}" class="flex-1 min-w-0 md:hidden flex flex-col">
-    <span class="text-[14px] font-medium text-ink truncate">{{.CategoryName}}</span>
+    <span class="text-[14px] font-medium text-ink truncate">{{catName .CategorySlug .CategoryName}}</span>
     <span class="text-[12px] text-ink-faintest truncate">{{dateShort .OccurredOn}}{{if .Description}} · {{.Description}}{{end}}</span>
   </span>
   <span class="hidden md:flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
@@ -62,7 +62,7 @@
 <form id="transaction-row-{{.ID}}" hx-patch="/transactions/{{.ID}}" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="flex items-center gap-4 px-4 py-[10px] border-b border-border-list last:border-b-0 bg-surface-alt flex-wrap">
   <input name="occurred_on" type="date" value="{{.OccurredOnValue}}" required class="w-[46px] shrink-0 font-mono text-[11px] border border-border-input rounded px-1 h-8">
   <select name="category_id" class="w-[150px] shrink-0 text-[13px] border border-border-input rounded px-1 h-8">
-    {{range .CategoryOptions}}<option value="{{.ID}}" {{if eq .ID $.CategoryID}}selected{{end}}>{{.Name}}</option>{{end}}
+    {{range .CategoryOptions}}<option value="{{.ID}}" {{if eq .ID $.CategoryID}}selected{{end}}>{{catName .Slug .Name}}</option>{{end}}
   </select>
   <input name="description" type="text" value="{{.Description}}" class="flex-1 min-w-0 text-[13px] border border-border-input rounded px-2 h-8">
   {{if .Error}}<span class="text-[12px] text-expense shrink-0">{{.Error}}</span>{{end}}
@@ -90,7 +90,7 @@
   <label class="px-[13px] py-[9px] rounded-full border flex items-center gap-2 cursor-pointer {{if eq $i 0}}border-accent bg-accent/[0.08]{{else}}border-border-input{{end}} has-[:checked]:border-accent has-[:checked]:bg-accent/[0.08]">
     <input type="radio" name="category_id" value="{{$c.ID}}" {{if eq $i 0}}checked{{end}} class="hidden">
     <span class="w-2 h-2 rounded-full" style="background-color: {{$c.Color}}"></span>
-    <span class="text-[13px]">{{$c.Name}}</span>
+    <span class="text-[13px]">{{catName $c.Slug $c.Name}}</span>
   </label>
   {{end}}
 </div>

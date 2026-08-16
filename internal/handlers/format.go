@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"expensetracker/internal/i18n"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -18,6 +20,7 @@ func TemplateFuncs() template.FuncMap {
 		"vndBalance": vndBalance,
 		"dateFull":   dateFull,
 		"dateShort":  dateShort,
+		"catName":    i18n.CategoryName,
 		"swatches":   func() []string { return categorySwatches },
 	}
 }

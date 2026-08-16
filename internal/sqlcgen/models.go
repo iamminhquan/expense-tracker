@@ -15,6 +15,7 @@ type Category struct {
 	Type      string             `json:"type"`
 	Color     string             `json:"color"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Slug      pgtype.Text        `json:"slug"`
 }
 
 type Session struct {

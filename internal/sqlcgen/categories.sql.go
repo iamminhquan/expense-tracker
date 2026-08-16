@@ -14,7 +14,7 @@ import (
 const createCategory = `-- name: CreateCategory :one
 INSERT INTO categories (user_id, name, type, color)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, name, type, color, created_at
+RETURNING id, user_id, name, type, color, created_at, slug
 `
 
 type CreateCategoryParams struct {
@@ -39,6 +39,7 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 		&i.Type,
 		&i.Color,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -61,7 +62,7 @@ func (q *Queries) DeleteCategory(ctx context.Context, arg DeleteCategoryParams) 
 }
 
 const getCategoryForUser = `-- name: GetCategoryForUser :one
-SELECT id, user_id, name, type, color, created_at FROM categories
+SELECT id, user_id, name, type, color, created_at, slug FROM categories
 WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)
 `
 
@@ -80,12 +81,13 @@ func (q *Queries) GetCategoryForUser(ctx context.Context, arg GetCategoryForUser
 		&i.Type,
 		&i.Color,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
 
 const getCategoryWithTransactionCount = `-- name: GetCategoryWithTransactionCount :one
-SELECT c.id, c.user_id, c.name, c.type, c.color, c.created_at, COUNT(t.id) AS transaction_count
+SELECT c.id, c.user_id, c.name, c.type, c.color, c.created_at, c.slug, COUNT(t.id) AS transaction_count
 FROM categories c
 LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $2
 WHERE c.id = $1 AND (c.user_id = $2 OR c.user_id IS NULL)
@@ -104,6 +106,7 @@ type GetCategoryWithTransactionCountRow struct {
 	Type             string             `json:"type"`
 	Color            string             `json:"color"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Slug             pgtype.Text        `json:"slug"`
 	TransactionCount int64              `json:"transaction_count"`
 }
 
@@ -117,14 +120,15 @@ func (q *Queries) GetCategoryWithTransactionCount(ctx context.Context, arg GetCa
 		&i.Type,
 		&i.Color,
 		&i.CreatedAt,
+		&i.Slug,
 		&i.TransactionCount,
 	)
 	return i, err
 }
 
 const getDefaultCategoryForReassignment = `-- name: GetDefaultCategoryForReassignment :one
-SELECT id, user_id, name, type, color, created_at FROM categories
-WHERE user_id IS NULL AND type = 'expense' AND name = 'Khác'
+SELECT id, user_id, name, type, color, created_at, slug FROM categories
+WHERE slug = 'other'
 `
 
 func (q *Queries) GetDefaultCategoryForReassignment(ctx context.Context) (Category, error) {
@@ -137,12 +141,13 @@ func (q *Queries) GetDefaultCategoryForReassignment(ctx context.Context) (Catego
 		&i.Type,
 		&i.Color,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
 
 const listCategoriesForUser = `-- name: ListCategoriesForUser :many
-SELECT id, user_id, name, type, color, created_at FROM categories
+SELECT id, user_id, name, type, color, created_at, slug FROM categories
 WHERE user_id = $1 OR user_id IS NULL
 ORDER BY user_id NULLS FIRST, name
 `
@@ -163,6 +168,7 @@ func (q *Queries) ListCategoriesForUser(ctx context.Context, userID pgtype.Int8)
 			&i.Type,
 			&i.Color,
 			&i.CreatedAt,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -175,7 +181,7 @@ func (q *Queries) ListCategoriesForUser(ctx context.Context, userID pgtype.Int8)
 }
 
 const listCategoriesWithTransactionCounts = `-- name: ListCategoriesWithTransactionCounts :many
-SELECT c.id, c.user_id, c.name, c.type, c.color, c.created_at, COUNT(t.id) AS transaction_count
+SELECT c.id, c.user_id, c.name, c.type, c.color, c.created_at, c.slug, COUNT(t.id) AS transaction_count
 FROM categories c
 LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1
 WHERE c.user_id = $1 OR c.user_id IS NULL
@@ -190,6 +196,7 @@ type ListCategoriesWithTransactionCountsRow struct {
 	Type             string             `json:"type"`
 	Color            string             `json:"color"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Slug             pgtype.Text        `json:"slug"`
 	TransactionCount int64              `json:"transaction_count"`
 }
 
@@ -209,6 +216,7 @@ func (q *Queries) ListCategoriesWithTransactionCounts(ctx context.Context, userI
 			&i.Type,
 			&i.Color,
 			&i.CreatedAt,
+			&i.Slug,
 			&i.TransactionCount,
 		); err != nil {
 			return nil, err
@@ -224,7 +232,7 @@ func (q *Queries) ListCategoriesWithTransactionCounts(ctx context.Context, userI
 const updateCategoryColor = `-- name: UpdateCategoryColor :one
 UPDATE categories SET color = $3
 WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)
-RETURNING id, user_id, name, type, color, created_at
+RETURNING id, user_id, name, type, color, created_at, slug
 `
 
 type UpdateCategoryColorParams struct {
@@ -243,6 +251,7 @@ func (q *Queries) UpdateCategoryColor(ctx context.Context, arg UpdateCategoryCol
 		&i.Type,
 		&i.Color,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -250,7 +259,7 @@ func (q *Queries) UpdateCategoryColor(ctx context.Context, arg UpdateCategoryCol
 const updateCategoryName = `-- name: UpdateCategoryName :one
 UPDATE categories SET name = $3
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, name, type, color, created_at
+RETURNING id, user_id, name, type, color, created_at, slug
 `
 
 type UpdateCategoryNameParams struct {
@@ -269,6 +278,7 @@ func (q *Queries) UpdateCategoryName(ctx context.Context, arg UpdateCategoryName
 		&i.Type,
 		&i.Color,
 		&i.CreatedAt,
+		&i.Slug,
 	)
 	return i, err
 }

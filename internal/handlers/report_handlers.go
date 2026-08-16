@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/i18n"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -117,7 +118,7 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 }
 
 // buildPieData turns CategoryBreakdown's already-total-desc-ordered rows
-// into the top pieTopN slices plus a synthetic "Khác" aggregate for
+// into the top pieTopN slices plus a synthetic "Other" aggregate for
 // everything past that, per SPEC.md section 5.
 func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) (labels []string, values []int64, colors []string, legend []pieLegendEntry) {
 	shown := breakdown
@@ -129,20 +130,27 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 		}
 	}
 	for _, row := range shown {
-		labels = append(labels, row.CategoryName)
+		// Resolved here rather than in the template: the same name goes
+		// into the legend (HTML) and into labels, which is serialised to
+		// JSON for Chart.js, where a template func cannot reach it.
+		name := i18n.CategoryName(row.CategorySlug, row.CategoryName)
+		labels = append(labels, name)
 		values = append(values, row.Total)
 		colors = append(colors, row.CategoryColor)
 		legend = append(legend, pieLegendEntry{
-			Name: row.CategoryName, Color: row.CategoryColor,
+			Name: name, Color: row.CategoryColor,
 			Percent: percentOf(row.Total, totalExpense), Amount: vnd(row.Total),
 		})
 	}
 	if otherSum > 0 {
-		labels = append(labels, "Khác")
+		// The same label the real "other" category uses, so the aggregate
+		// slice and that category never read as two different things.
+		otherName := i18n.NameForSlug("other")
+		labels = append(labels, otherName)
 		values = append(values, otherSum)
 		colors = append(colors, "#A1A1AA")
 		legend = append(legend, pieLegendEntry{
-			Name: "Khác", Color: "#A1A1AA",
+			Name: otherName, Color: "#A1A1AA",
 			Percent: percentOf(otherSum, totalExpense), Amount: vnd(otherSum),
 		})
 	}

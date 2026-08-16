@@ -151,7 +151,7 @@
 {{define "category_options"}}
 <div id="category-select" class="relative">
   <select name="category_id" class="w-full h-9 pl-3 pr-7 rounded-lg border border-border-input text-[13px] bg-surface appearance-none">
-    {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">{{.Name}}</option>{{end}}
+    {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">{{catName .Slug .Name}}</option>{{end}}
   </select>
   <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-placeholder text-[10px]">▾</span>
 </div>

@@ -65,7 +65,9 @@ func TestCreateAndListCategories(t *testing.T) {
 	if !strings.Contains(listRec.Body.String(), "Du lịch") {
 		t.Fatal("expected created category to appear in list page")
 	}
-	if !strings.Contains(listRec.Body.String(), "Ăn uống") {
+	// The default categories render through their slug, so the page shows
+	// the English label rather than whatever the name column holds.
+	if !strings.Contains(listRec.Body.String(), "Food &amp; Drink") {
 		t.Fatal("expected default category to appear in list page")
 	}
 }

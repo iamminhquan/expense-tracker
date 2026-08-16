@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"expensetracker/internal/i18n"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -36,7 +37,7 @@ func TestComparisonTextMobile(t *testing.T) {
 	}
 }
 
-func TestBuildPieDataCapsAtSixPlusKhac(t *testing.T) {
+func TestBuildPieDataCapsAtSixPlusOther(t *testing.T) {
 	var breakdown []sqlcgen.CategoryBreakdownRow
 	for i := 0; i < 8; i++ {
 		breakdown = append(breakdown, sqlcgen.CategoryBreakdownRow{
@@ -45,10 +46,15 @@ func TestBuildPieDataCapsAtSixPlusKhac(t *testing.T) {
 	}
 	labels, values, colors, legend := buildPieData(breakdown, 700)
 	if len(labels) != 7 {
-		t.Fatalf("expected 7 pie slices (6 + Khác), got %d", len(labels))
+		t.Fatalf("expected 7 pie slices (6 + Other), got %d", len(labels))
 	}
-	if labels[6] != "Khác" || colors[6] != "#A1A1AA" {
-		t.Fatalf("expected the 7th slice to be the reserved-gray Khác aggregate, got %q/%q", labels[6], colors[6])
+	if labels[6] != "Other" || colors[6] != "#A1A1AA" {
+		t.Fatalf("expected the 7th slice to be the reserved-gray Other aggregate, got %q/%q", labels[6], colors[6])
+	}
+	// The aggregate slice and the real "other" category must read the same;
+	// two different words for the same idea in one chart is a bug.
+	if legend[6].Name != i18n.NameForSlug("other") {
+		t.Fatalf("expected the aggregate legend entry to reuse the other-category label, got %q", legend[6].Name)
 	}
 	if len(legend) != 7 || len(values) != 7 {
 		t.Fatalf("expected 7 legend entries and values, got legend=%d values=%d", len(legend), len(values))

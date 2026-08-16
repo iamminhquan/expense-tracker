@@ -229,7 +229,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	w.Header().Set("HX-Trigger", "transaction-created")
 	renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
 		"Row": map[string]any{
-			"ID": created.ID, "CategoryName": category.Name, "CategoryColor": category.Color,
+			"ID": created.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 			"Description": created.Description, "OccurredOn": created.OccurredOn,
 			"Amount": created.Amount, "Type": created.Type,
 		},
@@ -389,7 +389,7 @@ func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 		}
 
 		renderNamed(w, r, deps, "transactions", "transaction_row", "", map[string]any{
-			"ID": txn.ID, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
+			"ID": txn.ID, "CategorySlug": txn.CategorySlug, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
 			"Description": txn.Description, "OccurredOn": txn.OccurredOn, "Amount": txn.Amount, "Type": txn.Type,
 		})
 	}
@@ -500,7 +500,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// exactly what a successful edit needs too.
 		renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
 			"Row": map[string]any{
-				"ID": updated.ID, "CategoryName": category.Name, "CategoryColor": category.Color,
+				"ID": updated.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
 				"Amount": updated.Amount, "Type": updated.Type,
 			},

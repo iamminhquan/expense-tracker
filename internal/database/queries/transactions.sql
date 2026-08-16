@@ -1,5 +1,5 @@
 -- name: ListTransactionsForMonth :many
-SELECT t.*, c.name AS category_name, c.color AS category_color
+SELECT t.*, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
@@ -30,11 +30,11 @@ FROM transactions
 WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3;
 
 -- name: CategoryBreakdown :many
-SELECT c.name AS category_name, c.color AS category_color, SUM(t.amount)::bigint AS total
+SELECT c.slug AS category_slug, c.name AS category_name, c.color AS category_color, SUM(t.amount)::bigint AS total
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.type = 'expense' AND t.occurred_on >= $2 AND t.occurred_on < $3
-GROUP BY c.name, c.color
+GROUP BY c.slug, c.name, c.color
 ORDER BY total DESC;
 
 -- name: ReassignCategoryTransactions :execrows
@@ -52,7 +52,7 @@ WHERE user_id = $1
 ORDER BY month DESC;
 
 -- name: GetTransactionWithCategory :one
-SELECT t.*, c.name AS category_name, c.color AS category_color
+SELECT t.*, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.id = $1 AND t.user_id = $2;

@@ -12,11 +12,11 @@ import (
 )
 
 const categoryBreakdown = `-- name: CategoryBreakdown :many
-SELECT c.name AS category_name, c.color AS category_color, SUM(t.amount)::bigint AS total
+SELECT c.slug AS category_slug, c.name AS category_name, c.color AS category_color, SUM(t.amount)::bigint AS total
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.type = 'expense' AND t.occurred_on >= $2 AND t.occurred_on < $3
-GROUP BY c.name, c.color
+GROUP BY c.slug, c.name, c.color
 ORDER BY total DESC
 `
 
@@ -27,9 +27,10 @@ type CategoryBreakdownParams struct {
 }
 
 type CategoryBreakdownRow struct {
-	CategoryName  string `json:"category_name"`
-	CategoryColor string `json:"category_color"`
-	Total         int64  `json:"total"`
+	CategorySlug  pgtype.Text `json:"category_slug"`
+	CategoryName  string      `json:"category_name"`
+	CategoryColor string      `json:"category_color"`
+	Total         int64       `json:"total"`
 }
 
 func (q *Queries) CategoryBreakdown(ctx context.Context, arg CategoryBreakdownParams) ([]CategoryBreakdownRow, error) {
@@ -41,7 +42,12 @@ func (q *Queries) CategoryBreakdown(ctx context.Context, arg CategoryBreakdownPa
 	var items []CategoryBreakdownRow
 	for rows.Next() {
 		var i CategoryBreakdownRow
-		if err := rows.Scan(&i.CategoryName, &i.CategoryColor, &i.Total); err != nil {
+		if err := rows.Scan(
+			&i.CategorySlug,
+			&i.CategoryName,
+			&i.CategoryColor,
+			&i.Total,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -152,7 +158,7 @@ func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) 
 }
 
 const getTransactionWithCategory = `-- name: GetTransactionWithCategory :one
-SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, c.name AS category_name, c.color AS category_color
+SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.id = $1 AND t.user_id = $2
@@ -173,6 +179,7 @@ type GetTransactionWithCategoryRow struct {
 	OccurredOn    pgtype.Date        `json:"occurred_on"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	CategorySlug  pgtype.Text        `json:"category_slug"`
 	CategoryName  string             `json:"category_name"`
 	CategoryColor string             `json:"category_color"`
 }
@@ -190,6 +197,7 @@ func (q *Queries) GetTransactionWithCategory(ctx context.Context, arg GetTransac
 		&i.OccurredOn,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CategorySlug,
 		&i.CategoryName,
 		&i.CategoryColor,
 	)
@@ -224,7 +232,7 @@ func (q *Queries) ListDistinctTransactionMonths(ctx context.Context, userID int6
 }
 
 const listTransactionsForMonth = `-- name: ListTransactionsForMonth :many
-SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, c.name AS category_name, c.color AS category_color
+SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
@@ -247,6 +255,7 @@ type ListTransactionsForMonthRow struct {
 	OccurredOn    pgtype.Date        `json:"occurred_on"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	CategorySlug  pgtype.Text        `json:"category_slug"`
 	CategoryName  string             `json:"category_name"`
 	CategoryColor string             `json:"category_color"`
 }
@@ -270,6 +279,7 @@ func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransact
 			&i.OccurredOn,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CategorySlug,
 			&i.CategoryName,
 			&i.CategoryColor,
 		); err != nil {
