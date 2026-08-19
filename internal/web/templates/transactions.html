@@ -38,9 +38,12 @@
   <input name="amount" type="text" inputmode="numeric" required placeholder="0"
     class="h-14 px-4 rounded-[10px] border-2 border-accent font-mono text-[24px] font-semibold text-center focus:placeholder-transparent focus:outline-none focus:ring-[3px] focus:ring-accent/[0.12]">
   {{template "category_chips" .}}
+  <!-- A date input cannot shrink below the width its own "08 / 19 / 2026"
+       needs, so it keeps its natural size and the note takes what is left.
+       Two flex-1 halves overflowed the sheet on a 375px screen. -->
   <div class="flex gap-3">
-    <input name="occurred_on" type="date" value="{{.Today}}" required class="flex-1 h-12 px-3 rounded-[10px] border border-border-input font-mono text-[14px]">
-    <input name="description" type="text" placeholder="Note" class="flex-1 h-12 px-3 rounded-[10px] border border-border-input text-[14px]">
+    <input name="occurred_on" type="date" value="{{.Today}}" required class="shrink-0 h-12 px-3 rounded-[10px] border border-border-input font-mono text-[14px]">
+    <input name="description" type="text" placeholder="Note" class="flex-1 min-w-0 h-12 px-3 rounded-[10px] border border-border-input text-[14px]">
   </div>
   {{if .QuickAddError}}<p class="text-[12px] text-expense">{{.QuickAddError}}</p>{{end}}
   <button type="submit" class="h-[50px] rounded-[10px] bg-accent text-on-solid text-[14px] font-semibold">Save transaction</button>
