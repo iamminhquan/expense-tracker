@@ -5,8 +5,10 @@
     <h1 class="text-[19px] font-semibold text-ink">Categories</h1>
   </div>
 
-  <div class="flex flex-col md:flex-row gap-5">
-    <div class="flex-1 flex flex-col gap-5">
+  <!-- Two columns only from lg up: at tablet width a 300px sidebar leaves the
+       list too narrow for a row to hold its name, badge, count and controls. -->
+  <div class="flex flex-col lg:flex-row gap-5">
+    <div class="flex-1 min-w-0 flex flex-col gap-5">
       <div>
         <p class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Expense</p>
         <div id="category-list-expense" class="bg-surface border border-border-card rounded-xl">
@@ -33,7 +35,7 @@
         class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-on-solid text-[15px] font-semibold">Add category</button>
     </div>
 
-    <div class="md:w-[300px] md:sticky md:top-[78px] md:self-start">
+    <div class="lg:w-[300px] lg:sticky lg:top-[78px] lg:self-start">
       <div id="add-category-slot" class="hidden md:block">
         {{template "add_category_form" .}}
       </div>
