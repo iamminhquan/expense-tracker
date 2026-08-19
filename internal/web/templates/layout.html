@@ -84,6 +84,57 @@
       document.addEventListener('mouseup', cancel);
     })();
 
+    // Bottom sheets: drag the grab handle down to dismiss. The pill reads as
+    // draggable, so it has to behave that way -- the sheet follows the finger
+    // and then either snaps back or slides out. Pointer events rather than the
+    // touch/mouse pair above, because setPointerCapture keeps the drag alive
+    // when the finger slides off the handle; the handle carries touch-none so
+    // the gesture is not stolen by scrolling.
+    (function () {
+      var sheet = null, startY = 0, moved = 0, startedAt = 0;
+
+      document.addEventListener('pointerdown', function (evt) {
+        var handle = evt.target.closest && evt.target.closest('[data-sheet-handle]');
+        if (!handle) return;
+        var dialog = handle.closest('dialog');
+        if (!dialog) return;
+        sheet = dialog;
+        startY = evt.clientY;
+        moved = 0;
+        startedAt = Date.now();
+        sheet.style.transition = 'none';
+        sheet.style.transform = '';
+        handle.setPointerCapture(evt.pointerId);
+      });
+
+      document.addEventListener('pointermove', function (evt) {
+        if (!sheet) return;
+        // downward only: dragging up must not lift the sheet off the bottom
+        moved = Math.max(0, evt.clientY - startY);
+        sheet.style.transform = 'translateY(' + moved + 'px)';
+      });
+
+      function release() {
+        if (!sheet) return;
+        var el = sheet, height = el.getBoundingClientRect().height;
+        sheet = null;
+        el.style.transition = 'transform 180ms ease-out';
+        // past a quarter of the sheet, or a short flick meant as one
+        if (moved > height * 0.25 || (moved > 40 && Date.now() - startedAt < 250)) {
+          el.style.transform = 'translateY(100%)';
+          setTimeout(function () {
+            el.close();
+            el.style.transition = '';
+            el.style.transform = '';
+          }, 180);
+        } else {
+          el.style.transform = '';
+        }
+      }
+      document.addEventListener('pointerup', release);
+      document.addEventListener('pointercancel', release);
+    })();
+
     // htmx requests over 300ms: dim the submitting button and block further
     // clicks until the request settles. No spinner, label stays put.
     (function () {

@@ -8,7 +8,12 @@
 
 <dialog id="mobile-add-sheet" class="md:hidden w-full max-w-full m-0 mt-auto mb-0 rounded-t-[20px] rounded-b-none p-0 backdrop:bg-black/32">
   <div class="pt-3 px-[18px] pb-7">
-    <div class="w-[38px] h-1 rounded-full bg-border-input mx-auto mb-4"></div>
+    <!-- The pill is 4px tall, far too small to grab, so the drag target is
+         this padded wrapper: -mt-3 pt-3 reaches up into the sheet's own top
+         padding without moving the pill, and pb-4 replaces its old margin. -->
+    <div data-sheet-handle class="touch-none cursor-grab active:cursor-grabbing -mt-3 pt-3 pb-4 flex justify-center">
+      <div class="w-[38px] h-1 rounded-full bg-border-input"></div>
+    </div>
     <p class="text-[17px] font-semibold text-ink mb-4">Add transaction</p>
     {{template "mobile_quick_add_form" .}}
   </div>
