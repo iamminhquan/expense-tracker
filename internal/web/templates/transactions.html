@@ -112,12 +112,16 @@
 {{end}}
 
 {{define "quick_add_form"}}
+{{/* A wrapping flex row, not a fixed-width grid: the six columns add up to
+     ~790px, which overflowed the page on any desktop window narrower than
+     880px. Wrapping drops the note and the button onto a second line
+     instead, and keeps the single-row layout once there is room. */}}
 <div id="quick-add-form-wrapper" class="hidden md:block bg-surface border border-border-card rounded-xl p-4">
   <form id="quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
     hx-on:transaction-created="this.querySelector('[name=amount]').value=''; this.querySelector('[name=description]').value='';"
-    class="grid grid-cols-[auto_150px_130px_150px_minmax(90px,1fr)_auto] gap-[10px] items-end">
+    class="flex flex-wrap items-end gap-[10px]">
     <input type="hidden" name="ui_source" value="desktop">
-    <div class="flex flex-col gap-[6px]">
+    <div class="flex flex-col gap-[6px] shrink-0">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Type</label>
       <div class="flex bg-track rounded-lg p-[3px] gap-1 h-9">
         <label class="px-3 flex items-center cursor-pointer">
@@ -132,19 +136,19 @@
         </label>
       </div>
     </div>
-    <div class="flex flex-col gap-[6px]">
+    <div class="flex flex-col gap-[6px] w-[150px] shrink-0">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Category</label>
       {{template "category_options" .}}
     </div>
-    <div class="flex flex-col gap-[6px]">
+    <div class="flex flex-col gap-[6px] w-[130px] shrink-0">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Amount</label>
       <input name="amount" type="text" inputmode="numeric" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[14px] font-medium w-full">
     </div>
-    <div class="flex flex-col gap-[6px]">
+    <div class="flex flex-col gap-[6px] w-[150px] shrink-0">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Date</label>
       <input name="occurred_on" type="date" value="{{.Today}}" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[13px] w-full">
     </div>
-    <div class="flex flex-col gap-[6px] min-w-0">
+    <div class="flex flex-col gap-[6px] flex-1 min-w-[90px]">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Note</label>
       <input name="description" type="text" placeholder="Optional" class="h-9 px-3 rounded-lg border border-border-input text-[13px] w-full">
     </div>
