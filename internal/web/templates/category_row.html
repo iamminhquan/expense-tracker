@@ -1,10 +1,12 @@
 {{define "category_row"}}
-<div id="category-row-{{.ID}}" {{if .OOBTarget}}hx-swap-oob="afterbegin:{{.OOBTarget}}"{{end}} class="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 px-[14px] py-3 border-b border-border-list last:border-b-0">
-  <div class="flex items-center gap-3">
+<div id="category-row-{{.ID}}" {{if .OOBTarget}}hx-swap-oob="afterbegin:{{.OOBTarget}}"{{end}} class="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-3 px-[14px] py-3 border-b border-border-list last:border-b-0">
+  <!-- On one desktop line a long name is the only part that can give way, so
+       it truncates; the mobile layout stacks and lets it wrap in full. -->
+  <div class="flex items-center gap-3 min-w-0">
     <span class="w-[10px] h-[10px] rounded-full shrink-0" style="background-color: {{.Color}}"></span>
-    <span class="text-[14px] md:text-[13px] font-medium text-ink">{{catName .Slug .Name}}</span>
+    <span class="md:truncate text-[14px] md:text-[13px] font-medium text-ink">{{catName .Slug .Name}}</span>
   </div>
-  <div class="flex items-center gap-2 md:contents">
+  <div class="flex flex-wrap items-center gap-2 md:contents">
     {{if .UserID.Valid}}
     <span class="shrink-0 text-[11px] text-placeholder border border-border-nav rounded-[5px] px-[6px] py-[1px] whitespace-nowrap">Custom</span>
     {{else}}
@@ -67,7 +69,7 @@
 {{define "category_row_edit"}}
 <form id="category-row-{{.ID}}" hx-patch="/categories/{{.ID}}/name" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="flex items-center gap-3 px-[14px] py-3 border-b border-border-list">
   <span class="w-[10px] h-[10px] rounded-full shrink-0" style="background-color: {{.Color}}"></span>
-  <input name="name" value="{{.Name}}" required class="flex-1 h-8 px-2 rounded border border-border-input text-[13px]">
+  <input name="name" value="{{.Name}}" required class="flex-1 min-w-0 h-8 px-2 rounded border border-border-input text-[13px]">
   {{if .Error}}<span class="text-[12px] text-expense">{{.Error}}</span>{{end}}
   <button type="submit" class="text-[12px] text-accent font-semibold">Save</button>
   <button type="button" hx-get="/categories/{{.ID}}/view" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint">Cancel</button>
