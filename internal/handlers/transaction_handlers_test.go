@@ -888,3 +888,37 @@ func TestDeleteTransactionRemovesRow(t *testing.T) {
 		t.Fatal("expected the transaction to no longer exist")
 	}
 }
+
+// The mobile category chips highlight the selected one through a
+// has-[:checked] variant. The first chip used to also carry the accent
+// classes unconditionally, so once the user tapped another chip two of them
+// looked selected at the same time.
+func TestCategoryChipsHighlightOnlyTheCheckedChip(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "chips-test@example.com", "s3cret-pass")
+
+	req := httptest.NewRequest(http.MethodGet, "/transactions/category-chips?type=expense", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from the chips fragment, got %d: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+
+	if got := strings.Count(body, ` checked`); got != 1 {
+		t.Fatalf("expected exactly one pre-checked chip, got %d: %s", got, body)
+	}
+	// Every accent class has to sit behind the has-[:checked] variant; a bare
+	// one would light a chip up no matter which radio is actually selected.
+	bare := strings.Count(body, "border-accent") - strings.Count(body, "has-[:checked]:border-accent")
+	if bare != 0 {
+		t.Fatalf("expected no unconditional border-accent on a chip, found %d: %s", bare, body)
+	}
+	bare = strings.Count(body, "bg-accent/[0.08]") - strings.Count(body, "has-[:checked]:bg-accent/[0.08]")
+	if bare != 0 {
+		t.Fatalf("expected no unconditional bg-accent on a chip, found %d: %s", bare, body)
+	}
+}
