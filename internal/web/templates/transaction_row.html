@@ -64,7 +64,7 @@
   <select name="category_id" class="w-[150px] shrink-0 text-[13px] border border-border-input rounded px-1 h-8">
     {{range .CategoryOptions}}<option value="{{.ID}}" {{if eq .ID $.CategoryID}}selected{{end}}>{{catName .Slug .Name}}</option>{{end}}
   </select>
-  <input name="description" type="text" value="{{.Description}}" class="flex-1 min-w-0 text-[13px] border border-border-input rounded px-2 h-8">
+  <input name="description" type="text" value="{{.Description}}" class="flex-1 min-w-[120px] text-[13px] border border-border-input rounded px-2 h-8">
   {{if .Error}}<span class="text-[12px] text-expense shrink-0">{{.Error}}</span>{{end}}
   <span class="shrink-0 flex items-center gap-1">
     <button type="submit" class="text-[12px] text-accent font-semibold border border-border-input rounded-md px-[7px] py-[3px]">Save</button>
