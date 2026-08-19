@@ -32,8 +32,11 @@
       <span class="text-[14px] peer-checked:font-semibold">Income</span>
     </label>
   </div>
+  <!-- The field centres its text, so an empty focused input would draw the
+       caret straight through the middle of the "0" placeholder. Hide the
+       placeholder on focus and the caret stands on its own. -->
   <input name="amount" type="text" inputmode="numeric" required placeholder="0"
-    class="h-14 px-4 rounded-[10px] border-2 border-accent font-mono text-[24px] font-semibold text-center focus:outline-none focus:ring-[3px] focus:ring-accent/[0.12]">
+    class="h-14 px-4 rounded-[10px] border-2 border-accent font-mono text-[24px] font-semibold text-center focus:placeholder-transparent focus:outline-none focus:ring-[3px] focus:ring-accent/[0.12]">
   {{template "category_chips" .}}
   <div class="flex gap-3">
     <input name="occurred_on" type="date" value="{{.Today}}" required class="flex-1 h-12 px-3 rounded-[10px] border border-border-input font-mono text-[14px]">
