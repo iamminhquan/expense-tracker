@@ -26,7 +26,7 @@
 {{end}}
 
 {{define "totals_oob"}}
-<div id="totals-summary" hx-swap-oob="true" class="flex items-center gap-[18px]">
+<div id="totals-summary" hx-swap-oob="true" class="hidden md:flex items-center gap-[18px]">
   <span class="text-[13px] text-ink-faint">Spent <span class="font-mono font-medium text-expense">{{vnd .TotalExpense}}</span></span>
   <span class="text-[13px] text-ink-faint">Earned <span class="font-mono font-medium text-income">{{vnd .TotalIncome}}</span></span>
 </div>
