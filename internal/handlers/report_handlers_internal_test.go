@@ -22,17 +22,21 @@ func TestComparisonText(t *testing.T) {
 	}
 }
 
+// The mobile Spent/Earned cards sit side by side under the balance card now
+// rather than spanning the screen one per row, so the comparison line has
+// roughly half the width it used to and drops everything but the direction
+// and the number.
 func TestComparisonTextMobile(t *testing.T) {
-	if got := comparisonTextMobile(0, 0, false); got != "No data for last month" {
+	if got := comparisonTextMobile(0, 0, false); got != "No data" {
 		t.Errorf("comparisonTextMobile(no prev data) = %q", got)
 	}
-	if got := comparisonTextMobile(8800000, 10000000, true); got != "Down 12% vs last month" {
+	if got := comparisonTextMobile(8800000, 10000000, true); got != "Down 12%" {
 		t.Errorf("comparisonTextMobile(decrease) = %q", got)
 	}
-	if got := comparisonTextMobile(11000000, 10000000, true); got != "Up 10% vs last month" {
+	if got := comparisonTextMobile(11000000, 10000000, true); got != "Up 10%" {
 		t.Errorf("comparisonTextMobile(increase) = %q", got)
 	}
-	if got := comparisonTextMobile(10000000, 10000000, true); got != "Unchanged vs last month" {
+	if got := comparisonTextMobile(10000000, 10000000, true); got != "Unchanged" {
 		t.Errorf("comparisonTextMobile(no change) = %q", got)
 	}
 }

@@ -25,26 +25,13 @@
 </div>
 {{end}}
 
+{{/* Everything a create/update/delete has to refresh besides the row itself.
+     The balance card carries its own OOB attribute (.Balance.OOB is set by
+     the handler), so it is the whole of what used to be three separate
+     hand-duplicated fragments. */}}
 {{define "totals_oob"}}
-<div id="totals-summary" hx-swap-oob="true" class="hidden md:flex items-center gap-[18px]">
-  <span class="text-[13px] text-ink-faint">Spent <span class="font-mono font-medium text-expense">{{vnd .TotalExpense}}</span></span>
-  <span class="text-[13px] text-ink-faint">Earned <span class="font-mono font-medium text-income">{{vnd .TotalIncome}}</span></span>
-</div>
+{{template "balance_card" .Balance}}
 <span id="transaction-count" hx-swap-oob="true" class="text-[12px] text-ink-faint">{{countOf .Count "transaction"}}</span>
-<div id="remaining-row" hx-swap-oob="true" class="flex items-center justify-between px-4 py-[13px] bg-surface-alt">
-  <span class="text-[13px] font-semibold text-ink">Left this month</span>
-  <span class="w-[132px] text-right font-mono text-[15px] font-semibold {{if lt .Remaining 0}}text-expense{{else}}text-ink{{end}}">{{vndBalance .Remaining}}</span>
-</div>
-<div id="mobile-stat-cards" hx-swap-oob="true" class="md:hidden flex items-center gap-3">
-  <div class="flex-1 rounded-[10px] bg-surface border border-border-card px-3 py-[10px]">
-    <p class="text-[11px] text-ink-faint">Spent</p>
-    <p class="font-mono text-[15px] font-semibold text-expense">{{vnd .TotalExpense}}</p>
-  </div>
-  <div class="flex-1 rounded-[10px] bg-surface border border-border-card px-3 py-[10px]">
-    <p class="text-[11px] text-ink-faint">Earned</p>
-    <p class="font-mono text-[15px] font-semibold text-income">{{vnd .TotalIncome}}</p>
-  </div>
-</div>
 <div id="transactions-empty" hx-swap-oob="true">
   {{if eq .Count 0}}
   <div class="text-center py-11 px-7">

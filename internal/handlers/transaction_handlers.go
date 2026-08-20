@@ -56,6 +56,18 @@ func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
 	return monthRangeFor(u.Query().Get("month"))
 }
 
+// totalsOOBData assembles the payload for the "totals_oob" fragment that
+// every create/update/delete returns alongside its row: the balance card
+// marked for out-of-band swapping, plus the transaction count and the month
+// name the list's empty state needs.
+func totalsOOBData(totals sqlcgen.MonthlyTotalsRow, count int, from pgtype.Date) map[string]any {
+	return map[string]any{
+		"Balance":         newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "transactions").asOOB(),
+		"Count":           count,
+		"MonthLabelLower": monthLabelLower(from.Time),
+	}
+}
+
 func transactionsPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -133,9 +145,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 
 	return map[string]any{
 		"Transactions":      transactions,
-		"TotalExpense":      totals.TotalExpense,
-		"TotalIncome":       totals.TotalIncome,
-		"Remaining":         totals.TotalIncome - totals.TotalExpense,
+		"Balance":           newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "transactions"),
 		"MonthLabel":        monthLabel(from.Time),
 		"MonthLabelLower":   monthLabelLower(from.Time),
 		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
@@ -232,11 +242,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 			"Description": created.Description, "OccurredOn": created.OccurredOn,
 			"Amount": created.Amount, "Type": created.Type,
 		},
-		"Totals": map[string]any{
-			"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
-			"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
-			"MonthLabelLower": monthLabelLower(from.Time),
-		},
+		"Totals": totalsOOBData(totals, len(transactions), from),
 	})
 }
 
@@ -503,11 +509,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
 				"Amount": updated.Amount, "Type": updated.Type,
 			},
-			"Totals": map[string]any{
-				"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
-				"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
-				"MonthLabelLower": monthLabelLower(from.Time),
-			},
+			"Totals": totalsOOBData(totals, len(transactions), from),
 		})
 	}
 }
@@ -538,10 +540,6 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		renderNamed(w, r, deps, "transactions", "totals_oob", "", map[string]any{
-			"TotalExpense": totals.TotalExpense, "TotalIncome": totals.TotalIncome,
-			"Remaining": totals.TotalIncome - totals.TotalExpense, "Count": len(transactions),
-			"MonthLabelLower": monthLabelLower(from.Time),
-		})
+		renderNamed(w, r, deps, "transactions", "totals_oob", "", totalsOOBData(totals, len(transactions), from))
 	}
 }

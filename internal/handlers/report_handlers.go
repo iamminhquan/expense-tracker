@@ -101,6 +101,7 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 		"AvailableMonths":         available,
 		"TotalExpense":            totals.TotalExpense,
 		"TotalIncome":             totals.TotalIncome,
+		"Balance":                 newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "dashboard"),
 		"ExpenseComparison":       comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
 		"IncomeComparison":        comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
 		"ExpenseComparisonMobile": comparisonTextMobile(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
@@ -217,21 +218,25 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 }
 
 // comparisonTextMobile builds SPEC.md section 5's mobile-only shortened
-// comparison line (e.g. "Down 11% vs last month"), shown below 768px in
-// place of comparisonText's fuller "Last month X · down Y%" -- the amount is
-// dropped to fit the narrower stat card.
+// comparison line (e.g. "Down 11%"), shown below 768px in place of
+// comparisonText's fuller "Last month X · down Y%".
+//
+// It keeps only the direction and the percentage: since the balance card
+// took the full width at the top of the dashboard, the Spent and Earned
+// cards share a row beneath it and have roughly half the width they had
+// when this line still ended in "vs last month".
 func comparisonTextMobile(current, previous int64, hasPrevData bool) string {
 	if !hasPrevData || previous == 0 {
-		return "No data for last month"
+		return "No data"
 	}
 	diff := current - previous
 	if diff == 0 {
-		return "Unchanged vs last month"
+		return "Unchanged"
 	}
 	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
 	direction := "Up"
 	if diff < 0 {
 		direction = "Down"
 	}
-	return fmt.Sprintf("%s %d%% vs last month", direction, pct)
+	return fmt.Sprintf("%s %d%%", direction, pct)
 }
