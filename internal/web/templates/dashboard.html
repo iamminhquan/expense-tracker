@@ -19,22 +19,30 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-    <div class="bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
-      <p class="text-[12px] font-medium text-ink-faint">Spent this month</p>
-      <p class="font-mono text-[27px] md:text-[32px] font-semibold text-expense" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalExpense}}{{end}}</p>
-      {{if not .CurrentMonthEmpty}}
-      <p class="text-[12px] text-ink-faint md:hidden">{{.ExpenseComparisonMobile}}</p>
-      <p class="hidden md:block text-[12px] text-ink-faint">{{.ExpenseComparison}}</p>
-      {{end}}
-    </div>
-    <div class="bg-surface border border-border-card rounded-xl p-5 flex flex-col gap-2">
-      <p class="text-[12px] font-medium text-ink-faint">Earned this month</p>
-      <p class="font-mono text-[27px] md:text-[32px] font-semibold text-income" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalIncome}}{{end}}</p>
-      {{if not .CurrentMonthEmpty}}
-      <p class="text-[12px] text-ink-faint md:hidden">{{.IncomeComparisonMobile}}</p>
-      <p class="hidden md:block text-[12px] text-ink-faint">{{.IncomeComparison}}</p>
-      {{end}}
+  {{/* Three cards on desktop with the balance widest, because it is the
+       number the page is answering. On mobile the balance takes the full
+       width above and Spent/Earned share the row below: md:contents drops
+       this wrapper at the breakpoint so all three become siblings of the
+       same flex row rather than nesting two levels deep. */}}
+  <div class="flex flex-col md:flex-row gap-3 md:gap-4">
+    {{template "balance_card" .Balance}}
+    <div class="flex gap-3 md:contents">
+      <div class="flex-1 min-w-0 bg-surface border border-border-card rounded-xl px-[14px] py-3 md:p-5 flex flex-col gap-1 md:gap-2">
+        <p class="text-[12px] font-medium text-ink-faint"><span class="md:hidden">Spent</span><span class="hidden md:inline">Spent this month</span></p>
+        <p class="font-mono text-[17px] md:text-[32px] font-semibold text-expense" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalExpense}}{{end}}</p>
+        {{if not .CurrentMonthEmpty}}
+        <p class="text-[11px] text-placeholder md:hidden">{{.ExpenseComparisonMobile}}</p>
+        <p class="hidden md:block text-[12px] text-ink-faint">{{.ExpenseComparison}}</p>
+        {{end}}
+      </div>
+      <div class="flex-1 min-w-0 bg-surface border border-border-card rounded-xl px-[14px] py-3 md:p-5 flex flex-col gap-1 md:gap-2">
+        <p class="text-[12px] font-medium text-ink-faint"><span class="md:hidden">Earned</span><span class="hidden md:inline">Earned this month</span></p>
+        <p class="font-mono text-[17px] md:text-[32px] font-semibold text-income" style="letter-spacing:-0.02em">{{if .CurrentMonthEmpty}}<span class="text-ink-zero">0₫</span>{{else}}{{vnd .TotalIncome}}{{end}}</p>
+        {{if not .CurrentMonthEmpty}}
+        <p class="text-[11px] text-placeholder md:hidden">{{.IncomeComparisonMobile}}</p>
+        <p class="hidden md:block text-[12px] text-ink-faint">{{.IncomeComparison}}</p>
+        {{end}}
+      </div>
     </div>
   </div>
 
