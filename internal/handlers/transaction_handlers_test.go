@@ -460,6 +460,31 @@ func TestMonthDropdownReturnsFragmentOnly(t *testing.T) {
 	}
 }
 
+// The sticky mobile header (title, month picker, + add button) lives inside
+// transactions_month_section and keys its content off .ActiveNav. The
+// month-dropdown's own hx-get re-renders exactly that fragment, so if the
+// handler ever renders it without setting ActiveNav, switching months wipes
+// the header from the page until the next full load.
+func TestMonthDropdownFragmentKeepsTheMobileHeader(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "txn-month-header@example.com", "s3cret-pass")
+
+	req := httptest.NewRequest(http.MethodGet, "/transactions?month="+time.Now().Format("2006-01"), nil)
+	req.AddCookie(cookie)
+	req.Header.Set("HX-Request", "true")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `aria-label="Add transaction"`) {
+		t.Errorf("month-switch fragment lost the sticky header's add button: %s", body)
+	}
+	if !strings.Contains(body, "Transactions") {
+		t.Errorf("month-switch fragment lost the sticky header's title: %s", body)
+	}
+}
+
 func TestCreateTransactionAcceptsNearFutureDate(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)

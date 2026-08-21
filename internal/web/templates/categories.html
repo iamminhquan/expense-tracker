@@ -1,9 +1,7 @@
 {{define "content"}}
 <div class="max-w-[880px] mx-auto px-6 pt-7 pb-0 md:pb-9 flex flex-col gap-5">
   <h1 class="hidden md:block text-[18px] font-semibold text-ink">Categories</h1>
-  <div class="md:hidden flex items-center justify-between">
-    <h1 class="text-[19px] font-semibold text-ink">Categories</h1>
-  </div>
+  <div class="md:hidden -mx-6">{{template "mobile_page_header" .}}</div>
 
   <!-- Two columns only from lg up: at tablet width a 300px sidebar leaves the
        list too narrow for a row to hold its name, badge, count and controls. -->
@@ -30,9 +28,6 @@
         </div>
         {{end}}
       </div>
-
-      <button type="button" onclick="openAddCategorySheet()"
-        class="md:hidden mb-2 h-[46px] px-5 rounded-[10px] bg-accent text-on-solid text-[15px] font-semibold">Add category</button>
     </div>
 
     <div class="lg:w-[300px] lg:sticky lg:top-[78px] lg:self-start">

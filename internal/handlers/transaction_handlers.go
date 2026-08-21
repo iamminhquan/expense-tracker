@@ -84,7 +84,7 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 		}
 
 		if isFragmentRequest(r) {
-			renderNamed(w, r, deps, "transactions", "transactions_month_section", "", data)
+			renderNamed(w, r, deps, "transactions", "transactions_month_section", "transactions", data)
 			return
 		}
 		render(w, r, deps, "transactions", "transactions", data)
