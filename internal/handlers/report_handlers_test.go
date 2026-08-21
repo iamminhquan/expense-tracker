@@ -134,3 +134,33 @@ func TestDashboardEmptyStateWhenNoTransactions(t *testing.T) {
 		t.Fatalf("expected the empty-state message for a brand-new user with no transactions, got: %s", rec.Body.String())
 	}
 }
+
+// dashboard_month_section carries the sticky mobile header too, keyed off
+// .ActiveNav. The month-dropdown's hx-get re-renders exactly that fragment,
+// so if the handler renders it without setting ActiveNav, switching months
+// wipes the header (title + month picker) from the page.
+func TestDashboardMonthDropdownFragmentKeepsTheMobileHeader(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := loginAndGetCookie(t, router, deps, "dash-month-header@example.com", "s3cret-pass")
+
+	req := httptest.NewRequest(http.MethodGet, "/dashboard?month="+time.Now().Format("2006-01"), nil)
+	req.AddCookie(cookie)
+	req.Header.Set("HX-Request", "true")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if strings.Contains(body, "<html") {
+		t.Fatalf("expected a fragment response with no <html> wrapper, got: %s", body)
+	}
+	// The month-picker trigger button appears twice when both the sticky
+	// mobile header (gated on .ActiveNav) and the desktop-only row (not
+	// gated) render their own copy. If ActiveNav never reaches this
+	// fragment, the mobile header's copy silently disappears and the count
+	// drops to 1 -- the bug this test catches.
+	const trigger = `onclick="this.nextElementSibling.classList.toggle('hidden')"`
+	if got := strings.Count(body, trigger); got != 2 {
+		t.Errorf("month-picker trigger appears %d times in the fragment, want 2 (mobile header + desktop row); the sticky mobile header lost its ActiveNav-gated content", got)
+	}
+}
