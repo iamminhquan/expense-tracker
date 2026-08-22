@@ -483,7 +483,7 @@
      [34px] is nav_mobile_header's own rendered height (6px + 26px avatar +
      2px), so the two tiers sit flush once both are stuck. */}}
 {{define "mobile_page_header"}}
-<div class="md:hidden flex items-center justify-between gap-[10px] pt-2 px-[18px] pb-3 bg-app sticky top-[34px] z-30 border-b border-border-nav">
+<div class="md:hidden flex items-center justify-between gap-[10px] pt-2 px-[18px] pb-3 sticky top-[34px] z-30">
   <h1 class="text-[19px] font-semibold text-ink" style="letter-spacing:-0.01em">{{if eq .ActiveNav "dashboard"}}{{.MonthLabel}}{{else if eq .ActiveNav "transactions"}}Transactions{{else if eq .ActiveNav "categories"}}Categories{{end}}</h1>
   <div class="flex items-center gap-[10px]">
     {{if or (eq .ActiveNav "dashboard") (eq .ActiveNav "transactions")}}
