@@ -3,11 +3,9 @@ package handlers_test
 import (
 	"context"
 	"fmt"
-	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -727,12 +725,9 @@ func TestCreateTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	// The active (past) month's total is 40000+25000=65000 and count is 2.
+	// The active (past) month now holds both transactions, so its count is 2.
 	// A handler still using currentMonthRange() would report today's month
-	// instead, which has no transactions for this fresh user (0₫, 0 count).
-	if !strings.Contains(body, "65,000") {
-		t.Fatalf("expected OOB totals to reflect the active past month's 65,000₫ total, got: %s", body)
-	}
+	// instead, which has no transactions for this fresh user (0 count).
 	if !strings.Contains(body, "2 transactions") {
 		t.Fatalf("expected OOB totals count of 2 for the active past month, got: %s", body)
 	}
@@ -950,113 +945,13 @@ func TestCategoryChipsHighlightOnlyTheCheckedChip(t *testing.T) {
 	}
 }
 
-// The balance card is the reason the totals fragment exists: adding a
-// transaction has to move the number and the ratio bar without a page
-// reload, which means the response must carry the card marked out-of-band
-// and recomputed, not just the new row.
-func TestCreateTransactionUpdatesBalanceCardOutOfBand(t *testing.T) {
-	deps := newTestDeps(t)
-	router := handlers.NewRouter(deps)
-	cookie := loginAndGetCookie(t, router, deps, "txn-balance-card@example.com", "s3cret-pass")
-	ctx := context.Background()
-
-	user, err := deps.Queries.GetUserByEmail(ctx, "txn-balance-card@example.com")
-	if err != nil {
-		t.Fatalf("get user: %v", err)
-	}
-	categories, err := deps.Queries.ListCategoriesForUser(ctx, pgtype.Int8{})
-	if err != nil || len(categories) == 0 {
-		t.Fatalf("list categories: %v", err)
-	}
-	income := firstCategoryOfType(t, categories, "income")
-	expense := firstCategoryOfType(t, categories, "expense")
-	t.Cleanup(func() {
-		deps.DB.Exec(ctx, "DELETE FROM transactions WHERE user_id = $1", user.ID)
-	})
-
-	now := time.Now()
-	thisMonth := func(day int) pgtype.Date {
-		return pgtype.Date{Time: time.Date(now.Year(), now.Month(), day, 0, 0, 0, 0, time.UTC), Valid: true}
-	}
-	if _, err := deps.Queries.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
-		UserID: user.ID, CategoryID: income.ID, Amount: 10000000, Type: "income",
-		Description: "salary", OccurredOn: thisMonth(1),
-	}); err != nil {
-		t.Fatalf("seed income: %v", err)
-	}
-
-	tok := csrfTokenFor(t, router)
-	form := url.Values{
-		"category_id": {strconv.FormatInt(expense.ID, 10)},
-		"amount":      {"5800000"},
-		"type":        {"expense"},
-		"occurred_on": {thisMonth(2).Time.Format("2006-01-02")},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(cookie)
-	withCSRF(req, tok)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	body := html.UnescapeString(rec.Body.String())
-
-	// Matched on the card's own tag, not anywhere in the body: the same
-	// response also carries the count and empty-state fragments, whose
-	// hx-swap-oob would otherwise satisfy a looser check.
-	oobCard := regexp.MustCompile(`<div id="balance-card"[^>]*hx-swap-oob="true"`)
-	if !oobCard.MatchString(body) {
-		t.Fatalf("create response does not carry the balance card out-of-band:\n%s", body)
-	}
-	// 10,000,000 earned less 5,800,000 spent, and 58% of the income spent.
-	if !strings.Contains(body, "+4,200,000₫") {
-		t.Errorf("balance card does not show the recomputed balance of +4,200,000₫:\n%s", body)
-	}
-	if !strings.Contains(body, "Spent 58% of this month's income") {
-		t.Errorf("balance card does not show the recomputed ratio caption:\n%s", body)
-	}
-	if !strings.Contains(body, "width: 58%") {
-		t.Errorf("balance card's ratio bar was not resized to 58%%:\n%s", body)
-	}
-}
-
-// Switching months re-renders the card with that month's figures. It rides
-// inside the month fragment rather than swapping separately, so it must not
-// mark itself out-of-band there -- htmx would lift it out of the fragment
-// and swap it into the element that same fragment is replacing.
-func TestMonthFragmentCarriesBalanceCardInlineNotOutOfBand(t *testing.T) {
-	deps := newTestDeps(t)
-	router := handlers.NewRouter(deps)
-	cookie := loginAndGetCookie(t, router, deps, "txn-month-balance@example.com", "s3cret-pass")
-
-	req := httptest.NewRequest(http.MethodGet, "/transactions?month="+time.Now().Format("2006-01"), nil)
-	req.AddCookie(cookie)
-	req.Header.Set("HX-Request", "true")
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	body := rec.Body.String()
-	if strings.Count(body, `id="balance-card"`) != 1 {
-		t.Fatalf(`expected exactly one balance card in the month fragment, got %d:\n%s`, strings.Count(body, `id="balance-card"`), body)
-	}
-	if regexp.MustCompile(`<div id="balance-card"[^>]*hx-swap-oob`).MatchString(body) {
-		t.Error("the month fragment's balance card marks itself out-of-band")
-	}
-}
-
-// One page, one balance. The figure used to appear in three places on the
-// transactions page and disagreed with itself whenever one stopped updating.
-// The dashboard shows no #balance-card at all: its remaining balance lives
+// Neither page shows a #balance-card any more: the remaining balance lives
 // solely in the header widget next to the user menu, not as a page card.
 func TestBalanceAppearsExactlyOncePerPage(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
 	cookie := loginAndGetCookie(t, router, deps, "txn-one-balance@example.com", "s3cret-pass")
 
-	wantCount := map[string]int{"/transactions": 1, "/dashboard": 0}
 	for _, path := range []string{"/transactions", "/dashboard"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		req.AddCookie(cookie)
@@ -1066,8 +961,8 @@ func TestBalanceAppearsExactlyOncePerPage(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("GET %s: expected 200, got %d", path, rec.Code)
 		}
-		if got := strings.Count(rec.Body.String(), `id="balance-card"`); got != wantCount[path] {
-			t.Errorf(`GET %s rendered %d balance cards, want %d`, path, got, wantCount[path])
+		if got := strings.Count(rec.Body.String(), `id="balance-card"`); got != 0 {
+			t.Errorf(`GET %s rendered %d balance cards, want 0`, path, got)
 		}
 	}
 }

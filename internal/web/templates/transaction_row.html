@@ -25,12 +25,11 @@
 </div>
 {{end}}
 
-{{/* Everything a create/update/delete has to refresh besides the row itself.
-     The balance card carries its own OOB attribute (.Balance.OOB is set by
-     the handler), so it is the whole of what used to be three separate
-     hand-duplicated fragments. */}}
+{{/* Everything a create/update/delete has to refresh besides the row itself:
+     the transaction count and the empty-state message. The balance now lives
+     in the nav header widget, which reads the real current month independent
+     of whatever month this page is browsing, so it needs no OOB update here. */}}
 {{define "totals_oob"}}
-{{template "balance_card" .Balance}}
 <span id="transaction-count" hx-swap-oob="true" class="text-[12px] text-ink-faint">{{countOf .Count "transaction"}}</span>
 <div id="transactions-empty" hx-swap-oob="true">
   {{if eq .Count 0}}
