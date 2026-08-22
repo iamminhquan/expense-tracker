@@ -193,9 +193,10 @@
       });
     })();
 
-    // Close the user menu (<details data-user-menu>) when clicking outside it.
+    // Close the user menu (<details data-user-menu>) or the header balance
+    // popover (<details data-balance-popover>) when clicking outside it.
     document.addEventListener('click', function (evt) {
-      document.querySelectorAll('details[data-user-menu][open]').forEach(function (el) {
+      document.querySelectorAll('details[data-user-menu][open], details[data-balance-popover][open]').forEach(function (el) {
         if (!el.contains(evt.target)) el.removeAttribute('open');
       });
     });
@@ -414,6 +415,25 @@
 <span role="img" aria-label="$pend — Expenses" class="wordmark text-[34px] md:text-[38px]">$pend</span>
 {{end}}
 
+{{/* The real current month's remaining balance, shown next to the user menu
+     in both nav bars. Clicking/tapping it opens a small popover with the
+     same spent-ratio line the dashboard/transactions balance card shows --
+     .HeaderBalance always reflects the real current month (authPageData),
+     not whatever month the page itself is browsing. */}}
+{{define "header_balance"}}
+<details class="relative shrink-0" data-balance-popover>
+  <summary class="px-2 py-1 rounded-[7px] hover:bg-track cursor-pointer list-none [&::-webkit-details-marker]:hidden font-mono text-[13px] font-medium {{if .HeaderBalance.Empty}}text-ink-zero{{else if lt .HeaderBalance.Remaining 0}}text-expense{{else}}text-ink-muted{{end}}">{{if .HeaderBalance.Empty}}0₫{{else}}{{vndBalance .HeaderBalance.Remaining}}{{end}}</summary>
+  <div class="absolute right-0 top-full mt-1 w-[200px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
+    <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">LEFT THIS MONTH</p>
+    <p class="font-mono text-[19px] font-semibold mb-2 {{if .HeaderBalance.Empty}}text-ink-zero{{else if lt .HeaderBalance.Remaining 0}}text-expense{{else}}text-ink{{end}}" style="letter-spacing:-0.02em">{{if .HeaderBalance.Empty}}0₫{{else}}{{vndBalance .HeaderBalance.Remaining}}{{end}}</p>
+    <div class="h-[6px] rounded-full bg-track overflow-hidden mb-2">
+      <div class="h-full rounded-full bg-expense" style="width: {{.HeaderBalance.SpentPct}}%"></div>
+    </div>
+    <p class="text-[12px] text-ink-faint">{{.HeaderBalance.RatioLabel}}</p>
+  </div>
+</details>
+{{end}}
+
 {{define "user_menu"}}
 <details class="relative shrink-0" data-user-menu>
   <summary class="flex items-center gap-2 px-2 py-1 rounded-[7px] hover:bg-track cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -459,6 +479,7 @@
     <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Categories</a>
   </div>
   <div class="ml-auto flex items-center gap-3">
+    {{template "header_balance" .}}
     {{template "user_menu" .}}
   </div>
 </nav>
@@ -468,6 +489,7 @@
 <header class="md:hidden flex items-center justify-between pt-[6px] px-[18px] pb-[2px] bg-app sticky top-0 z-40">
   {{template "logo_nav" .}}
   <div class="flex items-center gap-2">
+    {{template "header_balance" .}}
     {{template "user_menu" .}}
   </div>
 </header>
