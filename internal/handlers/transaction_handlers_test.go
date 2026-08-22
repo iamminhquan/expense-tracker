@@ -1049,11 +1049,14 @@ func TestMonthFragmentCarriesBalanceCardInlineNotOutOfBand(t *testing.T) {
 
 // One page, one balance. The figure used to appear in three places on the
 // transactions page and disagreed with itself whenever one stopped updating.
+// The dashboard shows no #balance-card at all: its remaining balance lives
+// solely in the header widget next to the user menu, not as a page card.
 func TestBalanceAppearsExactlyOncePerPage(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
 	cookie := loginAndGetCookie(t, router, deps, "txn-one-balance@example.com", "s3cret-pass")
 
+	wantCount := map[string]int{"/transactions": 1, "/dashboard": 0}
 	for _, path := range []string{"/transactions", "/dashboard"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		req.AddCookie(cookie)
@@ -1063,8 +1066,8 @@ func TestBalanceAppearsExactlyOncePerPage(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("GET %s: expected 200, got %d", path, rec.Code)
 		}
-		if got := strings.Count(rec.Body.String(), `id="balance-card"`); got != 1 {
-			t.Errorf(`GET %s rendered %d balance cards, want 1`, path, got)
+		if got := strings.Count(rec.Body.String(), `id="balance-card"`); got != wantCount[path] {
+			t.Errorf(`GET %s rendered %d balance cards, want %d`, path, got, wantCount[path])
 		}
 	}
 }

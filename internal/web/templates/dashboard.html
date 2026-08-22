@@ -20,13 +20,11 @@
     </div>
   </div>
 
-  {{/* Three cards on desktop with the balance widest, because it is the
-       number the page is answering. On mobile the balance takes the full
-       width above and Spent/Earned share the row below: md:contents drops
-       this wrapper at the breakpoint so all three become siblings of the
-       same flex row rather than nesting two levels deep. */}}
+  {{/* The remaining balance now lives in the header widget (next to the
+       user menu) instead of a card here -- md:contents drops this wrapper
+       at the breakpoint so Spent/Earned become siblings of the outer flex
+       row rather than nesting two levels deep. */}}
   <div class="flex flex-col md:flex-row gap-3 md:gap-4">
-    {{template "balance_card" .Balance}}
     <div class="flex gap-3 md:contents">
       <div class="flex-1 min-w-0 bg-surface border border-border-card rounded-xl px-[14px] py-3 md:p-5 flex flex-col gap-1 md:gap-2">
         <p class="text-[12px] font-medium text-ink-faint"><span class="md:hidden">Spent</span><span class="hidden md:inline">Spent this month</span></p>
