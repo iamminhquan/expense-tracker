@@ -103,11 +103,9 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 	headerBalance := newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "header")
 
 	return map[string]any{
-		"ShowNav":   true,
-		"ActiveNav": active,
-		// Placeholder until a real username column exists (users can only
-		// set a display Name today, which the header no longer shows).
-		"UserName":      "Guest",
+		"ShowNav":       true,
+		"ActiveNav":     active,
+		"UserName":      user.Name,
 		"UserInitial":   initial,
 		"Theme":         user.Theme,
 		"HeaderBalance": headerBalance,
