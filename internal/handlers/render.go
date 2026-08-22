@@ -8,6 +8,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csrf"
+	"expensetracker/internal/sqlcgen"
 )
 
 // isFragmentRequest reports whether r is an explicit htmx fragment request
@@ -23,8 +24,8 @@ func isFragmentRequest(r *http.Request) bool {
 
 // render executes page's "layout" template. It always injects CSRFToken; if
 // active is non-empty it also injects the ShowNav/ActiveNav/UserName/
-// UserInitial fields layout.html's nav blocks need, by loading the
-// authenticated user via deps.Queries. Pre-auth pages (login/register) pass
+// UserInitial/HeaderBalance fields layout.html's nav blocks need, by loading
+// the authenticated user via deps.Queries. Pre-auth pages (login/register) pass
 // active="" so nav data is skipped entirely and layout.html's
 // {{if .ShowNav}} blocks correctly stay hidden -- a missing map key
 // evaluates falsy in html/template's {{if}}, so no explicit false is
@@ -80,7 +81,9 @@ func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string,
 }
 
 // authPageData loads the fields every authenticated page's nav needs: the
-// user's display name/initial, and which nav link is active.
+// user's display name/initial, which nav link is active, and the real
+// current month's balance for the header widget (independent of whatever
+// month the page itself is browsing).
 func authPageData(r *http.Request, deps Deps, active string) (map[string]any, error) {
 	userID, _ := auth.UserIDFromContext(r.Context())
 	user, err := deps.Queries.GetUserByID(r.Context(), userID)
@@ -91,11 +94,22 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 	if runes := []rune(user.Name); len(runes) > 0 {
 		initial = strings.ToUpper(string(runes[0]))
 	}
+
+	from, to := currentMonthRange()
+	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+	if err != nil {
+		return nil, err
+	}
+	headerBalance := newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "header")
+
 	return map[string]any{
-		"ShowNav":     true,
-		"ActiveNav":   active,
-		"UserName":    user.Name,
-		"UserInitial": initial,
-		"Theme":       user.Theme,
+		"ShowNav":   true,
+		"ActiveNav": active,
+		// Placeholder until a real username column exists (users can only
+		// set a display Name today, which the header no longer shows).
+		"UserName":      "Guest",
+		"UserInitial":   initial,
+		"Theme":         user.Theme,
+		"HeaderBalance": headerBalance,
 	}, nil
 }
