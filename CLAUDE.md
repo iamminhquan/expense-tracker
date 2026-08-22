@@ -92,6 +92,27 @@ spelled-out month (`11 Aug 2026`) — `docs/design/design_handoff_expense_tracke
 still states the original Vietnamese convention and carries a dated note
 recording what replaced it.
 
+The dashboard and transactions pages both render `balance_card.html`, a
+shared partial for the month's remaining balance and spending ratio bar.
+Its data (`internal/handlers/balance.go`'s `balanceCard` struct, built by
+`newBalanceCard`) is computed in Go rather than the template because
+`html/template` cannot divide, and because every percentage here — a month
+with no income, a month that overspent its income — is a division that has
+to be guarded. The two pages pass a different `Variant` string so the
+partial can size itself and decide whether to draw its own Spent/Earned row.
+
+**Mobile navigation** (`layout.html`'s `nav_mobile_header` and
+`mobile_page_header` template blocks): below `md`, the nav collapses into a
+two-tier sticky header instead of the desktop `nav_desktop` bar — a slim
+top tier (logo + user menu) and a second tier carrying the page title, the
+month picker (dashboard/transactions), and an add button (transactions/
+categories). `mobile_page_header` is driven entirely by `.ActiveNav` and
+whatever `MonthLabel`/`CurrentMonthValue`/`AvailableMonths` the page's own
+data already carries, so it takes no page-specific params. Each page renders
+it as the first child of its own swappable month/list section rather than
+from the layout, so an htmx month switch (which replaces that section)
+still carries the header along instead of leaving it behind.
+
 Only category names go through `internal/i18n`. Every other string is written
 in English directly in the template or handler that shows it; there is no
 message catalog, and a language switcher would be a separate piece of work.
