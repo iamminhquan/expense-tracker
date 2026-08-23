@@ -158,3 +158,93 @@ func TestMonthlyTotalsCarriedInIgnoresOtherUsers(t *testing.T) {
 		t.Errorf("CarriedOver = %d, want 5650000 (the other user's history must not count)", got.CarriedOver)
 	}
 }
+
+// The property that makes the balance trustworthy: no đồng may be created or
+// lost at a month boundary. What a month carries in, plus what it earned and
+// spent, must be exactly what the next month carries in -- for every
+// boundary, including the ones on either side of a month that overspent and
+// the one into a month with nothing in it at all.
+func TestCarriedInIsContinuousAcrossEveryMonthBoundary(t *testing.T) {
+	deps := newTestDeps(t)
+	userID := carryoverFixture(t, deps, "carryover-continuity@example.com")
+
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{})
+	if err != nil {
+		t.Fatalf("list categories: %v", err)
+	}
+	incomeID := firstCategoryOfType(t, categories, "income").ID
+	extra := []struct {
+		date   string
+		amount int64
+	}{
+		// Payday on the 1st is the boundary this whole feature turns on: it
+		// belongs to its own month, never to the carry-in. Without a row
+		// sitting exactly on a month boundary the continuity check below
+		// cannot tell "< the 1st" from "<= the 1st".
+		{"2026-07-01", 1000000},
+		// A far-future one too, to prove nothing falls into a gap between
+		// "this month" and "everything before it" while it waits for its
+		// month to arrive.
+		{"2026-11-10", 2500000},
+	}
+	for _, e := range extra {
+		if _, err := deps.DB.Exec(context.Background(),
+			"INSERT INTO transactions (user_id, category_id, amount, type, occurred_on) VALUES ($1,$2,$3,$4,$5)",
+			userID, incomeID, e.amount, "income", e.date,
+		); err != nil {
+			t.Fatalf("insert transaction %v: %v", e, err)
+		}
+	}
+
+	// The payday on 1 July belongs to July, not to what July carried in.
+	july, err := deps.Queries.MonthlyTotals(context.Background(), sqlcgen.MonthlyTotalsParams{
+		UserID: userID, OccurredOn: day(t, "2026-07-01"), OccurredOn_2: day(t, "2026-08-01"),
+	})
+	if err != nil {
+		t.Fatalf("monthly totals July: %v", err)
+	}
+	if july.CarriedOver != 7000000 {
+		t.Errorf("July carried in %d, want 7000000 -- a transaction dated the 1st must count as the month's own", july.CarriedOver)
+	}
+	if july.TotalIncome != 9000000 {
+		t.Errorf("July income = %d, want 9000000 (8,000,000 plus the payday on the 1st)", july.TotalIncome)
+	}
+
+	months := []string{
+		"2026-05-01", "2026-06-01", "2026-07-01", "2026-08-01",
+		"2026-09-01", "2026-10-01", "2026-11-01", "2026-12-01",
+	}
+	for i := 0; i < len(months)-1; i++ {
+		from, to := months[i], months[i+1]
+		row, err := deps.Queries.MonthlyTotals(context.Background(), sqlcgen.MonthlyTotalsParams{
+			UserID: userID, OccurredOn: day(t, from), OccurredOn_2: day(t, to),
+		})
+		if err != nil {
+			t.Fatalf("monthly totals %s: %v", from, err)
+		}
+		next, err := deps.Queries.MonthlyTotals(context.Background(), sqlcgen.MonthlyTotalsParams{
+			UserID: userID, OccurredOn: day(t, to), OccurredOn_2: day(t, months[min(i+2, len(months)-1)]),
+		})
+		if err != nil {
+			t.Fatalf("monthly totals %s: %v", to, err)
+		}
+		closing := row.CarriedOver + row.TotalIncome - row.TotalExpense
+		if closing != next.CarriedOver {
+			t.Errorf("%s closed at %d but %s carried in %d -- %d đồng went missing at the boundary",
+				from, closing, to, next.CarriedOver, closing-next.CarriedOver)
+		}
+	}
+
+	// And the whole history nets out to the same figure the last boundary
+	// reports, so nothing was double counted along the way either.
+	final, err := deps.Queries.MonthlyTotals(context.Background(), sqlcgen.MonthlyTotalsParams{
+		UserID: userID, OccurredOn: day(t, "2026-12-01"), OccurredOn_2: day(t, "2027-01-01"),
+	})
+	if err != nil {
+		t.Fatalf("monthly totals December: %v", err)
+	}
+	// 7,000,000 + (-1,350,000 + 1,000,000) + 5,800,000 + 2,500,000.
+	if final.CarriedOver != 14950000 {
+		t.Errorf("history nets to %d, want 14950000", final.CarriedOver)
+	}
+}
