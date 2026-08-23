@@ -124,6 +124,19 @@
       return el;
     }
 
+    // A tap has no "mouse left the canvas" counterpart, so on touch Chart.js
+    // keeps the slice active and the tooltip up until something else is
+    // tapped. Clearing the active elements as well as the node means the same
+    // slice can be tapped again right afterwards and still re-open.
+    function dismissPieTooltip() {
+      pieTooltipEl().style.opacity = '0';
+      var chart = window.__pieChart;
+      if (!chart) return;
+      chart.setActiveElements([]);
+      if (chart.tooltip) chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+      chart.update('none');
+    }
+
     function pieTooltip(ctx) {
       var el = pieTooltipEl();
       var tt = ctx.tooltip;
@@ -228,6 +241,24 @@
     if (window.__onThemeChange) document.removeEventListener('themechange', window.__onThemeChange);
     window.__onThemeChange = function () { window.__initCharts(); };
     document.addEventListener('themechange', window.__onThemeChange);
+
+    if (window.__onDocPointerDown) {
+      document.removeEventListener('pointerdown', window.__onDocPointerDown, true);
+      window.removeEventListener('scroll', window.__onDocPointerDown, true);
+      window.removeEventListener('resize', window.__onDocPointerDown);
+    }
+    // Capture phase: the tooltip has to go even when the tap lands on
+    // something that stops the event (a nav button, the month menu). A tap on
+    // the canvas itself is Chart.js's own business -- leave that one alone.
+    window.__onDocPointerDown = function (e) {
+      if (e && e.target === document.getElementById('pie-chart')) return;
+      dismissPieTooltip();
+    };
+    document.addEventListener('pointerdown', window.__onDocPointerDown, true);
+    // The node is position:fixed, so a scroll would otherwise leave it parked
+    // over the page while the slice it describes moves away.
+    window.addEventListener('scroll', window.__onDocPointerDown, true);
+    window.addEventListener('resize', window.__onDocPointerDown);
   </script>
 </div>
 {{end}}
