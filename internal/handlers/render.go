@@ -100,7 +100,7 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 	if err != nil {
 		return nil, err
 	}
-	headerBalance := newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "header")
+	headerBalance := newBalanceCard(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver, from.Time, "header")
 
 	return map[string]any{
 		"ShowNav":       true,

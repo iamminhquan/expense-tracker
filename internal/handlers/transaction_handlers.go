@@ -62,7 +62,7 @@ func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
 // name the list's empty state needs.
 func totalsOOBData(totals sqlcgen.MonthlyTotalsRow, count int, from pgtype.Date) map[string]any {
 	return map[string]any{
-		"Balance":         newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "transactions").asOOB(),
+		"Balance":         newBalanceCard(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver, from.Time, "transactions").asOOB(),
 		"Count":           count,
 		"MonthLabelLower": monthLabelLower(from.Time),
 	}
@@ -145,7 +145,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 
 	return map[string]any{
 		"Transactions":      transactions,
-		"Balance":           newBalanceCard(totals.TotalExpense, totals.TotalIncome, from.Time, "transactions"),
+		"Balance":           newBalanceCard(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver, from.Time, "transactions"),
 		"MonthLabel":        monthLabel(from.Time),
 		"MonthLabelLower":   monthLabelLower(from.Time),
 		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),

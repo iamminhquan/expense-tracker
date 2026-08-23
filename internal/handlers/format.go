@@ -49,15 +49,15 @@ func vndSigned(n int64, txnType string) string {
 	return sign + vnd(n)
 }
 
-// vndBalance formats a total (e.g. "remaining this month") whose sign comes
-// from the number's own sign, since unlike a single transaction it can
-// itself be negative.
+// vndBalance formats the running balance, whose sign comes from the number
+// itself rather than from a transaction type. Only the minus is printed: the
+// balance is a standing amount, not a change, so a leading "+" would read as
+// "went up by this much" rather than "this is what you have".
 func vndBalance(n int64) string {
-	sign := "+"
 	if n < 0 {
-		sign = "-"
+		return "-" + vnd(n)
 	}
-	return sign + vnd(n)
+	return vnd(n)
 }
 
 func formatThousands(n int64) string {

@@ -15,9 +15,21 @@ import (
 // a division that has to be guarded: a month with no income at all, and a
 // month whose spending runs past the end of the bar.
 type balanceCard struct {
+	// Expense and Income are the displayed month's own two totals; Remaining
+	// is the running balance at the end of it, which is CarriedOver plus the
+	// month's net rather than the month's net alone.
 	Expense, Income, Remaining int64
-	Month                      time.Time
-	Variant                    string
+
+	// CarriedOver is everything the user banked before this month began:
+	// income minus expense over their whole history up to the 1st. The card
+	// names it under the headline so the balance can't be misread as this
+	// month's earnings, and ShowCarriedOver hides that note when there is no
+	// history behind the month to describe.
+	CarriedOver     int64
+	ShowCarriedOver bool
+
+	Month   time.Time
+	Variant string
 
 	// SpentPct is the bar fill's width in percent, clamped to 100 so
 	// overspending fills the bar rather than overflowing it. LeftPct is the
@@ -31,8 +43,10 @@ type balanceCard struct {
 	Label      string
 	RatioLabel string
 
-	// Empty marks a month with no transactions of either kind, where the
-	// card still renders but its 0₫ is greyed to ink-zero.
+	// Empty marks a card with nothing at all to show -- no transactions this
+	// month and no balance carried into it -- where the 0₫ is greyed to
+	// ink-zero. A carried-in balance is something to show, so an untouched
+	// month that follows an active one is not empty.
 	Empty bool
 
 	// OOB makes the partial tag itself hx-swap-oob. Only mutation responses
@@ -50,22 +64,32 @@ func (c balanceCard) asOOB() balanceCard {
 	return c
 }
 
-// newBalanceCard computes a month's balance and spending ratio from the two
-// totals MonthlyTotals returns.
+// newBalanceCard computes a month's running balance and spending ratio from
+// the three totals MonthlyTotals returns.
+//
+// The balance runs forward rather than resetting on the 1st: a month starts
+// from whatever the ones before it left behind. Only the headline figure is
+// cumulative -- SpentPct and RatioLabel below still measure the displayed
+// month against its own income, because "spent 42% of this month's income"
+// is the useful reading, and measuring a month's spending against a balance
+// built up over years would report a steadily shrinking percentage that says
+// nothing about how the month went.
 //
 // The arithmetic stays in int64 throughout: amounts are whole đồng, and
 // going through float64 to compute a percentage would introduce rounding
 // that the displayed number would eventually disagree with.
-func newBalanceCard(expense, income int64, month time.Time, variant string) balanceCard {
+func newBalanceCard(expense, income, carriedOver int64, month time.Time, variant string) balanceCard {
 	card := balanceCard{
-		Expense:    expense,
-		Income:     income,
-		Remaining:  income - expense,
-		Month:      month,
-		Variant:    variant,
-		Empty:      expense == 0 && income == 0,
-		Label:      balanceLabel(month, variant),
-		RatioLabel: "No income this month",
+		Expense:         expense,
+		Income:          income,
+		Remaining:       carriedOver + income - expense,
+		CarriedOver:     carriedOver,
+		ShowCarriedOver: carriedOver != 0,
+		Month:           month,
+		Variant:         variant,
+		Empty:           carriedOver == 0 && expense == 0 && income == 0,
+		Label:           balanceLabel(month, variant),
+		RatioLabel:      "No income this month",
 	}
 
 	if income <= 0 {
@@ -86,13 +110,17 @@ func newBalanceCard(expense, income int64, month time.Time, variant string) bala
 	return card
 }
 
-// balanceLabel names the number above the bar. The transactions page sits
-// under a month picker that already names the month, so it repeats it
-// ("Left in August"); the dashboard says "this month" to match the wording
-// of the Spent/Earned cards beside it.
+// balanceLabel names the number above the bar. Neither variant says "left"
+// any more: the figure stopped being what remains of a month's income once
+// it started carrying forward.
+//
+// The transactions page names the month ("Balance in August") because it can
+// be browsing any month and the figure is that month's closing balance; the
+// dashboard says it plain to match the wording of the Spent/Earned cards
+// beside it.
 func balanceLabel(month time.Time, variant string) string {
 	if variant == "dashboard" {
-		return "Left this month"
+		return "Balance"
 	}
-	return "Left in " + monthLabelLower(month)
+	return "Balance in " + monthLabelLower(month)
 }
