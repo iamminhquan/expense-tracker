@@ -34,12 +34,18 @@ func TestVNDSigned(t *testing.T) {
 	}
 }
 
+// The balance is a running wallet figure, not a delta, so a positive one
+// carries no sign -- "+12,450,000₫" would read as an increase of that much.
+// A negative balance still needs its minus, which is why vnd alone won't do.
 func TestVNDBalance(t *testing.T) {
-	if got := vndBalance(120000); got != "+120,000₫" {
-		t.Errorf("vndBalance(120000) = %q, want +120,000₫", got)
+	if got := vndBalance(120000); got != "120,000₫" {
+		t.Errorf("vndBalance(120000) = %q, want 120,000₫", got)
 	}
 	if got := vndBalance(-45000); got != "-45,000₫" {
 		t.Errorf("vndBalance(-45000) = %q, want -45,000₫", got)
+	}
+	if got := vndBalance(0); got != "0₫" {
+		t.Errorf("vndBalance(0) = %q, want 0₫", got)
 	}
 }
 

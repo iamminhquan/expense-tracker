@@ -95,9 +95,14 @@ func TestBalanceCardColoursNegativeRemainingAsExpense(t *testing.T) {
 		t.Error("negative balance is not coloured with the expense token")
 	}
 
+	// A positive balance carries no sign: it is a standing amount, and a
+	// leading "+" would read as having gone up by that much.
 	positive := renderBalanceText(t, balanceData(nil))
-	if !strings.Contains(positive, "+4,200,000₫") {
-		t.Error("positive balance is not rendered with its sign")
+	if !strings.Contains(positive, "4,200,000₫") {
+		t.Error("positive balance is not rendered")
+	}
+	if strings.Contains(positive, "+4,200,000₫") {
+		t.Error("positive balance must not be rendered with a leading +")
 	}
 }
 
