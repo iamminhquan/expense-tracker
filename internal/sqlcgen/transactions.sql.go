@@ -295,10 +295,12 @@ func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransact
 
 const monthlyTotals = `-- name: MonthlyTotals :one
 SELECT
-    COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0)::bigint AS total_expense,
-    COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)::bigint AS total_income
+    COALESCE(SUM(amount) FILTER (WHERE type = 'expense' AND occurred_on >= $2), 0)::bigint AS total_expense,
+    COALESCE(SUM(amount) FILTER (WHERE type = 'income' AND occurred_on >= $2), 0)::bigint AS total_income,
+    (COALESCE(SUM(amount) FILTER (WHERE type = 'income' AND occurred_on < $2), 0)
+      - COALESCE(SUM(amount) FILTER (WHERE type = 'expense' AND occurred_on < $2), 0))::bigint AS carried_over
 FROM transactions
-WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3
+WHERE user_id = $1 AND occurred_on < $3
 `
 
 type MonthlyTotalsParams struct {
@@ -310,12 +312,28 @@ type MonthlyTotalsParams struct {
 type MonthlyTotalsRow struct {
 	TotalExpense int64 `json:"total_expense"`
 	TotalIncome  int64 `json:"total_income"`
+	CarriedOver  int64 `json:"carried_over"`
 }
 
+// MonthlyTotals returns the displayed month's own two totals plus the
+// balance carried into it. The carry-in rides along on this query rather
+// than getting one of its own because all four callers that build a balance
+// already run this one, and a separate query would mean a second round trip
+// at each of them.
+//
+// The outer WHERE therefore reaches back over the user's whole history
+// rather than fencing the month on both sides, and each column narrows from
+// there: the two month totals re-apply the lower bound in their FILTER,
+// while carried_over takes everything strictly before it. Both predicates
+// are still covered by idx_transactions_user_id_occurred_on.
+//
+// The ::bigint on carried_over wraps the whole subtraction rather than each
+// operand: sqlc types a bare binary expression as int32, which would overflow
+// a balance past 2.1 tỷ đồng.
 func (q *Queries) MonthlyTotals(ctx context.Context, arg MonthlyTotalsParams) (MonthlyTotalsRow, error) {
 	row := q.db.QueryRow(ctx, monthlyTotals, arg.UserID, arg.OccurredOn, arg.OccurredOn_2)
 	var i MonthlyTotalsRow
-	err := row.Scan(&i.TotalExpense, &i.TotalIncome)
+	err := row.Scan(&i.TotalExpense, &i.TotalIncome, &i.CarriedOver)
 	return i, err
 }
 
