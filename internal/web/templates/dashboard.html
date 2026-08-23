@@ -100,7 +100,66 @@
       return 'rgb(' + getComputedStyle(document.documentElement).getPropertyValue(name).trim() + ')';
     }
 
+    // Category names are typed by the user, so they cannot go into innerHTML raw.
+    function escapeHTML(s) {
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // Shared singleton node -- a month switch rebuilds the charts, and one
+    // tooltip parked on <body> outlives every rebuild.
+    function pieTooltipEl() {
+      var el = document.getElementById('pie-tooltip');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'pie-tooltip';
+        el.style.cssText = 'position:fixed;z-index:50;pointer-events:none;opacity:0;' +
+          'transition:opacity .12s ease;padding:7px 10px;border-radius:8px;' +
+          'background:rgb(var(--c-ink));color:rgb(var(--c-app));' +
+          'font-family:"Be Vietnam Pro",sans-serif;font-size:12px;line-height:1.35;' +
+          'white-space:nowrap;box-shadow:0 4px 12px rgb(0 0 0 / 0.18)';
+        document.body.appendChild(el);
+      }
+      return el;
+    }
+
+    function pieTooltip(ctx) {
+      var el = pieTooltipEl();
+      var tt = ctx.tooltip;
+      if (!tt.opacity) { el.style.opacity = '0'; return; }
+
+      var i = tt.dataPoints[0].dataIndex;
+      var data = tt.dataPoints[0].dataset;
+      var total = data.data.reduce(function (a, b) { return a + b; }, 0);
+      var value = data.data[i];
+      var pct = total ? Math.round((value / total) * 100) : 0;
+      el.innerHTML =
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<span style="width:8px;height:8px;border-radius:9999px;flex:none;background:' + data.backgroundColor[i] + '"></span>' +
+          '<span>' + escapeHTML(tt.dataPoints[0].label) + '</span>' +
+        '</div>' +
+        '<div style="font-family:\'JetBrains Mono\',monospace;font-weight:600;margin-top:2px">' +
+          Number(value).toLocaleString('en-US') + '₫ <span style="opacity:.6;font-weight:400">' + pct + '%</span>' +
+        '</div>';
+
+      // Centre above the hovered slice, then keep the whole box on screen --
+      // the canvas sits at the left edge of a narrow phone viewport, so an
+      // unclamped tooltip would run off it.
+      el.style.opacity = '1';
+      var rect = ctx.chart.canvas.getBoundingClientRect();
+      var box = el.getBoundingClientRect();
+      var margin = 8;
+      var left = rect.left + tt.caretX - box.width / 2;
+      left = Math.min(Math.max(left, margin), window.innerWidth - box.width - margin);
+      var top = rect.top + tt.caretY - box.height - 10;
+      if (top < margin) top = rect.top + tt.caretY + 12;
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+    }
+
     window.__initCharts = function () {
+      pieTooltipEl().style.opacity = '0';
       if (window.__pieChart) { window.__pieChart.destroy(); window.__pieChart = null; }
       if (window.__barChart) { window.__barChart.destroy(); window.__barChart = null; }
       var dataEl = document.getElementById('chart-data');
@@ -120,22 +179,11 @@
             animation: false,
             plugins: {
               legend: { display: false },
-              tooltip: {
-                enabled: true,
-                backgroundColor: chartColor('--c-ink'),
-                titleColor: chartColor('--c-app'),
-                bodyColor: chartColor('--c-app'),
-                padding: 8,
-                cornerRadius: 6,
-                displayColors: true,
-                boxPadding: 3,
-                bodyFont: { family: '"Be Vietnam Pro"', size: 12 },
-                callbacks: {
-                  label: function (ctx) {
-                    return ctx.label + ': ' + Number(ctx.parsed).toLocaleString('en-US') + '₫';
-                  }
-                }
-              }
+              // Chart.js paints its built-in tooltip onto the canvas, so on
+              // mobile (a 108px doughnut) the amount is clipped at the canvas
+              // edge. An external tooltip is a plain DOM node instead, free to
+              // overflow the canvas and be clamped to the viewport.
+              tooltip: { enabled: false, external: pieTooltip, displayColors: false }
             }
           }
         });
