@@ -166,6 +166,59 @@ func TestMobileBottomNavIsStickyAndCarriesItsOwnClearance(t *testing.T) {
 	}
 }
 
+// A page shorter than the screen (the dashboard on a quiet month) used to
+// leave a dead strip under the sticky bar. <body> is a full-height column and
+// <main> grows, so the leftover height reaches the dashboard's chart card and
+// the page ends where the screen does. Two things are easy to break here: the
+// w-full on each page's content wrapper (mx-auto on a flex child otherwise
+// shrinks the box to fit its content instead of stretching it, which quietly
+// narrows every page), and the absolutely positioned bar canvas (an in-flow
+// one is both sized from its parent by Chart.js and measured by that parent,
+// so the card climbs off the screen on every resize).
+func TestShortPagesFillTheScreenInsteadOfStrandingTheNav(t *testing.T) {
+	layout, err := os.ReadFile("../web/templates/layout.html")
+	if err != nil {
+		t.Fatalf("read layout.html: %v", err)
+	}
+	for _, want := range []string{"min-h-screen flex flex-col", "grow flex flex-col"} {
+		if !strings.Contains(string(layout), want) {
+			t.Errorf("layout.html lost %q; without it <main> has no leftover height to hand down and a short page strands the nav mid-screen", want)
+		}
+	}
+
+	for _, page := range []string{"dashboard.html", "transactions.html", "categories.html"} {
+		body, err := os.ReadFile("../web/templates/" + page)
+		if err != nil {
+			t.Fatalf("read %s: %v", page, err)
+		}
+		if !strings.Contains(string(body), `w-full max-w-[880px] mx-auto`) {
+			t.Errorf("%s's content wrapper is missing w-full; as a flex child of <main>, mx-auto shrinks it to its content width and narrows the whole page", page)
+		}
+	}
+
+	dashboard, err := os.ReadFile("../web/templates/dashboard.html")
+	if err != nil {
+		t.Fatalf("read dashboard.html: %v", err)
+	}
+	if !strings.Contains(string(dashboard), `<canvas id="bar-chart" class="absolute inset-0`) {
+		t.Error("the bar chart canvas is back in flow; Chart.js sizes it from the parent that measures it, so each resize feeds the next")
+	}
+	if !strings.Contains(string(dashboard), `relative grow min-h-[118px] md:min-h-[158px]`) {
+		t.Error("the bar chart's wrapper lost its grow/min-h, so the chart no longer absorbs the leftover screen height")
+	}
+	if !strings.Contains(string(dashboard), "grid-rows-[auto_1fr] md:grid-rows-none") {
+		t.Error("the chart pair lost grid-rows-[auto_1fr]: without it the leftover height is split between both cards instead of going to the bar chart")
+	}
+
+	charts, err := os.ReadFile("../web/static/charts.js")
+	if err != nil {
+		t.Fatalf("read charts.js: %v", err)
+	}
+	if !strings.Contains(string(charts), "maintainAspectRatio: false") {
+		t.Error("charts.js dropped maintainAspectRatio: false, so the bar chart computes a height from its width and overflows the card it is meant to fill")
+	}
+}
+
 var navMobileHeaderRe = regexp.MustCompile(`(?s)\{\{define "nav_mobile_header"\}\}(.*?)\{\{end\}\}`)
 
 func TestMobileTopBarBlendsIntoTheAppBackground(t *testing.T) {

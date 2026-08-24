@@ -129,6 +129,11 @@ window.__initCharts = function () {
       },
       options: {
         animation: false,
+        // The canvas is stretched by its wrapper (h-full inside a flex-grow
+        // box) rather than sized in the template, so Chart.js must take the
+        // height it is given -- with the default maintainAspectRatio it would
+        // compute one from the width instead and overflow the card.
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false }, border: { display: false }, ticks: { color: chartColor('--c-ink-faintest'), font: { family: 'JetBrains Mono' } } },
