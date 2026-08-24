@@ -30,6 +30,23 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	return i, err
 }
 
+const deleteOtherSessionsForUser = `-- name: DeleteOtherSessionsForUser :exec
+DELETE FROM sessions WHERE user_id = $1 AND id <> $2
+`
+
+type DeleteOtherSessionsForUserParams struct {
+	UserID int64  `json:"user_id"`
+	ID     string `json:"id"`
+}
+
+// DeleteOtherSessionsForUser drops every session of a user except the one
+// making the request, so changing a password signs out the other devices
+// without logging out the person doing the changing.
+func (q *Queries) DeleteOtherSessionsForUser(ctx context.Context, arg DeleteOtherSessionsForUserParams) error {
+	_, err := q.db.Exec(ctx, deleteOtherSessionsForUser, arg.UserID, arg.ID)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = $1
 `
