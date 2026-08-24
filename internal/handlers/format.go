@@ -20,7 +20,6 @@ func TemplateFuncs() template.FuncMap {
 		"vnd":        vnd,
 		"vndSigned":  vndSigned,
 		"vndBalance": vndBalance,
-		"dateFull":   dateFull,
 		"dateShort":  dateShort,
 		"catName":    i18n.CategoryName,
 		"countOf":    countOf,
@@ -72,19 +71,6 @@ func formatThousands(n int64) string {
 	}
 	parts = append([]string{s}, parts...)
 	return strings.Join(parts, ",")
-}
-
-// dateFull formats a DATE column as "11 Aug 2026" -- used in forms and the
-// desktop transaction list's date column.
-//
-// The month is spelled out rather than numeric because an English-reading
-// audience splits on what 11/08 means: British reads the day first, American
-// the month, and nothing in the string itself settles it.
-func dateFull(d pgtype.Date) string {
-	if !d.Valid {
-		return ""
-	}
-	return d.Time.Format("02 Jan 2006")
 }
 
 // dateShort formats a DATE column as "11 Aug" -- used in the transaction

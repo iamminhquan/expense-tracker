@@ -51,14 +51,11 @@ func TestVNDBalance(t *testing.T) {
 
 func TestDateFormatting(t *testing.T) {
 	d := pgtype.Date{Time: time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC), Valid: true}
-	if got := dateFull(d); got != "11 Aug 2026" {
-		t.Errorf("dateFull = %q, want 11 Aug 2026", got)
-	}
 	if got := dateShort(d); got != "11 Aug" {
 		t.Errorf("dateShort = %q, want 11 Aug", got)
 	}
-	if got := dateFull(pgtype.Date{}); got != "" {
-		t.Errorf("dateFull(invalid) = %q, want empty string", got)
+	if got := dateShort(pgtype.Date{}); got != "" {
+		t.Errorf("dateShort(invalid) = %q, want empty string", got)
 	}
 }
 

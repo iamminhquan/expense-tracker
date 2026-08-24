@@ -124,8 +124,8 @@ func TestTransactionCRUDAndIsolation(t *testing.T) {
 	}
 }
 
-// TestCreateTransactionRejectsForeignCategory covers Finding 1 from the Task 9
-// review: a forged category_id belonging to another user's private category
+// TestCreateTransactionRejectsForeignCategory covers the ownership check on
+// create: a forged category_id belonging to another user's private category
 // must be rejected instead of silently attached (which would leak that
 // category's name/color to the attacker via the joined transactions list).
 func TestCreateTransactionRejectsForeignCategory(t *testing.T) {
@@ -257,8 +257,8 @@ func TestCreateTransactionRejectsTypeCategoryMismatch(t *testing.T) {
 	}
 }
 
-// TestCreateTransactionConsecutiveDesktopValidationErrorsBothRetarget covers
-// a regression found in Task 9 review: handleCreateTransaction's desktop
+// TestCreateTransactionConsecutiveDesktopValidationErrorsBothRetarget pins
+// down a regression in the retarget path: handleCreateTransaction's desktop
 // error path retargets "#quick-add-form-wrapper" with an outerHTML swap, so
 // whatever markup that id lives on must be part of the swapped-in fragment
 // itself -- otherwise the first error swap discards the id (and its

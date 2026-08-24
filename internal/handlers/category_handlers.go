@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"expensetracker/internal/auth"
@@ -35,8 +34,9 @@ func isValidSwatch(color string) bool {
 // categoryRowData builds the flat map category_row.html and
 // category_row_edit.html both expect. Every response path that renders a
 // row goes through this so the template never has to distinguish a raw
-// sqlc struct from a hand-built one -- see Task 4's design notes for why
-// that distinction matters for the optional OOBTarget field.
+// sqlc struct from a hand-built one -- only some paths carry an OOBTarget,
+// and a struct would have to grow a field for it.
+//
 // slug is what tells a shared default apart from a category the user made:
 // the template resolves the display name through catName, which needs it,
 // and a map key that is simply absent makes html/template fail the whole
@@ -142,9 +142,8 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 		color := r.FormValue("color")
@@ -176,9 +175,8 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 func editCategoryHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
@@ -197,9 +195,8 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
@@ -214,9 +211,8 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -288,9 +284,8 @@ func respondCategoryDeleted(w http.ResponseWriter, r *http.Request, deps Deps, u
 func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -311,10 +306,9 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if count > 0 && category.Type == "income" {
-			// No income-side "Other" exists in the 9-category default set to
-			// reassign into (confirmed with the human via AskUserQuestion),
-			// so an income category with existing transactions can't be
-			// deleted at all.
+			// The 9 shared defaults have no income-side "Other" to reassign
+			// into, so an income category with existing transactions cannot
+			// be deleted at all -- only emptied first.
 			http.Error(w, "category has existing transactions", http.StatusConflict)
 			return
 		}

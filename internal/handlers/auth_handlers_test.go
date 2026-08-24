@@ -50,7 +50,7 @@ func newTestDeps(t *testing.T) handlers.Deps {
 // csrfTokenFor issues a GET request to obtain a fresh csrf_token cookie.
 // Every mutating request built by a test must attach this cookie's value as
 // both the cookie itself and the X-CSRF-Token header via withCSRF, or
-// csrf.Middleware (wired into every route in Step 11) rejects it with 403.
+// csrf.Middleware, which is wired into every route, rejects it with 403.
 func csrfTokenFor(t *testing.T, router http.Handler) *http.Cookie {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/login", nil)
@@ -167,9 +167,9 @@ func TestAuthTabSwitchReturnsFragmentOnly(t *testing.T) {
 	}
 }
 
-// TestLoginSuccessSendsHXRedirect covers PROMPT.md's "every mutation
-// returns a fragment, never a full reload" rule applied to the one case
-// that needs a real navigation: login/register success signal it via the
+// TestLoginSuccessSendsHXRedirect covers the "every mutation returns a
+// fragment, never a full reload" rule applied to the one case that needs a
+// real navigation: login/register success signal it via the
 // HX-Redirect response header instead of an HTTP 3xx, since htmx treats a
 // 3xx as just another response to swap in, not a page navigation.
 func TestLoginSuccessSendsHXRedirect(t *testing.T) {
