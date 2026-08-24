@@ -23,6 +23,7 @@ func setupTestUser(t *testing.T, q *sqlcgen.Queries) int64 {
 		Email:        email,
 		PasswordHash: "hashed",
 		Name:         "Session Test",
+		Username:     "session_test",
 	})
 	if err != nil {
 		t.Fatalf("create user: %v", err)

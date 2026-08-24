@@ -82,6 +82,7 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 	form := url.Values{
 		"name":             {"Flow Test"},
 		"email":            {email},
+		"username":         {"flow_test"},
 		"password":         {"s3cret-pass"},
 		"password_confirm": {"s3cret-pass"},
 	}
@@ -178,7 +179,7 @@ func TestLoginSuccessSendsHXRedirect(t *testing.T) {
 	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
 
 	tok := csrfTokenFor(t, router)
-	regForm := url.Values{"name": {"HX"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
+	regForm := url.Values{"name": {"HX"}, "email": {email}, "username": {"hx_redirect"}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
 	regReq := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(regForm.Encode()))
 	regReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(regReq, tok)
@@ -210,7 +211,7 @@ func TestRegisterPasswordMismatchShowsError(t *testing.T) {
 	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Mismatch"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"different"}}
+	form := url.Values{"name": {"Mismatch"}, "email": {email}, "username": {"mismatch_user"}, "password": {"s3cret-pass"}, "password_confirm": {"different"}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(req, tok)
@@ -243,19 +244,27 @@ func TestRegisterValidatesInput(t *testing.T) {
 	}{
 		{
 			name: "empty name",
-			form: url.Values{"name": {"   "}, "email": {"validate-name@example.com"}, "password": {"s3cret-pass"}},
+			form: url.Values{"name": {"   "}, "email": {"validate-name@example.com"}, "username": {"validate_name"}, "password": {"s3cret-pass"}},
 		},
 		{
 			name: "invalid email",
-			form: url.Values{"name": {"Test"}, "email": {"not-an-email"}, "password": {"s3cret-pass"}},
+			form: url.Values{"name": {"Test"}, "email": {"not-an-email"}, "username": {"validate_email"}, "password": {"s3cret-pass"}},
 		},
 		{
 			name: "short password",
-			form: url.Values{"name": {"Test"}, "email": {"validate-pw@example.com"}, "password": {"short"}},
+			form: url.Values{"name": {"Test"}, "email": {"validate-pw@example.com"}, "username": {"validate_pw"}, "password": {"short"}},
 		},
 		{
 			name: "empty password",
-			form: url.Values{"name": {"Test"}, "email": {"validate-empty-pw@example.com"}, "password": {""}},
+			form: url.Values{"name": {"Test"}, "email": {"validate-empty-pw@example.com"}, "username": {"validate_empty_pw"}, "password": {""}},
+		},
+		{
+			name: "empty username",
+			form: url.Values{"name": {"Test"}, "email": {"validate-empty-username@example.com"}, "username": {"   "}, "password": {"s3cret-pass"}},
+		},
+		{
+			name: "invalid username format",
+			form: url.Values{"name": {"Test"}, "email": {"validate-username-format@example.com"}, "username": {"9-bad!"}, "password": {"s3cret-pass"}},
 		},
 	}
 
@@ -303,7 +312,7 @@ func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 	})
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Dup"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
+	form := url.Values{"name": {"Dup"}, "email": {email}, "username": {"dup_register"}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(req, tok)
@@ -327,6 +336,49 @@ func TestRegisterDuplicateEmailShowsSpecificMessage(t *testing.T) {
 	}
 }
 
+// TestRegisterDuplicateUsernameShowsSpecificMessage covers the other unique
+// constraint 000009 adds: a username collision must be distinguished from an
+// email collision via pgErr.ConstraintName, not lumped into the email
+// message just because both are 23505.
+func TestRegisterDuplicateUsernameShowsSpecificMessage(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	firstEmail := "dup-username-first@example.com"
+	secondEmail := "dup-username-second@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1 OR email = $2", firstEmail, secondEmail)
+	t.Cleanup(func() {
+		deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1 OR email = $2", firstEmail, secondEmail)
+	})
+
+	tok := csrfTokenFor(t, router)
+	firstForm := url.Values{"name": {"First"}, "email": {firstEmail}, "username": {"shared_handle"}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(firstForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected the first registration to succeed, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	secondForm := url.Values{"name": {"Second"}, "email": {secondEmail}, "username": {"shared_handle"}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
+	dupReq := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(secondForm.Encode()))
+	dupReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(dupReq, tok)
+	dupRec := httptest.NewRecorder()
+	router.ServeHTTP(dupRec, dupReq)
+
+	if dupRec.Code != http.StatusOK {
+		t.Fatalf("expected duplicate-username registration to re-render the form with 200, got %d: %s", dupRec.Code, dupRec.Body.String())
+	}
+	if !strings.Contains(dupRec.Body.String(), "That username is already taken.") {
+		t.Fatalf("expected duplicate-username message, got: %s", dupRec.Body.String())
+	}
+	if _, err := deps.Queries.GetUserByEmail(context.Background(), secondEmail); err == nil {
+		t.Fatal("expected no user to be created for a duplicate username")
+	}
+}
+
 // TestSessionCookieAttributes covers Finding 3: the session cookie (set on
 // register/login) and the clearing cookie (set on logout) must both carry
 // SameSite=Lax, and Secure must follow Deps.SecureCookies (false in this
@@ -341,7 +393,7 @@ func TestSessionCookieAttributes(t *testing.T) {
 	})
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Cookie"}, "email": {email}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
+	form := url.Values{"name": {"Cookie"}, "email": {email}, "username": {"cookie_attrs"}, "password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(req, tok)
@@ -385,5 +437,56 @@ func TestSessionCookieAttributes(t *testing.T) {
 	}
 	if clearingCookie.Secure {
 		t.Fatal("expected logout clearing cookie Secure=false when Deps.SecureCookies is false")
+	}
+}
+
+// TestNavShowsUsernameNotFullName covers the design decision that the nav's
+// user_menu widget shows the handle (username), not the free-text name
+// collected at signup -- unlike username, name is never unique and isn't
+// meant to identify the account on screen.
+func TestNavShowsUsernameNotFullName(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "nav-username@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() {
+		deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	})
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"name": {"Nav Display Name"}, "email": {email}, "username": {"nav_username_test"},
+		"password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected registration to succeed, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var sessionCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == deps.CookieName {
+			sessionCookie = c
+		}
+	}
+	if sessionCookie == nil {
+		t.Fatal("expected a session cookie after register")
+	}
+
+	pageReq := httptest.NewRequest(http.MethodGet, "/transactions", nil)
+	pageReq.AddCookie(sessionCookie)
+	pageRec := httptest.NewRecorder()
+	router.ServeHTTP(pageRec, pageReq)
+
+	body := pageRec.Body.String()
+	if !strings.Contains(body, "nav_username_test") {
+		t.Fatalf("expected the nav to show nav_username_test, got: %s", body)
+	}
+	if strings.Contains(body, "Nav Display Name") {
+		t.Fatalf("expected the nav to NOT show the free-text name, got: %s", body)
 	}
 }

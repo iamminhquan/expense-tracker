@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
+	"regexp"
 	"strings"
 
 	"expensetracker/internal/auth"
@@ -14,6 +15,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// usernamePattern mirrors the 000009 migration's CHECK constraint: a
+// lowercase letter followed by 2-19 lowercase letters, digits, or
+// underscores. Kept in sync by hand since html/template can't read a DB
+// constraint, and duplicated here (rather than shared) because a Go regexp
+// and a Postgres one are different enough dialects that sharing the string
+// wouldn't buy much.
+var usernamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
 
 // Deps holds shared dependencies for handlers.
 //
@@ -83,12 +92,13 @@ func registerPage(deps Deps) http.HandlerFunc {
 
 		name := strings.TrimSpace(r.FormValue("name"))
 		email := strings.TrimSpace(r.FormValue("email"))
+		username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
 		password := r.FormValue("password")
 		passwordConfirm := r.FormValue("password_confirm")
 
 		fail := func(msg string) {
 			renderNamed(w, r, deps, "auth", "auth_card_body", "", map[string]any{
-				"Tab": "register", "Error": msg, "Name": name, "Email": email,
+				"Tab": "register", "Error": msg, "Name": name, "Email": email, "Username": username,
 			})
 		}
 
@@ -98,6 +108,10 @@ func registerPage(deps Deps) http.HandlerFunc {
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
 			fail("That email address is not valid.")
+			return
+		}
+		if !usernamePattern.MatchString(username) {
+			fail("Username must be 3-20 characters: lowercase letters, numbers, or underscores, starting with a letter.")
 			return
 		}
 		if len([]rune(password)) < 8 {
@@ -119,10 +133,15 @@ func registerPage(deps Deps) http.HandlerFunc {
 			Email:        email,
 			PasswordHash: hash,
 			Name:         name,
+			Username:     username,
 		})
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				if pgErr.ConstraintName == "users_username_key" {
+					fail("That username is already taken.")
+					return
+				}
 				fail("That email is already registered.")
 				return
 			}

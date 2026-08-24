@@ -31,6 +31,7 @@ func TestCreateAndGetUser(t *testing.T) {
 		Email:        email,
 		PasswordHash: "hashed",
 		Name:         "Test User",
+		Username:     "test_user",
 	})
 	if err != nil {
 		t.Fatalf("create user: %v", err)

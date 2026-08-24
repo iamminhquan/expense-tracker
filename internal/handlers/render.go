@@ -99,7 +99,8 @@ func currentHeaderBalance(r *http.Request, deps Deps, userID int64) (balanceSumm
 }
 
 // authPageData loads the fields every authenticated page's nav needs: the
-// user's display name/initial, which nav link is active, and the real
+// user's username/initial (the nav shows the handle, not the free-text
+// name collected at signup), which nav link is active, and the real
 // current month's balance for the header widget (independent of whatever
 // month the page itself is browsing).
 func authPageData(r *http.Request, deps Deps, active string) (map[string]any, error) {
@@ -109,7 +110,7 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 		return nil, err
 	}
 	initial := "?"
-	if runes := []rune(user.Name); len(runes) > 0 {
+	if runes := []rune(user.Username); len(runes) > 0 {
 		initial = strings.ToUpper(string(runes[0]))
 	}
 
@@ -121,7 +122,7 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 	return map[string]any{
 		"ShowNav":       true,
 		"ActiveNav":     active,
-		"UserName":      user.Name,
+		"UserName":      user.Username,
 		"UserInitial":   initial,
 		"Theme":         user.Theme,
 		"HeaderBalance": headerBalance,

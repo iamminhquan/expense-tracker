@@ -17,12 +17,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// usernameFor derives a deterministic, valid username from a test email's
+// local part (matching the 000009 migration's ^[a-z][a-z0-9_]{2,19}$ CHECK),
+// so every loginAndGetCookie caller gets a unique username without having to
+// invent one per call site.
+func usernameFor(email string) string {
+	local := strings.ToLower(strings.SplitN(email, "@", 2)[0])
+	local = strings.NewReplacer("-", "_", ".", "_").Replace(local)
+	if len(local) > 20 {
+		local = local[:20]
+	}
+	return local
+}
+
 func loginAndGetCookie(t *testing.T, router http.Handler, deps handlers.Deps, email, password string) *http.Cookie {
 	t.Helper()
 	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
 
 	tok := csrfTokenFor(t, router)
-	form := url.Values{"name": {"Cat Test"}, "email": {email}, "password": {password}, "password_confirm": {password}}
+	form := url.Values{"name": {"Cat Test"}, "email": {email}, "username": {usernameFor(email)}, "password": {password}, "password_confirm": {password}}
 	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	withCSRF(req, tok)
