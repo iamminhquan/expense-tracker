@@ -122,28 +122,26 @@ func TestNewBalanceCardFormatsNegativeRemaining(t *testing.T) {
 // month's income" a true statement next to a balance built over years.
 func TestNewBalanceCardCarriesTheBalanceForward(t *testing.T) {
 	tests := []struct {
-		name                string
-		expense, income     int64
-		carriedOver         int64
-		wantRemaining       int64
-		wantShowCarriedOver bool
-		wantSpentPct        int
-		wantRatioLabel      string
-		wantEmpty           bool
+		name            string
+		expense, income int64
+		carriedOver     int64
+		wantRemaining   int64
+		wantSpentPct    int
+		wantRatioLabel  string
+		wantEmpty       bool
 	}{
 		{
 			name:    "carried-in balance adds to the month's own net",
 			expense: 4200000, income: 10000000, carriedOver: 6650000,
-			wantRemaining: 12450000, wantShowCarriedOver: true,
-			wantSpentPct: 42, wantRatioLabel: "Spent 42% of this month's income",
+			wantRemaining: 12450000,
+			wantSpentPct:  42, wantRatioLabel: "Spent 42% of this month's income",
 		},
 		{
-			// The month the app was first used has nothing behind it, and the
-			// card must not announce a 0₫ carry-over that says nothing.
-			name:    "nothing carried in leaves the note off",
+			// The month the app was first used has nothing behind it.
+			name:    "nothing carried in leaves the month's own net alone",
 			expense: 4200000, income: 10000000, carriedOver: 0,
-			wantRemaining: 5800000, wantShowCarriedOver: false,
-			wantSpentPct: 42, wantRatioLabel: "Spent 42% of this month's income",
+			wantRemaining: 5800000,
+			wantSpentPct:  42, wantRatioLabel: "Spent 42% of this month's income",
 		},
 		{
 			// The case that motivated the whole feature: a fresh month with
@@ -151,8 +149,8 @@ func TestNewBalanceCardCarriesTheBalanceForward(t *testing.T) {
 			// where it used to grey out a 0₫.
 			name:    "a month with no transactions still shows what came before",
 			expense: 0, income: 0, carriedOver: 6650000,
-			wantRemaining: 6650000, wantShowCarriedOver: true,
-			wantSpentPct: 0, wantRatioLabel: "No income this month",
+			wantRemaining: 6650000,
+			wantSpentPct:  0, wantRatioLabel: "No income this month",
 		},
 		{
 			// Empty is about having nothing to show, and a carried-in balance
@@ -160,15 +158,15 @@ func TestNewBalanceCardCarriesTheBalanceForward(t *testing.T) {
 			// the greyed zero now.
 			name:    "empty means no history at all, not just an empty month",
 			expense: 0, income: 0, carriedOver: 0,
-			wantRemaining: 0, wantShowCarriedOver: false,
-			wantSpentPct: 0, wantRatioLabel: "No income this month", wantEmpty: true,
+			wantRemaining: 0,
+			wantSpentPct:  0, wantRatioLabel: "No income this month", wantEmpty: true,
 		},
 		{
 			// Overspending in earlier months carries its debt forward too.
 			name:    "a negative carry-in stays negative",
 			expense: 500000, income: 0, carriedOver: -2000000,
-			wantRemaining: -2500000, wantShowCarriedOver: true,
-			wantSpentPct: 0, wantRatioLabel: "No income this month",
+			wantRemaining: -2500000,
+			wantSpentPct:  0, wantRatioLabel: "No income this month",
 		},
 		{
 			// A big enough carry-in keeps the balance positive through a month
@@ -176,8 +174,8 @@ func TestNewBalanceCardCarriesTheBalanceForward(t *testing.T) {
 			// overspend, because the bar is a statement about the month.
 			name:    "the bar reports the month's overspend even while the balance stays positive",
 			expense: 12000000, income: 10000000, carriedOver: 30000000,
-			wantRemaining: 28000000, wantShowCarriedOver: true,
-			wantSpentPct: 100, wantRatioLabel: "Over this month's income",
+			wantRemaining: 28000000,
+			wantSpentPct:  100, wantRatioLabel: "Over this month's income",
 		},
 	}
 
@@ -186,12 +184,6 @@ func TestNewBalanceCardCarriesTheBalanceForward(t *testing.T) {
 			got := newBalanceCard(tc.expense, tc.income, tc.carriedOver, augustMonth(), "transactions")
 			if got.Remaining != tc.wantRemaining {
 				t.Errorf("Remaining = %d, want %d", got.Remaining, tc.wantRemaining)
-			}
-			if got.CarriedOver != tc.carriedOver {
-				t.Errorf("CarriedOver = %d, want %d", got.CarriedOver, tc.carriedOver)
-			}
-			if got.ShowCarriedOver != tc.wantShowCarriedOver {
-				t.Errorf("ShowCarriedOver = %v, want %v", got.ShowCarriedOver, tc.wantShowCarriedOver)
 			}
 			if got.SpentPct != tc.wantSpentPct {
 				t.Errorf("SpentPct = %d, want %d", got.SpentPct, tc.wantSpentPct)
@@ -212,14 +204,14 @@ func TestNewBalanceCardCarriesTheBalanceForward(t *testing.T) {
 }
 
 // The two pages name the same number differently: the transactions page is
-// already headed by a month picker naming the month, the dashboard card says
-// it plain the way its sibling Spent/Earned cards do. Neither says "left"
-// any more -- the figure is no longer what is left of a month's income.
+// already headed by a month picker naming the month, so it repeats it; the
+// dashboard says "this month" to match the wording of the Spent/Earned cards
+// beside it.
 func TestNewBalanceCardLabelPerVariant(t *testing.T) {
-	if got := newBalanceCard(0, 0, 0, augustMonth(), "transactions"); got.Label != "Balance in August" {
-		t.Errorf("transactions Label = %q, want %q", got.Label, "Balance in August")
+	if got := newBalanceCard(0, 0, 0, augustMonth(), "transactions"); got.Label != "Left in August" {
+		t.Errorf("transactions Label = %q, want %q", got.Label, "Left in August")
 	}
-	if got := newBalanceCard(0, 0, 0, augustMonth(), "dashboard"); got.Label != "Balance" {
-		t.Errorf("dashboard Label = %q, want %q", got.Label, "Balance")
+	if got := newBalanceCard(0, 0, 0, augustMonth(), "dashboard"); got.Label != "Left this month" {
+		t.Errorf("dashboard Label = %q, want %q", got.Label, "Left this month")
 	}
 }

@@ -56,24 +56,17 @@ func TestHeaderBalanceCarriesForwardInsteadOfResetting(t *testing.T) {
 	}
 }
 
-// The popover under the widget has to say what the number now means: a
-// running balance, and how much of it was already there when the month
-// started. Without that line the figure reads as this month's earnings.
-func TestHeaderBalancePopoverNamesTheBalanceAndWhatItCarriedIn(t *testing.T) {
+// The popover keeps its original wording. Only the number behind it changed,
+// so the ratio caption below still has to describe the month itself.
+func TestHeaderBalancePopoverKeepsItsMonthlyRatioCaption(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
 	cookie := carryoverUser(t, router, deps, "carryover-popover@example.com")
 
 	body := carryoverPage(t, router, cookie, "/dashboard")
 
-	if strings.Contains(body, "LEFT THIS MONTH") {
-		t.Errorf("the popover still calls the figure what is left of the month")
-	}
-	if !strings.Contains(body, "BALANCE") {
-		t.Errorf("expected the popover to be headed BALANCE")
-	}
-	if !strings.Contains(body, "carried over") {
-		t.Errorf("expected the popover to name the part carried in from earlier months")
+	if !strings.Contains(body, "LEFT THIS MONTH") {
+		t.Errorf("expected the popover heading to be left as it was")
 	}
 	// The ratio caption still measures the month against its own income.
 	if !strings.Contains(body, "of this month's income") && !strings.Contains(body, "No income this month") {
@@ -93,7 +86,5 @@ func TestHeaderBalanceStaysEmptyForAUserWithNoHistory(t *testing.T) {
 	if !strings.Contains(body, "0₫") {
 		t.Errorf("expected a user with no transactions to still see 0₫")
 	}
-	if strings.Contains(body, "carried over") {
-		t.Errorf("a user with no history has nothing carried in to announce")
-	}
+
 }

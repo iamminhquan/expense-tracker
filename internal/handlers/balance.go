@@ -16,17 +16,9 @@ import (
 // month whose spending runs past the end of the bar.
 type balanceCard struct {
 	// Expense and Income are the displayed month's own two totals; Remaining
-	// is the running balance at the end of it, which is CarriedOver plus the
-	// month's net rather than the month's net alone.
+	// is the running balance at the end of it, which is what earlier months
+	// carried in plus the month's net rather than the month's net alone.
 	Expense, Income, Remaining int64
-
-	// CarriedOver is everything the user banked before this month began:
-	// income minus expense over their whole history up to the 1st. The card
-	// names it under the headline so the balance can't be misread as this
-	// month's earnings, and ShowCarriedOver hides that note when there is no
-	// history behind the month to describe.
-	CarriedOver     int64
-	ShowCarriedOver bool
 
 	Month   time.Time
 	Variant string
@@ -80,16 +72,14 @@ func (c balanceCard) asOOB() balanceCard {
 // that the displayed number would eventually disagree with.
 func newBalanceCard(expense, income, carriedOver int64, month time.Time, variant string) balanceCard {
 	card := balanceCard{
-		Expense:         expense,
-		Income:          income,
-		Remaining:       carriedOver + income - expense,
-		CarriedOver:     carriedOver,
-		ShowCarriedOver: carriedOver != 0,
-		Month:           month,
-		Variant:         variant,
-		Empty:           carriedOver == 0 && expense == 0 && income == 0,
-		Label:           balanceLabel(month, variant),
-		RatioLabel:      "No income this month",
+		Expense:    expense,
+		Income:     income,
+		Remaining:  carriedOver + income - expense,
+		Month:      month,
+		Variant:    variant,
+		Empty:      carriedOver == 0 && expense == 0 && income == 0,
+		Label:      balanceLabel(month, variant),
+		RatioLabel: "No income this month",
 	}
 
 	if income <= 0 {
@@ -110,17 +100,13 @@ func newBalanceCard(expense, income, carriedOver int64, month time.Time, variant
 	return card
 }
 
-// balanceLabel names the number above the bar. Neither variant says "left"
-// any more: the figure stopped being what remains of a month's income once
-// it started carrying forward.
-//
-// The transactions page names the month ("Balance in August") because it can
-// be browsing any month and the figure is that month's closing balance; the
-// dashboard says it plain to match the wording of the Spent/Earned cards
-// beside it.
+// balanceLabel names the number above the bar. The transactions page sits
+// under a month picker that already names the month, so it repeats it
+// ("Left in August"); the dashboard says "this month" to match the wording
+// of the Spent/Earned cards beside it.
 func balanceLabel(month time.Time, variant string) string {
 	if variant == "dashboard" {
-		return "Balance"
+		return "Left this month"
 	}
-	return "Balance in " + monthLabelLower(month)
+	return "Left in " + monthLabelLower(month)
 }
