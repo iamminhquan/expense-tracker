@@ -234,3 +234,20 @@ func TestMobileTopBarBlendsIntoTheAppBackground(t *testing.T) {
 		t.Error("mobile top bar no longer uses the bg-app token, so it won't blend into the new sticky header below it")
 	}
 }
+
+// The settings header is the plainest of the four: a title and nothing else.
+// There is no month to browse and no row to add, so an empty <h1> -- what
+// an unrecognised ActiveNav produces -- would leave the page nameless on
+// mobile, where the desktop heading is hidden.
+func TestMobilePageHeaderSettingsShowsTitleOnly(t *testing.T) {
+	out := renderMobilePageHeader(t, headerData("settings"))
+	if !strings.Contains(out, "Settings") {
+		t.Error("header does not show the Settings title")
+	}
+	if strings.Contains(out, "August 2026") {
+		t.Error("settings header should not carry the month picker")
+	}
+	if strings.Contains(out, "aria-label=\"Add") {
+		t.Error("settings header should not carry an add button")
+	}
+}
