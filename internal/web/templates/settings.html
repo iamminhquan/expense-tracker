@@ -1,0 +1,84 @@
+{{define "content"}}
+<div class="w-full max-w-[560px] mx-auto px-6 pt-7 pb-0 md:pb-9 flex flex-col gap-5">
+  <h1 class="hidden md:block text-[18px] font-semibold text-ink">Settings</h1>
+  <div class="md:hidden -mx-6">{{template "mobile_page_header" .}}</div>
+
+  {{if .Saved}}
+  <p class="px-[14px] py-[10px] rounded-lg bg-income/10 text-[13px] text-income">{{.Saved}}</p>
+  {{end}}
+
+  {{template "settings_profile_form" .}}
+  {{template "settings_email_form" .}}
+  {{template "settings_password_form" .}}
+</div>
+{{end}}
+
+{{define "settings_profile_form"}}
+<div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
+  <div>
+    <p class="text-[14px] font-semibold text-ink">Profile</p>
+    <p class="text-[12px] text-ink-faint mt-[2px]">The name on your account and the handle shown in the top bar.</p>
+  </div>
+  <form method="POST" action="/settings/profile" class="flex flex-col gap-[15px]">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="profile-name">Name</label>
+      <input id="profile-name" name="name" value="{{.ProfileName}}" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="profile-username">Username</label>
+      <input id="profile-username" name="username" value="{{.ProfileUsername}}" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    {{if .ProfileError}}<span class="text-[12px] text-expense">{{.ProfileError}}</span>{{end}}
+    <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Save profile</button>
+  </form>
+</div>
+{{end}}
+
+{{define "settings_email_form"}}
+<div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
+  <div>
+    <p class="text-[14px] font-semibold text-ink">Email</p>
+    <p class="text-[12px] text-ink-faint mt-[2px]">This is what you log in with, so changing it needs your password.</p>
+  </div>
+  <form method="POST" action="/settings/email" class="flex flex-col gap-[15px]">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="settings-email">Email address</label>
+      <input id="settings-email" name="email" type="email" value="{{.ProfileEmail}}" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="email-current-password">Current password</label>
+      <input id="email-current-password" name="current_password" type="password" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    {{if .EmailError}}<span class="text-[12px] text-expense">{{.EmailError}}</span>{{end}}
+    <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Change email</button>
+  </form>
+</div>
+{{end}}
+
+{{define "settings_password_form"}}
+<div id="password" class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
+  <div>
+    <p class="text-[14px] font-semibold text-ink">Password</p>
+    <p class="text-[12px] text-ink-faint mt-[2px]">Changing it signs out every other device you are logged in on.</p>
+  </div>
+  <form method="POST" action="/settings/password" class="flex flex-col gap-[15px]">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="current-password">Current password</label>
+      <input id="current-password" name="current_password" type="password" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="new-password">New password</label>
+      <input id="new-password" name="new_password" type="password" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="new-password-confirm">Confirm new password</label>
+      <input id="new-password-confirm" name="new_password_confirm" type="password" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+    </div>
+    {{if .PasswordError}}<span class="text-[12px] text-expense">{{.PasswordError}}</span>{{end}}
+    <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Change password</button>
+  </form>
+</div>
+{{end}}
