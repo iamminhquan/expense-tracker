@@ -30,8 +30,15 @@
 </nav>
 {{end}}
 
+{{/* Sticky rather than fixed, and in flow at the end of <body>: on a page
+     taller than the screen it behaves exactly like a fixed bar, floating
+     16px above the bottom edge while you scroll, and at the end of the
+     scroll it settles into the space its own mt/mb reserve. On a page too
+     short to scroll (the dashboard on a quiet month) it simply sits where
+     it falls -- 14px under the last card, the same gap the long pages get
+     -- instead of stranding a screenful of empty background above it. */}}
 {{define "nav_mobile"}}
-<nav class="md:hidden fixed bottom-4 inset-x-4 bg-surface border border-border-card rounded-[20px] shadow-lg flex z-40 p-[6px]">
+<nav class="md:hidden sticky bottom-4 mx-4 mt-[14px] mb-4 bg-surface border border-border-card rounded-[20px] shadow-lg flex z-40 p-[6px]">
   <a href="/dashboard" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "dashboard"}}bg-accent/10{{end}}">
     <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "dashboard"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"/></svg>
     <span class="text-[11px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Overview</span>

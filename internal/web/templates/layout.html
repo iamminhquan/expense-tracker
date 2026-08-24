@@ -28,9 +28,24 @@
   <!-- After the CDN script, which does its first scan on DOMContentLoaded. -->
   <script src="/static/tailwind-config.js"></script>
 </head>
-<body class="bg-app text-ink font-sans antialiased" hx-boost="true">
+<body class="bg-app text-ink font-sans antialiased min-h-screen flex flex-col" hx-boost="true">
   {{if .ShowNav}}{{template "nav_desktop" .}}{{template "nav_mobile_header" .}}{{end}}
-  <main class="{{if .ShowNav}}pb-[76px] md:pb-10{{end}}">
+  {{/* No bottom reserve on mobile: nav_mobile is sticky and in flow, so it
+       carries its own clearance in its margins. A reserve here would stack
+       on top of that and re-open the gap it exists to close.
+
+       "grow" is what stops a page shorter than the screen from leaving a
+       dead strip under the bar: <body> is a full-height column, so <main>
+       swallows the leftover height and hands it down to whichever page
+       element asks for it (the dashboard's chart card does). A page that
+       does not ask still ends up with the bar on the bottom edge rather
+       than floating halfway up.
+
+       Because this is a flex column, each page's content wrapper needs an
+       explicit w-full: mx-auto on a flex child spends the free space on the
+       margins and shrinks the box to fit its content instead of stretching
+       it. */}}
+  <main class="{{if .ShowNav}}grow flex flex-col md:pb-10{{end}}">
     {{template "content" .}}
   </main>
   {{if .ShowNav}}{{template "nav_mobile" .}}{{end}}

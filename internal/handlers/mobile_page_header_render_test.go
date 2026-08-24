@@ -131,16 +131,91 @@ func TestCategoriesPageBottomAddButtonRemoved(t *testing.T) {
 	}
 }
 
-func TestMainContentClearsOnlyTheBottomNavOnMobile(t *testing.T) {
-	body, err := os.ReadFile("../web/templates/layout.html")
+// The mobile bar is sticky and in flow at the end of <body>, not fixed: that
+// is what keeps its gap to the last card the same 14px on a long page and on
+// one too short to scroll. Its own margins are the whole clearance, so <main>
+// must not add a bottom reserve on mobile -- an earlier pb-[76px] there was
+// 8px short of a fixed bar and tucked the last card behind it, and any reserve
+// now would just re-open the gap on the dashboard.
+func TestMobileBottomNavIsStickyAndCarriesItsOwnClearance(t *testing.T) {
+	nav, err := os.ReadFile("../web/templates/nav.html")
+	if err != nil {
+		t.Fatalf("read nav.html: %v", err)
+	}
+	m := regexp.MustCompile(`(?s)\{\{define "nav_mobile"\}\}(.*?)\{\{end\}\}`).FindStringSubmatch(string(nav))
+	if m == nil {
+		t.Fatal("nav_mobile block not found in nav.html")
+	}
+	for _, want := range []string{"sticky", "bottom-4", "mt-[14px]", "mb-4", "mx-4"} {
+		if !strings.Contains(m[1], want) {
+			t.Errorf("nav_mobile lost %q; it needs all of sticky/bottom-4/mt-[14px]/mb-4/mx-4 to sit 14px under the last card on a short page and 16px off the bottom edge on a long one", want)
+		}
+	}
+	if strings.Contains(m[1], "fixed") {
+		t.Error("nav_mobile is fixed again, which strands the whole rest of the screen between the last card and the bar on a page too short to scroll")
+	}
+
+	layout, err := os.ReadFile("../web/templates/layout.html")
 	if err != nil {
 		t.Fatalf("read layout.html: %v", err)
 	}
-	if !strings.Contains(string(body), "pb-[76px]") {
-		t.Error("<main> no longer reserves pb-[76px] for the bottom nav now that the page-bottom button is gone")
+	for _, unwanted := range []string{"pb-[98px]", "pb-[76px]", "pb-24"} {
+		if strings.Contains(string(layout), unwanted) {
+			t.Errorf("<main> carries %s, a bottom reserve that stacks on top of the sticky nav's own margins", unwanted)
+		}
 	}
-	if strings.Contains(string(body), "pb-24") {
-		t.Error("<main> still carries the old pb-24, sized to leave room for the removed page-bottom button")
+}
+
+// A page shorter than the screen (the dashboard on a quiet month) used to
+// leave a dead strip under the sticky bar. <body> is a full-height column and
+// <main> grows, so the leftover height reaches the dashboard's chart card and
+// the page ends where the screen does. Two things are easy to break here: the
+// w-full on each page's content wrapper (mx-auto on a flex child otherwise
+// shrinks the box to fit its content instead of stretching it, which quietly
+// narrows every page), and the absolutely positioned bar canvas (an in-flow
+// one is both sized from its parent by Chart.js and measured by that parent,
+// so the card climbs off the screen on every resize).
+func TestShortPagesFillTheScreenInsteadOfStrandingTheNav(t *testing.T) {
+	layout, err := os.ReadFile("../web/templates/layout.html")
+	if err != nil {
+		t.Fatalf("read layout.html: %v", err)
+	}
+	for _, want := range []string{"min-h-screen flex flex-col", "grow flex flex-col"} {
+		if !strings.Contains(string(layout), want) {
+			t.Errorf("layout.html lost %q; without it <main> has no leftover height to hand down and a short page strands the nav mid-screen", want)
+		}
+	}
+
+	for _, page := range []string{"dashboard.html", "transactions.html", "categories.html"} {
+		body, err := os.ReadFile("../web/templates/" + page)
+		if err != nil {
+			t.Fatalf("read %s: %v", page, err)
+		}
+		if !strings.Contains(string(body), `w-full max-w-[880px] mx-auto`) {
+			t.Errorf("%s's content wrapper is missing w-full; as a flex child of <main>, mx-auto shrinks it to its content width and narrows the whole page", page)
+		}
+	}
+
+	dashboard, err := os.ReadFile("../web/templates/dashboard.html")
+	if err != nil {
+		t.Fatalf("read dashboard.html: %v", err)
+	}
+	if !strings.Contains(string(dashboard), `<canvas id="bar-chart" class="absolute inset-0`) {
+		t.Error("the bar chart canvas is back in flow; Chart.js sizes it from the parent that measures it, so each resize feeds the next")
+	}
+	if !strings.Contains(string(dashboard), `relative grow min-h-[118px] md:min-h-[158px]`) {
+		t.Error("the bar chart's wrapper lost its grow/min-h, so the chart no longer absorbs the leftover screen height")
+	}
+	if !strings.Contains(string(dashboard), "grid-rows-[auto_1fr] md:grid-rows-none") {
+		t.Error("the chart pair lost grid-rows-[auto_1fr]: without it the leftover height is split between both cards instead of going to the bar chart")
+	}
+
+	charts, err := os.ReadFile("../web/static/charts.js")
+	if err != nil {
+		t.Fatalf("read charts.js: %v", err)
+	}
+	if !strings.Contains(string(charts), "maintainAspectRatio: false") {
+		t.Error("charts.js dropped maintainAspectRatio: false, so the bar chart computes a height from its width and overflows the card it is meant to fill")
 	}
 }
 

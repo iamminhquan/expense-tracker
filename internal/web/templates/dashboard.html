@@ -1,11 +1,11 @@
 {{define "content"}}
-<div class="max-w-[880px] mx-auto px-5 md:px-6 pt-4 md:pt-7 pb-0 md:pb-9 flex flex-col gap-[14px] md:gap-[18px]">
+<div class="w-full max-w-[880px] mx-auto px-5 md:px-6 pt-4 md:pt-7 pb-0 md:pb-9 flex flex-col gap-[14px] md:gap-[18px] grow md:grow-0">
   {{template "dashboard_month_section" .}}
 </div>
 {{end}}
 
 {{define "dashboard_month_section"}}
-<div id="dashboard-month-section" class="flex flex-col gap-[14px] md:gap-[18px]">
+<div id="dashboard-month-section" class="flex flex-col gap-[14px] md:gap-[18px] grow md:grow-0">
   <div class="md:hidden -mx-5">{{template "mobile_page_header" .}}</div>
   <div class="hidden md:flex items-center justify-between">
     <h1 class="text-[18px] font-semibold text-ink">{{.MonthLabel}}</h1>
@@ -46,13 +46,18 @@
   </div>
 
   {{if and .CurrentMonthEmpty (not .HasAnyMonthData)}}
-  <div class="bg-surface border border-border-card rounded-xl text-center py-11 px-7">
+  <div class="bg-surface border border-border-card rounded-xl text-center py-11 px-7 grow md:grow-0 flex flex-col justify-center md:block">
     <p class="text-[15px] font-semibold text-ink">Not enough data to chart yet</p>
     <p class="text-[13px] text-ink-faint mt-1">Both totals still read 0₫. Charts appear once you add your first transaction.</p>
     <a href="/transactions" class="inline-block mt-3 text-[13px] text-accent font-medium">Add a transaction</a>
   </div>
   {{else}}
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+  {{/* grid-rows-[auto_1fr] below md: the doughnut card keeps its natural
+       height and the bar card takes the leftover, which is what lets a quiet
+       month's dashboard reach the bottom of the screen instead of stranding
+       a dead strip under the nav. Two columns and one row from md up, so the
+       row template is dropped there. */}}
+  <div class="grid grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-none md:grid-cols-2 gap-3 md:gap-4 grow md:grow-0">
     <div class="bg-surface border border-border-card rounded-xl p-[18px]">
       <p class="text-[13px] font-semibold text-ink mb-3">Spending by category</p>
       {{if .CurrentMonthEmpty}}
@@ -75,7 +80,7 @@
       </div>
       {{end}}
     </div>
-    <div class="bg-surface border border-border-card rounded-xl p-[18px]">
+    <div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col">
       <div class="flex items-center justify-between mb-3">
         <p class="text-[13px] font-semibold text-ink">Last 4 months</p>
         <div class="flex items-center gap-3">
@@ -83,7 +88,16 @@
           <span class="flex items-center gap-1 text-[11px] text-ink-faint"><span class="w-2 h-2 rounded-[2px] bg-income"></span>Earned</span>
         </div>
       </div>
-      <canvas id="bar-chart" class="w-full h-[118px] md:h-[158px]"></canvas>
+      {{/* The canvas fills this box instead of carrying its own height, so
+           the chart grows into whatever the screen has left over; min-h keeps
+           the old height as the floor when there is nothing spare. It has to
+           be taken out of flow to do that: Chart.js sets the canvas height
+           from its parent, and an in-flow canvas is also what the parent
+           measures itself against, so each resize would feed the next and the
+           card would climb off the screen. */}}
+      <div class="relative grow min-h-[118px] md:min-h-[158px]">
+        <canvas id="bar-chart" class="absolute inset-0 w-full h-full"></canvas>
+      </div>
     </div>
   </div>
   {{end}}
