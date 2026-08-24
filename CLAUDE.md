@@ -198,6 +198,8 @@ hashing/verification. Sessions last 7 days.
   a `<type>/<short-description>` branch (e.g. `feat/mobile-ux-polish`) and
   gets merged into `master` (`git merge --no-ff`) once done, rather than
   committed directly.
+- Commit messages and PR descriptions must not include a "🤖 Generated with
+  Claude Code" footer or a Claude Code session link.
 
 ## Notes
 
