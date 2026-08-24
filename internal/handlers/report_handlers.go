@@ -67,10 +67,10 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 	if err != nil {
 		return nil, err
 	}
-	barLabels, barChi, barThu := buildBarSeries(series, from.Time, barMonths)
+	barLabels, barExpense, barIncome := buildBarSeries(series, from.Time, barMonths)
 	hasAnyMonthData := false
-	for i := range barChi {
-		if barChi[i] > 0 || barThu[i] > 0 {
+	for i := range barExpense {
+		if barExpense[i] > 0 || barIncome[i] > 0 {
 			hasAnyMonthData = true
 		}
 	}
@@ -92,8 +92,8 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 	pieValuesJSON, _ := json.Marshal(pieValues)
 	pieColorsJSON, _ := json.Marshal(pieColors)
 	barLabelsJSON, _ := json.Marshal(barLabels)
-	barChiJSON, _ := json.Marshal(barChi)
-	barThuJSON, _ := json.Marshal(barThu)
+	barExpenseJSON, _ := json.Marshal(barExpense)
+	barIncomeJSON, _ := json.Marshal(barIncome)
 
 	return map[string]any{
 		"MonthLabel":              monthLabel(from.Time),
@@ -112,8 +112,8 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 		"PieValuesJSON":           template.JS(pieValuesJSON),
 		"PieColorsJSON":           template.JS(pieColorsJSON),
 		"BarLabelsJSON":           template.JS(barLabelsJSON),
-		"BarChiJSON":              template.JS(barChiJSON),
-		"BarThuJSON":              template.JS(barThuJSON),
+		"BarExpenseJSON":          template.JS(barExpenseJSON),
+		"BarIncomeJSON":           template.JS(barIncomeJSON),
 	}, nil
 }
 
@@ -168,7 +168,7 @@ func percentOf(part, total int64) string {
 // buildBarSeries returns exactly `months` consecutive [oldest..newest]
 // points ending at currentMonthStart, zero-padding any month
 // MonthlyTotalsSeries didn't return a row for.
-func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart time.Time, months int) (labels []string, chi []int64, thu []int64) {
+func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart time.Time, months int) (labels []string, expense []int64, income []int64) {
 	byMonth := make(map[string]sqlcgen.MonthlyTotalsSeriesRow, len(series))
 	for _, row := range series {
 		byMonth[row.Month.Time.Format("2006-01")] = row
@@ -178,11 +178,11 @@ func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart t
 		key := m.Format("2006-01")
 		labels = append(labels, shortMonthLabel(m))
 		if row, ok := byMonth[key]; ok {
-			chi = append(chi, row.TotalExpense)
-			thu = append(thu, row.TotalIncome)
+			expense = append(expense, row.TotalExpense)
+			income = append(income, row.TotalIncome)
 		} else {
-			chi = append(chi, 0)
-			thu = append(thu, 0)
+			expense = append(expense, 0)
+			income = append(income, 0)
 		}
 	}
 	return

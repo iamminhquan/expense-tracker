@@ -25,7 +25,7 @@
         {{end}}
       </div>
       {{if .UserID.Valid}}
-      <button type="button" hx-get="/categories/{{.ID}}/edit" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap">Sửa</button>
+      <button type="button" hx-get="/categories/{{.ID}}/edit" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap">Edit</button>
       <button type="button" onclick="document.getElementById('delete-dialog-{{.ID}}').showModal()" class="shrink-0 text-[12px] text-ink-faint whitespace-nowrap">Delete</button>
       {{end}}
     </div>

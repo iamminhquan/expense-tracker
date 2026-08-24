@@ -89,7 +89,7 @@
   {{end}}
 
   <script type="application/json" id="chart-data">
-    {"pie": {"labels": {{.PieLabelsJSON}}, "values": {{.PieValuesJSON}}, "colors": {{.PieColorsJSON}}}, "bars": {"labels": {{.BarLabelsJSON}}, "chi": {{.BarChiJSON}}, "thu": {{.BarThuJSON}}}}
+    {"pie": {"labels": {{.PieLabelsJSON}}, "values": {{.PieValuesJSON}}, "colors": {{.PieColorsJSON}}}, "bars": {"labels": {{.BarLabelsJSON}}, "expense": {{.BarExpenseJSON}}, "income": {{.BarIncomeJSON}}}}
   </script>
   <!-- Inside the swapped section on purpose: htmx re-executes script tags in
        content it swaps in, so a month switch rebuilds both charts against the

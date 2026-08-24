@@ -328,14 +328,14 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			defer tx.Rollback(r.Context())
 			qtx := deps.Queries.WithTx(tx)
 
-			khac, err := qtx.GetDefaultCategoryForReassignment(r.Context())
+			other, err := qtx.GetDefaultCategoryForReassignment(r.Context())
 			if err != nil {
 				log.Printf("delete category: load Other default: %v", err)
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
 			}
 			if _, err := qtx.ReassignCategoryTransactions(r.Context(), sqlcgen.ReassignCategoryTransactionsParams{
-				CategoryID: khac.ID, CategoryID_2: id, UserID: userID,
+				CategoryID: other.ID, CategoryID_2: id, UserID: userID,
 			}); err != nil {
 				log.Printf("delete category: reassign transactions: %v", err)
 				http.Error(w, "could not delete category", http.StatusInternalServerError)

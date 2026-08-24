@@ -70,17 +70,17 @@ func TestBuildBarSeriesZeroPadsMissingMonths(t *testing.T) {
 	series := []sqlcgen.MonthlyTotalsSeriesRow{
 		{Month: pgtype.Date{Time: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), Valid: true}, TotalExpense: 5000, TotalIncome: 9000},
 	}
-	labels, chi, thu := buildBarSeries(series, current, 4)
-	if len(labels) != 4 || len(chi) != 4 || len(thu) != 4 {
+	labels, expense, income := buildBarSeries(series, current, 4)
+	if len(labels) != 4 || len(expense) != 4 || len(income) != 4 {
 		t.Fatalf("expected 4 months of series data, got %d labels", len(labels))
 	}
 	if labels[3] != "Aug" {
 		t.Fatalf("expected the last label to be the current month (Aug), got %q", labels[3])
 	}
-	if chi[3] != 5000 || thu[3] != 9000 {
-		t.Fatalf("expected the current month's totals to carry through, got chi=%d thu=%d", chi[3], thu[3])
+	if expense[3] != 5000 || income[3] != 9000 {
+		t.Fatalf("expected the current month's totals to carry through, got expense=%d income=%d", expense[3], income[3])
 	}
-	if chi[0] != 0 || thu[0] != 0 {
-		t.Fatalf("expected a month with no data to zero-pad, got chi=%d thu=%d", chi[0], thu[0])
+	if expense[0] != 0 || income[0] != 0 {
+		t.Fatalf("expected a month with no data to zero-pad, got expense=%d income=%d", expense[0], income[0])
 	}
 }

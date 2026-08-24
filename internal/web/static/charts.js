@@ -123,8 +123,8 @@ window.__initCharts = function () {
       data: {
         labels: chartData.bars.labels,
         datasets: [
-          { label: 'Spent', data: chartData.bars.chi, backgroundColor: chartColor('--c-expense'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 },
-          { label: 'Earned', data: chartData.bars.thu, backgroundColor: chartColor('--c-income'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 }
+          { label: 'Spent', data: chartData.bars.expense, backgroundColor: chartColor('--c-expense'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 },
+          { label: 'Earned', data: chartData.bars.income, backgroundColor: chartColor('--c-income'), borderRadius: 3, barPercentage: 0.62, categoryPercentage: 0.6 }
         ]
       },
       options: {
