@@ -41,19 +41,7 @@
 <dialog id="add-category-sheet" class="md:hidden w-full max-w-full m-0 mt-auto mb-0 rounded-t-[20px] rounded-b-none p-0 backdrop:bg-black/32">
   <div class="p-5 pb-8" id="add-category-sheet-body"></div>
 </dialog>
-<script>
-  function openAddCategorySheet() {
-    var slot = document.getElementById('add-category-slot');
-    var body = document.getElementById('add-category-sheet-body');
-    if (slot.firstElementChild) body.appendChild(slot.firstElementChild);
-    document.getElementById('add-category-sheet').showModal();
-  }
-  document.getElementById('add-category-sheet').addEventListener('close', function () {
-    var slot = document.getElementById('add-category-slot');
-    var body = document.getElementById('add-category-sheet-body');
-    if (body.firstElementChild) slot.appendChild(body.firstElementChild);
-  });
-</script>
+<script src="/static/categories.js"></script>
 {{end}}
 
 {{define "add_category_form"}}

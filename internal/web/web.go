@@ -9,13 +9,25 @@
 package web
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
+	"io/fs"
+	"mime"
+	"net/http"
+	"path"
+	"strings"
+	"time"
 )
 
 //go:embed templates
 var templatesFS embed.FS
+
+//go:embed static
+var staticFS embed.FS
 
 // sharedTemplates are parsed into every page's set: the page shell, the nav
 // bars, and the balance widget the nav bars render. A page that forgot one
@@ -57,4 +69,77 @@ func Templates(funcs template.FuncMap) (map[string]*template.Template, error) {
 		sets[page] = tmpl
 	}
 	return sets, nil
+}
+
+// StaticPrefix is the URL path the static assets are served under. The
+// templates hardcode it in their <link>/<script> tags, so it is exported to
+// keep the router's route and those tags from drifting apart silently.
+const StaticPrefix = "/static/"
+
+type staticAsset struct {
+	body        []byte
+	contentType string
+	etag        string
+}
+
+// staticAssets holds every embedded asset keyed by its path below static/,
+// read and hashed once at init. embed.FS reports a zero ModTime, so
+// Last-Modified is not available to revalidate against and an ETag is the
+// only thing that can turn a repeat visit into a 304 -- which is why the
+// bodies are held in memory rather than served straight off the FS.
+var staticAssets = loadStaticAssets()
+
+func loadStaticAssets() map[string]staticAsset {
+	assets := map[string]staticAsset{}
+	err := fs.WalkDir(staticFS, "static", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		body, err := staticFS.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(body)
+		contentType := mime.TypeByExtension(path.Ext(p))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		assets[strings.TrimPrefix(p, "static/")] = staticAsset{
+			body:        body,
+			contentType: contentType,
+			etag:        `"` + hex.EncodeToString(sum[:8]) + `"`,
+		}
+		return nil
+	})
+	if err != nil {
+		// Only reachable if the embedded tree itself is unreadable, which
+		// would be a build-time problem, not a runtime one.
+		panic("web: read embedded static assets: " + err.Error())
+	}
+	return assets
+}
+
+// StaticHandler serves the embedded static/ tree. It is mounted publicly:
+// the CSS and JS are the same for every visitor, and the login page needs
+// them before anyone is authenticated.
+//
+// Cache-Control is "no-cache" rather than a max-age, so a deploy never
+// leaves a browser holding a stale app.js against fresh markup; the ETag is
+// what keeps the repeat request cheap (a 304 with no body).
+func StaticHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, StaticPrefix)
+		asset, ok := staticAssets[name]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", asset.contentType)
+		w.Header().Set("ETag", asset.etag)
+		w.Header().Set("Cache-Control", "no-cache")
+		// ServeContent handles If-None-Match against the ETag set above, and
+		// answers 304 without writing a body. The zero modtime keeps it from
+		// emitting a Last-Modified that embed.FS cannot back.
+		http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(asset.body))
+	})
 }

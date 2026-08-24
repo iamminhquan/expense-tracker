@@ -66,18 +66,18 @@ func TestFlexibleFormControlsDeclareAMinWidth(t *testing.T) {
 }
 
 // The bottom sheet's grab handle is inert markup on its own -- the drag lives
-// in layout.html and finds the handle by attribute. Renaming one side without
-// the other leaves a pill that looks draggable and is not, which is the bug
-// this behaviour was added to fix. The handle also has to opt out of the
-// browser's own touch gestures, or a downward drag scrolls the page instead.
+// in app.js and finds the handle by attribute. Renaming one side without the
+// other leaves a pill that looks draggable and is not, which is the bug this
+// behaviour was added to fix. The handle also has to opt out of the browser's
+// own touch gestures, or a downward drag scrolls the page instead.
 func TestBottomSheetHandleStaysWiredToTheDragScript(t *testing.T) {
 	sheet, err := os.ReadFile("../web/templates/transactions.html")
 	if err != nil {
 		t.Fatalf("read transactions.html: %v", err)
 	}
-	layout, err := os.ReadFile("../web/templates/layout.html")
+	script, err := os.ReadFile("../web/static/app.js")
 	if err != nil {
-		t.Fatalf("read layout.html: %v", err)
+		t.Fatalf("read app.js: %v", err)
 	}
 
 	handle := regexp.MustCompile(`<div data-sheet-handle class="([^"]*)"`).FindSubmatch(sheet)
@@ -87,7 +87,7 @@ func TestBottomSheetHandleStaysWiredToTheDragScript(t *testing.T) {
 	if !strings.Contains(string(handle[1]), "touch-none") {
 		t.Fatalf("the grab handle needs touch-none, or the browser scrolls instead of dragging; got %q", handle[1])
 	}
-	if !strings.Contains(string(layout), "[data-sheet-handle]") {
-		t.Fatal("layout.html no longer looks for [data-sheet-handle]: the handle is decorative again")
+	if !strings.Contains(string(script), "[data-sheet-handle]") {
+		t.Fatal("app.js no longer looks for [data-sheet-handle]: the handle is decorative again")
 	}
 }

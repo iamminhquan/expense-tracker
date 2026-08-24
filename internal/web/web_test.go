@@ -1,6 +1,9 @@
 package web_test
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"expensetracker/internal/handlers"
@@ -75,5 +78,66 @@ func TestTemplatesDefinesEveryFragmentHandlersRender(t *testing.T) {
 				t.Errorf("page %q is missing the %q fragment", page, name)
 			}
 		}
+	}
+}
+
+// Every asset the templates reference by URL. A file renamed on disk without
+// the matching edit in the template would otherwise ship a page whose
+// stylesheet or script 404s -- visible only by loading it in a browser.
+func TestStaticHandlerServesEveryReferencedAsset(t *testing.T) {
+	want := map[string]string{
+		"app.css":            "text/css",
+		"app.js":             "javascript",
+		"tailwind-config.js": "javascript",
+		"charts.js":          "javascript",
+		"categories.js":      "javascript",
+	}
+
+	handler := web.StaticHandler()
+	for name, contentType := range want {
+		req := httptest.NewRequest(http.MethodGet, web.StaticPrefix+name, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("GET %s%s = %d, want 200", web.StaticPrefix, name, rec.Code)
+			continue
+		}
+		if got := rec.Header().Get("Content-Type"); !strings.Contains(got, contentType) {
+			t.Errorf("GET %s%s Content-Type = %q, want it to contain %q", web.StaticPrefix, name, got, contentType)
+		}
+		if rec.Body.Len() == 0 {
+			t.Errorf("GET %s%s served an empty body", web.StaticPrefix, name)
+		}
+	}
+}
+
+// The ETag is the only thing that can make a repeat request cheap: embed.FS
+// reports a zero ModTime, so there is no Last-Modified to revalidate against.
+func TestStaticHandlerAnswers304ForAMatchingETag(t *testing.T) {
+	handler := web.StaticHandler()
+
+	first := httptest.NewRecorder()
+	handler.ServeHTTP(first, httptest.NewRequest(http.MethodGet, web.StaticPrefix+"app.css", nil))
+	etag := first.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("no ETag on the first response, so every repeat visit refetches the whole file")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, web.StaticPrefix+"app.css", nil)
+	req.Header.Set("If-None-Match", etag)
+	second := httptest.NewRecorder()
+	handler.ServeHTTP(second, req)
+
+	if second.Code != http.StatusNotModified {
+		t.Errorf("repeat request with If-None-Match = %d, want 304", second.Code)
+	}
+}
+
+func TestStaticHandler404sOnAnUnknownAsset(t *testing.T) {
+	rec := httptest.NewRecorder()
+	web.StaticHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, web.StaticPrefix+"nope.js", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET an asset that does not exist = %d, want 404", rec.Code)
 	}
 }

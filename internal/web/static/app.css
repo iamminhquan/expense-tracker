@@ -1,0 +1,139 @@
+/* Design tokens. Stored as space-separated RGB channels rather than hex so
+   Tailwind's opacity modifiers (bg-accent/10, hover:bg-expense/10) can
+   compose them through the <alpha-value> placeholder in tailwind-config.js
+   -- a plain hex in a CSS variable silently drops the opacity. */
+:root {
+  color-scheme: light;
+  --c-app: 250 249 247;
+  --c-surface: 255 255 255;
+  --c-surface-alt: 252 251 249;
+  --c-track: 244 243 240;
+  --c-border-card: 233 231 228;
+  --c-border-input: 226 224 220;
+  --c-border-list: 241 239 236;
+  --c-border-nav: 237 235 231;
+  --c-ink: 27 26 24;
+  --c-ink-muted: 87 83 78;
+  --c-ink-faint: 138 135 129;
+  --c-ink-faintest: 156 152 145;
+  --c-placeholder: 168 164 157;
+  --c-ink-zero: 198 194 187;
+  --c-nav-idle: 107 104 98;
+  --c-accent: 188 90 41;
+  --c-expense: 180 35 24;
+  --c-income: 47 125 91;
+  --c-danger-tint: 254 247 245;
+  --c-danger-bg: 254 242 242;
+  --c-danger-border: 254 202 202;
+  --c-on-solid: 255 255 255;
+  --c-dot: 27 26 24;
+}
+
+/* The dark palette, applied in two places so all three preferences work
+   without JavaScript at load time: once behind prefers-color-scheme for
+   class="auto" (the media query is what resolves "auto", which is why the
+   server never needs to know the visitor's OS setting), and once on
+   class="dark" for an explicit override. The :not(.light) guard lets an
+   explicit light choice win on a dark-set OS. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --c-app: 23 22 20;
+    --c-surface: 31 30 27;
+    --c-surface-alt: 35 34 32;
+    --c-track: 42 40 37;
+    --c-border-card: 50 47 43;
+    --c-border-input: 58 55 51;
+    --c-border-list: 43 41 38;
+    --c-border-nav: 46 44 40;
+    --c-ink: 242 240 236;
+    --c-ink-muted: 184 179 171;
+    --c-ink-faint: 140 135 129;
+    --c-ink-faintest: 116 111 105;
+    --c-placeholder: 107 102 96;
+    --c-ink-zero: 74 70 64;
+    --c-nav-idle: 169 164 156;
+    --c-accent: 224 138 90;
+    --c-expense: 249 112 102;
+    --c-income: 87 195 152;
+    --c-danger-tint: 42 28 23;
+    --c-danger-bg: 51 32 26;
+    --c-danger-border: 92 52 40;
+    --c-on-solid: 23 22 20;
+    --c-dot: 242 240 236;
+  }
+}
+:root.dark {
+  color-scheme: dark;
+  --c-app: 23 22 20;
+  --c-surface: 31 30 27;
+  --c-surface-alt: 35 34 32;
+  --c-track: 42 40 37;
+  --c-border-card: 50 47 43;
+  --c-border-input: 58 55 51;
+  --c-border-list: 43 41 38;
+  --c-border-nav: 46 44 40;
+  --c-ink: 242 240 236;
+  --c-ink-muted: 184 179 171;
+  --c-ink-faint: 140 135 129;
+  --c-ink-faintest: 116 111 105;
+  --c-placeholder: 107 102 96;
+  --c-ink-zero: 74 70 64;
+  --c-nav-idle: 169 164 156;
+  --c-accent: 224 138 90;
+  --c-expense: 249 112 102;
+  --c-income: 87 195 152;
+  --c-danger-tint: 42 28 23;
+  --c-danger-bg: 51 32 26;
+  --c-danger-border: 92 52 40;
+  --c-on-solid: 23 22 20;
+  --c-dot: 242 240 236;
+}
+
+/* The form controls and dialogs in these templates carry no background of
+   their own and would otherwise keep the browser's default white. Element
+   selectors lose to Tailwind's class utilities -- this file is linked before
+   the Tailwind CDN script, so its generated stylesheet comes later -- and an
+   explicit bg-* on a control still wins over this. */
+input, select, textarea, dialog {
+  background-color: rgb(var(--c-surface));
+  color: rgb(var(--c-ink));
+}
+::placeholder { color: rgb(var(--c-placeholder)); }
+
+/* Faint dot-grid texture on the page background. --c-dot pairs light and
+   dark values close to --c-ink so the pattern reads as texture, not a
+   competing visual element; the low alpha here (not the token) keeps it
+   barely-there. */
+body {
+  background-image: radial-gradient(rgb(var(--c-dot) / 0.05) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+/* Theme toggle fades rather than snaps: the palette blocks above swap
+   instantly when applyTheme() changes the <html> class, but transitioning
+   the properties that *consume* the --c-* variables (rather than the
+   variables themselves, which aren't animatable) makes that swap read as a
+   fade. Scoped to color-ish properties only, so layout/interaction
+   transitions (htmx swaps, hover states) aren't affected. */
+*, *::before, *::after {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, fill 200ms ease, stroke 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none; }
+}
+
+.font-mono { font-variant-numeric: tabular-nums; }
+
+/* The "$pend" wordmark -- everything but the size, which each call site
+   sets. line-height is pinned so the box keeps its height while Playfair is
+   still loading and Georgia stands in, and the colour comes from the ink
+   token so the mark inverts with the palette instead of staying near-black
+   on the dark background. */
+.wordmark {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: rgb(var(--c-ink));
+}

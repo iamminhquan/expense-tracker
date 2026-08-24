@@ -5,6 +5,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csrf"
+	"expensetracker/internal/web"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,6 +21,10 @@ func NewRouter(deps Deps) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
+	// Public: the login page needs the stylesheet and app.js before anyone
+	// is authenticated.
+	r.Handle(web.StaticPrefix+"*", web.StaticHandler())
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
