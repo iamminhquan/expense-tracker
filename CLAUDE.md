@@ -75,10 +75,30 @@ behind an `auth.RequireAuth` middleware group that reads the session cookie
 and injects the user ID into the request context
 (`auth.UserIDFromContext`).
 
-**Templates**: Each "page" (`auth`, `categories`, `transactions`,
-`dashboard`) is its own `*template.Template` built by parsing `layout.html`
-plus that page's own files, registered in `main.go`'s `templates` map keyed
-by page name. `internal/handlers/render.go` has two entry points:
+**Templates and static assets** (`internal/web`, both `go:embed`ed into the
+binary): `web.Templates(funcs)` is the single place the page sets are built
+— each "page" (`auth`, `categories`, `transactions`, `dashboard`) is its own
+`*template.Template` parsing the shared partials plus that page's own files,
+so that only one `{{define "content"}}` is ever in scope. `cmd/server` and
+the handler tests both call it; do not hand-roll a `ParseFiles` list.
+
+The shared partials, parsed into every page set: `layout.html` (the shell),
+`nav.html` (desktop bar + mobile bottom bar + wordmark), `mobile_header.html`
+(the two sticky mobile tiers), `user_menu.html`, `header_balance.html`. Add a
+page-specific file to `pageTemplates` in `internal/web/web.go`.
+
+CSS and JS live in `internal/web/static/` and are served at `/static/` by
+`web.StaticHandler()` (public route, ETag'd — `embed.FS` has no ModTime to
+revalidate against). **Never put a `<style>` or an inline `<script>` back
+into a template.** `app.css` and `app.js` load from `<head>`; everything in
+`app.js` is a delegated listener on `document`, because `hx-boost` replaces
+only `<body>` and a head script therefore runs once per full page load. A
+page-specific script (`charts.js`, `categories.js`) must ship as a
+`<script src>` *inside* that page's swapped content instead — htmx
+re-executes it on swap, which is what rebuilds the dashboard charts on a
+month switch.
+
+`internal/handlers/render.go` has two entry points:
 - `render(w, r, deps, page, active, data)` — full page, executes the
   `"layout"` block, and (if `active != ""`) injects nav data (`ShowNav`,
   `ActiveNav`, `UserName`, `UserInitial`) by loading the current user.
@@ -86,7 +106,7 @@ by page name. `internal/handlers/render.go` has two entry points:
   sub-template instead of the full layout, for htmx fragment responses (a
   single swapped-in row, a tab body, etc.).
 
-Money/date formatting helpers (`vnd`, `vndSigned`, `vndBalance`, `dateFull`,
+Money/date formatting helpers (`vnd`, `vndSigned`, `vndBalance`,
 `dateShort`) live in `internal/handlers/format.go` and are registered as
 template funcs via `handlers.TemplateFuncs()`, alongside `catName`
 (`i18n.CategoryName`). The rules are commas for thousands, a trailing ₫, and
@@ -94,8 +114,8 @@ a spelled-out month (`11 Aug 2026`); the app was originally specified in the
 Vietnamese convention (dots for thousands, `dd/mm/yyyy`), which is why the
 helpers exist at all rather than the templates formatting inline.
 
-**The balance** lives in one place: the `header_balance` widget in both nav
-bars (`layout.html`). There is no balance card in any page body — that
+**The balance** lives in one place: the `header_balance` widget
+(`header_balance.html`), rendered by both nav bars. There is no balance card in any page body — that
 partial existed once and was deleted. The widget always reports the real
 current month, never the month a page happens to be browsing, because it
 sits in the layout above the month picker.
@@ -121,8 +141,8 @@ mutation response returns `header_balance_oob`, which swaps two ids rather
 than relying on one selector. Wrapper spans carry `contents` so they leave no
 trace in the flex layout.
 
-**Mobile navigation** (`layout.html`'s `nav_mobile_header` and
-`mobile_page_header` template blocks): below `md`, the nav collapses into a
+**Mobile navigation** (`mobile_header.html`'s `nav_mobile_header` and
+`mobile_page_header` blocks): below `md`, the nav collapses into a
 two-tier sticky header instead of the desktop `nav_desktop` bar — a slim
 top tier (logo + user menu) and a second tier carrying the page title, the
 month picker (dashboard/transactions), and an add button (transactions/
@@ -138,19 +158,21 @@ in English directly in the template or handler that shows it; there is no
 message catalog, and a language switcher would be a separate piece of work.
 
 **Theming**: All colour flows through CSS variables declared in
-`layout.html`'s `<style>` block and referenced from `tailwind.config` as
+`static/app.css` and referenced from `static/tailwind-config.js` as
 `rgb(var(--c-x) / <alpha-value>)`. The variables hold space-separated RGB
 channels, not hex — that is what keeps opacity modifiers like `bg-accent/10`
 working, so never put a hex value in one. Never hardcode a colour in a
 template either (`text-[#6B6862]`, `style="background-color:#FEF7F5"`); add
-or reuse a token. The dark palette is declared twice, once under
+or reuse a token — two tests in `templates_layout_test.go` fail on a literal
+`rgba(` or `[#hex]` in a template, and on a utility class stranded outside a
+`class="..."` attribute. The dark palette is declared twice, once under
 `@media (prefers-color-scheme: dark) :root:not(.light)` and once under
 `:root.dark`, so the three preferences (`auto`/`light`/`dark`) all resolve in
 CSS with no load-time JavaScript and no flash. The preference lives in
 `users.theme` and is rendered onto `<html class="...">`; `renderNamed`
 defaults it to `auto` for pre-auth pages, because `html/template` prints a
 missing map key as the literal `<no value>`. Chart.js cannot read CSS
-variables, so `dashboard.html` resolves them via `chartColor()` at
+variables, so `static/charts.js` resolves them via `chartColor()` at
 construction and rebuilds both charts on the `themechange` event that the
 switch (and an OS flip while on `auto`) dispatches.
 
@@ -166,7 +188,7 @@ same pattern is used for login/register success in `auth_handlers.go`.
 **CSRF** (`internal/csrf/csrf.go`): stateless double-submit-cookie pattern —
 no server-side token storage. Every request gets a `csrf_token` cookie;
 mutating requests must echo it back either via the `X-CSRF-Token` header
-(htmx requests — see the `htmx:configRequest` listener in `layout.html`
+(htmx requests — see the `htmx:configRequest` listener in `static/app.js`
 that copies the `<meta name="csrf-token">` value into the header) or a
 hidden `csrf_token` form field (plain `<form method="POST">` submissions,
 e.g. logout).
