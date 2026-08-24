@@ -151,7 +151,7 @@ func TestMigrationsApplyCleanly(t *testing.T) {
 
 	var userID int64
 	if err := db.QueryRow(
-		`INSERT INTO users (email, password_hash, name) VALUES ('migrate-constraint-test@example.com', 'x', 'Constraint Test') RETURNING id`,
+		`INSERT INTO users (email, password_hash, name, username) VALUES ('migrate-constraint-test@example.com', 'x', 'Constraint Test', 'constraint_test') RETURNING id`,
 	).Scan(&userID); err != nil {
 		t.Fatalf("insert throwaway user: %v", err)
 	}
@@ -459,7 +459,7 @@ func TestMigrations000008PreservesLegacyOtherIncome(t *testing.T) {
 		t.Fatalf("insert custom category: %v", err)
 	}
 
-	if err := m.Up(); err != nil {
+	if err := m.Steps(3); err != nil {
 		t.Fatalf("migrate up through 000008: %v", err)
 	}
 
@@ -497,5 +497,89 @@ func TestMigrations000008PreservesLegacyOtherIncome(t *testing.T) {
 	}
 	if revertedName != "Thu nhập khác" {
 		t.Fatalf("expected 000008 down to restore 'Thu nhập khác', got %q", revertedName)
+	}
+}
+
+// TestMigrations000009BackfillsExistingUsers covers 000009's placeholder
+// username: applying it against a database that already has user rows (an
+// upgraded install, or -- as happens locally -- a shared dev/test database
+// with leftover rows from other tests) must not fail the new NOT
+// NULL/UNIQUE/CHECK constraints. Each pre-existing row should come out with
+// a deterministic 'user_<id>' placeholder that a real user can rename later.
+func TestMigrations000009BackfillsExistingUsers(t *testing.T) {
+	baseDSN := os.Getenv("TEST_DATABASE_URL")
+	if baseDSN == "" {
+		t.Skip("TEST_DATABASE_URL not set; point it at a local Postgres and export it to run this test")
+	}
+
+	dsn := createThrowawayDatabase(t, baseDSN)
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		t.Fatalf("postgres driver: %v", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance("file://migrations", "postgres", driver)
+	if err != nil {
+		t.Fatalf("new migrate instance: %v", err)
+	}
+	defer m.Close()
+
+	// Stop right before 000009, where users has no username column yet, and
+	// seed a row exactly like an upgraded install would already have.
+	if err := m.Steps(8); err != nil {
+		t.Fatalf("migrate up through 000008: %v", err)
+	}
+
+	var userID int64
+	if err := db.QueryRow(
+		`INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id`,
+		"pre-username@example.com", "x", "Pre Username",
+	).Scan(&userID); err != nil {
+		t.Fatalf("insert pre-existing user: %v", err)
+	}
+
+	if err := m.Steps(1); err != nil {
+		t.Fatalf("migrate up through 000009: %v", err)
+	}
+
+	var username string
+	if err := db.QueryRow(`SELECT username FROM users WHERE id = $1`, userID).Scan(&username); err != nil {
+		t.Fatalf("query backfilled username: %v", err)
+	}
+	if want := fmt.Sprintf("user_%d", userID); username != want {
+		t.Fatalf("expected backfilled username %q, got %q", want, username)
+	}
+
+	// A second pre-existing row must not collide with the first's
+	// placeholder -- the id-derived scheme should keep them unique.
+	var secondID int64
+	if err := db.QueryRow(
+		`INSERT INTO users (email, password_hash, name, username) VALUES ($1, $2, $3, $4) RETURNING id`,
+		"post-username@example.com", "x", "Post Username", "post_username",
+	).Scan(&secondID); err != nil {
+		t.Fatalf("insert post-migration user: %v", err)
+	}
+
+	if _, err := db.Exec(`INSERT INTO users (email, password_hash, name, username) VALUES ($1, $2, $3, $4)`,
+		"dup-username@example.com", "x", "Dup Username", username,
+	); err == nil {
+		t.Fatal("expected inserting a duplicate username to violate the unique constraint")
+	}
+
+	if _, err := db.Exec(`INSERT INTO users (email, password_hash, name, username) VALUES ($1, $2, $3, $4)`,
+		"bad-username@example.com", "x", "Bad Username", "Not_Valid!",
+	); err == nil {
+		t.Fatal("expected inserting a username that fails the format CHECK to be rejected")
+	}
+
+	if err := m.Steps(-1); err != nil {
+		t.Fatalf("migrate down one step (000009 down): %v", err)
 	}
 }

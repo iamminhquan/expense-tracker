@@ -43,4 +43,5 @@ type User struct {
 	Name         string             `json:"name"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	Theme        string             `json:"theme"`
+	Username     string             `json:"username"`
 }
