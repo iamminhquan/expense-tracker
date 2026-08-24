@@ -62,7 +62,7 @@
 {{end}}
 
 {{define "transaction_row_delete_confirm"}}
-<div id="transaction-row-{{.ID}}" class="flex items-center justify-between px-4 py-[13px] border-b border-border-list last:border-b-0" bg-danger-tint>
+<div id="transaction-row-{{.ID}}" class="flex items-center justify-between px-4 py-[13px] border-b border-border-list last:border-b-0 bg-danger-tint">
   <span class="text-[13px] text-ink">Delete this transaction?</span>
   <span class="flex items-center gap-2">
     <button type="button" hx-delete="/transactions/{{.ID}}" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="px-3 h-8 rounded-lg bg-expense text-on-solid text-[12px] font-semibold">Delete</button>
