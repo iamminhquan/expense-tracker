@@ -144,10 +144,10 @@ func TestLoginAndRegisterPagesRenderDistinctContent(t *testing.T) {
 	}
 }
 
-// TestAuthTabSwitchReturnsFragmentOnly covers the htmx tab-switch contract
-// from SPEC.md section 2: a request carrying HX-Request must get back just
-// the auth_card_body fragment, not a full <html> page, so htmx can swap it
-// into #auth-card without a flash of the logo/tagline re-rendering.
+// TestAuthTabSwitchReturnsFragmentOnly covers the htmx tab-switch contract:
+// a request carrying HX-Request must get back just the auth_card_body
+// fragment, not a full <html> page, so htmx can swap it into #auth-card
+// without a flash of the logo/tagline re-rendering.
 func TestAuthTabSwitchReturnsFragmentOnly(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
@@ -201,8 +201,8 @@ func TestLoginSuccessSendsHXRedirect(t *testing.T) {
 	}
 }
 
-// TestRegisterPasswordMismatchShowsError covers the new "Confirm password"
-// field SPEC.md section 2 adds to the register tab.
+// TestRegisterPasswordMismatchShowsError covers the "Confirm password"
+// field on the register tab.
 func TestRegisterPasswordMismatchShowsError(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)

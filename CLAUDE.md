@@ -89,10 +89,10 @@ by page name. `internal/handlers/render.go` has two entry points:
 Money/date formatting helpers (`vnd`, `vndSigned`, `vndBalance`, `dateFull`,
 `dateShort`) live in `internal/handlers/format.go` and are registered as
 template funcs via `handlers.TemplateFuncs()`, alongside `catName`
-(`i18n.CategoryName`). The rules are commas for thousands, a trailing ₫, and a
-spelled-out month (`11 Aug 2026`) — `docs/design/design_handoff_expense_tracker/SPEC.md`
-still states the original Vietnamese convention and carries a dated note
-recording what replaced it.
+(`i18n.CategoryName`). The rules are commas for thousands, a trailing ₫, and
+a spelled-out month (`11 Aug 2026`); the app was originally specified in the
+Vietnamese convention (dots for thousands, `dd/mm/yyyy`), which is why the
+helpers exist at all rather than the templates formatting inline.
 
 **The balance** lives in one place: the `header_balance` widget in both nav
 bars (`layout.html`). There is no balance card in any page body — that
@@ -205,8 +205,8 @@ hashing/verification. Sessions last 7 days.
 
 ## Notes
 
-- `docs/design/design_handoff_expense_tracker/SPEC.md` is the source of
-  truth for formatting/UI rules referenced from code comments.
-- `docs/superpowers/` contains planning docs from prior feature work
-  (design specs, implementation plans) — useful background, not living
-  documentation.
+- The repo carries no design/planning docs. Every rule that still governs
+  the code (money format, the 9 shared default categories, the 8-swatch
+  palette, the dashboard's comparison lines) is stated in a comment at the
+  place it is enforced — keep it that way rather than starting a `docs/`
+  tree again.

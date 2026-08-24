@@ -119,7 +119,8 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 
 // buildPieData turns CategoryBreakdown's already-total-desc-ordered rows
 // into the top pieTopN slices plus a synthetic "Other" aggregate for
-// everything past that, per SPEC.md section 5.
+// everything past that, so the doughnut never grows an unreadable tail of
+// one-percent slivers.
 func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) (labels []string, values []int64, colors []string, legend []pieLegendEntry) {
 	shown := breakdown
 	var otherSum int64
@@ -191,9 +192,9 @@ func shortMonthLabel(t time.Time) string {
 	return t.Format("Jan")
 }
 
-// comparisonText builds SPEC.md section 5's "Last month X · up/down Y%"
-// line, or its "no data" fallback when the previous month had zero
-// transactions of any kind.
+// comparisonText builds the "Last month X · up/down Y%" line under each
+// dashboard total, or its "no data" fallback when the previous month had
+// zero transactions of any kind.
 func comparisonText(current, previous int64, hasPrevData bool) string {
 	if !hasPrevData {
 		return "No data for last month"
@@ -216,9 +217,9 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 	return fmt.Sprintf("Last month %s · %s %d%%", vnd(previous), direction, pct)
 }
 
-// comparisonTextMobile builds SPEC.md section 5's mobile-only shortened
-// comparison line (e.g. "Down 11%"), shown below 768px in place of
-// comparisonText's fuller "Last month X · down Y%".
+// comparisonTextMobile builds the shortened comparison line (e.g. "Down
+// 11%") shown below 768px in place of comparisonText's fuller "Last month
+// X · down Y%".
 //
 // It keeps only the direction and the percentage: since the balance card
 // took the full width at the top of the dashboard, the Spent and Earned

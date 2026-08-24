@@ -11,10 +11,10 @@ import (
 )
 
 // TemplateFuncs returns the FuncMap every page template needs for
-// formatting money and dates. SPEC.md section 1 wrote these in Vietnamese
-// convention (dots for thousands, dd/mm/yyyy); with the UI in English they
-// are comma-separated and the month is spelled out -- see SPEC.md's English
-// formatting note.
+// formatting money and dates. The app was originally specified in
+// Vietnamese convention (dots for thousands, dd/mm/yyyy); with the UI in
+// English the rules are commas for thousands, a trailing ₫, and a
+// spelled-out month ("11 Aug 2026").
 func TemplateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"vnd":        vnd,
@@ -39,8 +39,8 @@ func vnd(n int64) string {
 	return formatThousands(n) + "₫"
 }
 
-// vndSigned formats a transaction amount with the sign SPEC.md section 3.3
-// assigns by transaction type: "-" for expense, "+" for anything else.
+// vndSigned formats a transaction amount with the sign its type implies:
+// "-" for expense, "+" for anything else.
 func vndSigned(n int64, txnType string) string {
 	sign := "+"
 	if txnType == "expense" {

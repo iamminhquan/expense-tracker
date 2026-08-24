@@ -104,7 +104,7 @@ func TestMigrationsApplyCleanly(t *testing.T) {
 	}
 	// A from-scratch migrate-up has no transactions referencing the legacy
 	// "Thu nhập khác" default, so 000006's conditional DELETE removes it,
-	// leaving exactly the 9 categories SPEC.md specifies.
+	// leaving exactly the 9 shared defaults 000006 seeds.
 	if count != 9 {
 		t.Fatalf("expected 9 default categories, got %d", count)
 	}

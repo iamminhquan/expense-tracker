@@ -14,10 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// categorySwatches is the fixed 8-color palette SPEC.md section 1 offers in
-// the category color picker. #A1A1AA (the 9th seeded color) is deliberately
-// excluded here -- it's reserved for the "Other" default and the chart's
-// synthetic "Other" aggregation, never user-selectable.
+// categorySwatches is the fixed 8-color palette the category color picker
+// offers. #A1A1AA (the 9th seeded color) is deliberately excluded here --
+// it's reserved for the "Other" default and the chart's synthetic "Other"
+// aggregation, never user-selectable.
 var categorySwatches = []string{
 	"#D97757", "#5B8DEF", "#8B7BD8", "#6BA292",
 	"#E0A82E", "#D97AA0", "#4FA871", "#7CA65C",
@@ -154,9 +154,9 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		}
 
 		// UpdateCategoryColor's WHERE clause matches a row owned by this
-		// user OR a shared default (user_id IS NULL) -- SPEC.md section 4.1
-		// explicitly lets defaults have a working "Change color" action with no
-		// ownership carve-out, unlike rename/delete.
+		// user OR a shared default (user_id IS NULL): recolouring a default
+		// is allowed for everyone, unlike rename/delete, which carve
+		// defaults out.
 		updated, err := deps.Queries.UpdateCategoryColor(r.Context(), sqlcgen.UpdateCategoryColorParams{
 			ID: id, UserID: pgInt64(userID), Color: color,
 		})
