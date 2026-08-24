@@ -66,18 +66,18 @@ func TestFlexibleFormControlsDeclareAMinWidth(t *testing.T) {
 }
 
 // The bottom sheet's grab handle is inert markup on its own -- the drag lives
-// in layout.html and finds the handle by attribute. Renaming one side without
-// the other leaves a pill that looks draggable and is not, which is the bug
-// this behaviour was added to fix. The handle also has to opt out of the
-// browser's own touch gestures, or a downward drag scrolls the page instead.
+// in app.js and finds the handle by attribute. Renaming one side without the
+// other leaves a pill that looks draggable and is not, which is the bug this
+// behaviour was added to fix. The handle also has to opt out of the browser's
+// own touch gestures, or a downward drag scrolls the page instead.
 func TestBottomSheetHandleStaysWiredToTheDragScript(t *testing.T) {
 	sheet, err := os.ReadFile("../web/templates/transactions.html")
 	if err != nil {
 		t.Fatalf("read transactions.html: %v", err)
 	}
-	layout, err := os.ReadFile("../web/templates/layout.html")
+	script, err := os.ReadFile("../web/static/app.js")
 	if err != nil {
-		t.Fatalf("read layout.html: %v", err)
+		t.Fatalf("read app.js: %v", err)
 	}
 
 	handle := regexp.MustCompile(`<div data-sheet-handle class="([^"]*)"`).FindSubmatch(sheet)
@@ -87,7 +87,60 @@ func TestBottomSheetHandleStaysWiredToTheDragScript(t *testing.T) {
 	if !strings.Contains(string(handle[1]), "touch-none") {
 		t.Fatalf("the grab handle needs touch-none, or the browser scrolls instead of dragging; got %q", handle[1])
 	}
-	if !strings.Contains(string(layout), "[data-sheet-handle]") {
-		t.Fatal("layout.html no longer looks for [data-sheet-handle]: the handle is decorative again")
+	if !strings.Contains(string(script), "[data-sheet-handle]") {
+		t.Fatal("app.js no longer looks for [data-sheet-handle]: the handle is decorative again")
+	}
+}
+
+// Every colour in the UI resolves through a --c-* token, which is what lets
+// one palette swap recolour the whole app. A literal written into a template
+// opts that element out: it keeps its light-theme value on the dark palette,
+// where a black shadow under a raised control simply disappears. The two
+// spellings that slipped through before were a bare rgba() and Tailwind's
+// arbitrary-value form.
+func TestTemplatesUseColourTokensRatherThanLiterals(t *testing.T) {
+	literalRe := regexp.MustCompile(`rgba\(|\[#[0-9a-fA-F]{3,8}\]`)
+
+	dir := "../web/templates"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read templates dir: %v", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".html" {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatalf("read %s: %v", e.Name(), err)
+		}
+		for _, hit := range literalRe.FindAllString(string(body), -1) {
+			t.Errorf("%s hardcodes the colour %q; use a --c-* token so it follows the palette", e.Name(), hit)
+		}
+	}
+}
+
+// The class attribute is the only place a Tailwind utility does anything. A
+// utility written as a bare attribute is silently inert -- which is how the
+// delete-confirmation row lost its danger tint without anyone noticing.
+func TestNoTailwindUtilityIsStrandedOutsideAClassAttribute(t *testing.T) {
+	strandedRe := regexp.MustCompile(`\s(bg|text|border|rounded|flex|grid|shadow|hover:[a-z-]+)-[a-z0-9\[\]/-]+>`)
+
+	dir := "../web/templates"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read templates dir: %v", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".html" {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatalf("read %s: %v", e.Name(), err)
+		}
+		for _, hit := range strandedRe.FindAllString(string(body), -1) {
+			t.Errorf("%s has %q sitting outside class=\"...\", where it does nothing", e.Name(), strings.TrimSpace(hit))
+		}
 	}
 }

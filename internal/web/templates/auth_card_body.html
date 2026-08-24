@@ -2,10 +2,10 @@
 <div class="flex bg-track rounded-lg p-[3px] gap-1">
   <button type="button"
     hx-get="/login" hx-target="#auth-card" hx-swap="innerHTML" hx-push-url="true"
-    class="flex-1 h-8 rounded-[6px] text-[13px] {{if eq .Tab "login"}}bg-surface text-ink font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.06)]{{else}}text-ink-muted{{end}}">Log in</button>
+    class="flex-1 h-8 rounded-[6px] text-[13px] {{if eq .Tab "login"}}bg-surface text-ink font-semibold shadow-[0_1px_2px_rgb(var(--c-ink)/0.06)]{{else}}text-ink-muted{{end}}">Log in</button>
   <button type="button"
     hx-get="/register" hx-target="#auth-card" hx-swap="innerHTML" hx-push-url="true"
-    class="flex-1 h-8 rounded-[6px] text-[13px] {{if eq .Tab "register"}}bg-surface text-ink font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.06)]{{else}}text-ink-muted{{end}}">Sign up</button>
+    class="flex-1 h-8 rounded-[6px] text-[13px] {{if eq .Tab "register"}}bg-surface text-ink font-semibold shadow-[0_1px_2px_rgb(var(--c-ink)/0.06)]{{else}}text-ink-muted{{end}}">Sign up</button>
 </div>
 
 {{if eq .Tab "register"}}

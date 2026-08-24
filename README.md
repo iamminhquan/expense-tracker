@@ -4,8 +4,9 @@ A simple, server-rendered expense tracker for personal/family use. Each user
 has their own account and tracks their income and expenses independently —
 there's no bill-splitting or shared budgets between accounts. Amounts are
 stored and displayed in VND (Vietnamese Dong) as plain integers (no decimal
-handling). Categories can be personal (created by a user) or shared defaults
-seeded by the database migrations (e.g. Ăn uống, Di chuyển, Lương, ...).
+handling). The UI is in English. Categories can be personal (created by a
+user) or shared defaults seeded by the database migrations (Food & Drink,
+Transport, Salary, ...).
 
 Built as a Go monolith: `chi` router, `html/template` server-rendered pages,
 PostgreSQL via `sqlc`-generated queries, and Chart.js (CDN) for the

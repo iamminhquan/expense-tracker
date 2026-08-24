@@ -3,7 +3,6 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 
@@ -13,47 +12,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// pgDate converts a parsed calendar date into the pgtype.Date that sqlc
-// generates for a DATE column.
-func pgDate(t time.Time) pgtype.Date {
-	return pgtype.Date{Time: t, Valid: true}
-}
-
-func monthLabel(t time.Time) string      { return t.Format("January 2006") }
-func monthLabelLower(t time.Time) string { return t.Format("January") }
-
-// monthRangeFor returns the [from, to) bounds for the "YYYY-MM" value the
-// month dropdown sends via ?month=, falling back to the current Vietnam-
-// local month when param is empty or malformed.
-func monthRangeFor(param string) (from, to pgtype.Date) {
-	t, err := time.ParseInLocation("2006-01", param, vietnamLocation)
-	if err != nil {
-		return currentMonthRange()
+// categoriesOfType keeps the ones matching typ. The add form, the chips, the
+// desktop <select> and the edit row all show categories of one type only,
+// and ListCategoriesForUser is the only query that returns them -- so each
+// of those paths filters the same list the same way.
+func categoriesOfType(categories []sqlcgen.Category, typ string) []sqlcgen.Category {
+	var matching []sqlcgen.Category
+	for _, c := range categories {
+		if c.Type == typ {
+			matching = append(matching, c)
+		}
 	}
-	fromTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, vietnamLocation)
-	return pgDate(fromTime), pgDate(fromTime.AddDate(0, 1, 0))
-}
-
-// monthRangeFromRequest determines which month a mutation response's OOB
-// totals fragment should reflect: the month the page the request originated
-// from was actually displaying, not necessarily today's month. A create/
-// update/delete request's own URL never carries "?month=" (only the page's
-// GET request does), but htmx sends the full URL of that originating page,
-// query string included, in the HX-Current-URL header on every request it
-// issues -- so that header, not r.URL, is where the active month lives.
-// Falls back to currentMonthRange() (mirroring monthRangeFor's own
-// empty/malformed fallback) when the header is absent or unparseable, e.g.
-// non-htmx requests.
-func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
-	raw := r.Header.Get("HX-Current-URL")
-	if raw == "" {
-		return currentMonthRange()
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return currentMonthRange()
-	}
-	return monthRangeFor(u.Query().Get("month"))
+	return matching
 }
 
 // totalsOOBData assembles the payload for the "totals_oob" fragment that
@@ -71,6 +41,32 @@ func totalsOOBData(header balanceSummary, count int, from pgtype.Date) map[strin
 		"Count":           count,
 		"MonthLabelLower": monthLabelLower(from.Time),
 	}
+}
+
+// freshTotals re-reads what every mutation response has to refresh besides
+// the row itself: the nav header balance and the count/empty-state for the
+// month the originating page is showing.
+//
+// The two are scoped differently on purpose. The balance widget always
+// reports the real current month, because it sits in the layout above the
+// month picker; the count belongs to whichever month the page was browsing,
+// which is why the window comes from HX-Current-URL rather than from today.
+// On failure it writes the 500 itself and reports false.
+func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) (map[string]any, bool) {
+	from, to := monthRangeFromRequest(r)
+	header, err := currentHeaderBalance(r, deps, userID)
+	if err != nil {
+		http.Error(w, "could not load totals", http.StatusInternalServerError)
+		return nil, false
+	}
+	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{
+		UserID: userID, OccurredOn: from, OccurredOn_2: to,
+	})
+	if err != nil {
+		http.Error(w, "could not load transactions", http.StatusInternalServerError)
+		return nil, false
+	}
+	return totalsOOBData(header, len(transactions), from), true
 }
 
 func transactionsPage(deps Deps) http.HandlerFunc {
@@ -134,12 +130,6 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 	if formType != "income" {
 		formType = "expense"
 	}
-	var formCategories []sqlcgen.Category
-	for _, c := range allCategories {
-		if c.Type == formType {
-			formCategories = append(formCategories, c)
-		}
-	}
 
 	return map[string]any{
 		"Transactions":      transactions,
@@ -147,7 +137,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		"MonthLabelLower":   monthLabelLower(from.Time),
 		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
 		"AvailableMonths":   available,
-		"Categories":        formCategories,
+		"Categories":        categoriesOfType(allCategories, formType),
 		"SelectedType":      selectedType,
 		"Today":             time.Now().In(vietnamLocation).Format("2006-01-02"),
 		"QuickAddError":     quickAddError,
@@ -178,15 +168,13 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	source := r.FormValue("ui_source")
 
 	retarget := func(errMsg string) {
+		target, fragment := "#quick-add-form-wrapper", "quick_add_form"
 		if source == "mobile" {
-			w.Header().Set("HX-Retarget", "#mobile-quick-add-form")
-			w.Header().Set("HX-Reswap", "outerHTML")
-			renderTransactionsPageMobileForm(w, r, deps, userID, errMsg, txnType)
-			return
+			target, fragment = "#mobile-quick-add-form", "mobile_quick_add_form"
 		}
-		w.Header().Set("HX-Retarget", "#quick-add-form-wrapper")
+		w.Header().Set("HX-Retarget", target)
 		w.Header().Set("HX-Reswap", "outerHTML")
-		renderTransactionsPageForm(w, r, deps, userID, errMsg, txnType)
+		renderQuickAddForm(w, r, deps, userID, fragment, errMsg, txnType)
 	}
 
 	category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{
@@ -220,15 +208,8 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		return
 	}
 
-	from, to := monthRangeFromRequest(r)
-	header, err := currentHeaderBalance(r, deps, userID)
-	if err != nil {
-		http.Error(w, "could not load totals", http.StatusInternalServerError)
-		return
-	}
-	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
-	if err != nil {
-		http.Error(w, "could not load transactions", http.StatusInternalServerError)
+	totals, ok := freshTotals(w, r, deps, userID)
+	if !ok {
 		return
 	}
 
@@ -239,57 +220,35 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 			"Description": created.Description, "OccurredOn": created.OccurredOn,
 			"Amount": created.Amount, "Type": created.Type,
 		},
-		"Totals": totalsOOBData(header, len(transactions), from),
+		"Totals": totals,
 	})
 }
 
-// renderTransactionsPageForm re-renders just the quick_add_form fragment
-// (targeted via HX-Retarget by the caller) after a validation failure, with
-// the category list filtered to match the type the user had selected.
-func renderTransactionsPageForm(w http.ResponseWriter, r *http.Request, deps Deps, userID int64, errMsg, selectedType string) {
+// renderQuickAddForm re-renders one of the two add-transaction forms after a
+// validation failure, with the category list filtered to the type the user
+// had selected. Which one is the caller's business: handleCreateTransaction
+// picks the fragment from ui_source and retargets htmx at the matching
+// element, since the desktop form and the mobile sheet are both in the DOM.
+func renderQuickAddForm(w http.ResponseWriter, r *http.Request, deps Deps, userID int64, fragment, errMsg, selectedType string) {
 	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
 	if err != nil {
 		http.Error(w, "could not load categories", http.StatusInternalServerError)
 		return
 	}
-	var filteredCategories []sqlcgen.Category
-	for _, c := range allCategories {
-		if c.Type == selectedType {
-			filteredCategories = append(filteredCategories, c)
-		}
-	}
-	renderNamed(w, r, deps, "transactions", "quick_add_form", "", map[string]any{
-		"Categories":    filteredCategories,
+	renderNamed(w, r, deps, "transactions", fragment, "", map[string]any{
+		"Categories":    categoriesOfType(allCategories, selectedType),
 		"SelectedType":  selectedType,
 		"Today":         time.Now().In(vietnamLocation).Format("2006-01-02"),
 		"QuickAddError": errMsg,
 	})
 }
 
-// renderTransactionsPageMobileForm mirrors renderTransactionsPageForm but
-// re-renders the mobile bottom-sheet form fragment instead of the desktop
-// one, for handleCreateTransaction's ui_source == "mobile" error path.
-func renderTransactionsPageMobileForm(w http.ResponseWriter, r *http.Request, deps Deps, userID int64, errMsg, selectedType string) {
-	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
-	if err != nil {
-		http.Error(w, "could not load categories", http.StatusInternalServerError)
-		return
-	}
-	var filteredCategories []sqlcgen.Category
-	for _, c := range allCategories {
-		if c.Type == selectedType {
-			filteredCategories = append(filteredCategories, c)
-		}
-	}
-	renderNamed(w, r, deps, "transactions", "mobile_quick_add_form", "", map[string]any{
-		"Categories":    filteredCategories,
-		"SelectedType":  selectedType,
-		"Today":         time.Now().In(vietnamLocation).Format("2006-01-02"),
-		"QuickAddError": errMsg,
-	})
-}
-
-func categoryChipsHandler(deps Deps) http.HandlerFunc {
+// categoryPickerHandler answers the hx-get the Expense/Income toggle fires
+// when the user flips it: the category control has to be replaced with one
+// listing the other type's categories. The desktop form swaps a <select>
+// (category_options) and the mobile sheet a row of chips (category_chips) --
+// same query, same filter, different markup.
+func categoryPickerHandler(deps Deps, fragment string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
 		typ := r.FormValue("type")
@@ -301,41 +260,15 @@ func categoryChipsHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return
 		}
-		var filtered []sqlcgen.Category
-		for _, c := range categories {
-			if c.Type == typ {
-				filtered = append(filtered, c)
-			}
-		}
-		renderNamed(w, r, deps, "transactions", "category_chips", "", map[string]any{"Categories": filtered})
-	}
-}
-
-func categoryOptionsHandler(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, _ := auth.UserIDFromContext(r.Context())
-		typ := r.FormValue("type")
-		if typ != "income" {
-			typ = "expense"
-		}
-		categories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
-		if err != nil {
-			http.Error(w, "could not load categories", http.StatusInternalServerError)
-			return
-		}
-		var filtered []sqlcgen.Category
-		for _, c := range categories {
-			if c.Type == typ {
-				filtered = append(filtered, c)
-			}
-		}
-		renderNamed(w, r, deps, "transactions", "category_options", "", map[string]any{"Categories": filtered})
+		renderNamed(w, r, deps, "transactions", fragment, "", map[string]any{
+			"Categories": categoriesOfType(categories, typ),
+		})
 	}
 }
 
 // dateInputValue formats a DATE column for an <input type="date"> value
 // attribute (always "2006-01-02", regardless of display locale) -- distinct
-// from dateFull/dateShort, which are for read-only display.
+// from dateShort, which is for read-only display.
 func dateInputValue(d pgtype.Date) string {
 	return d.Time.Format("2006-01-02")
 }
@@ -343,9 +276,8 @@ func dateInputValue(d pgtype.Date) string {
 func editTransactionRowHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -360,17 +292,10 @@ func editTransactionRowHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return
 		}
-		var options []sqlcgen.Category
-		for _, c := range allCategories {
-			if c.Type == txn.Type {
-				options = append(options, c)
-			}
-		}
-
 		renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
 			"ID": txn.ID, "CategoryID": txn.CategoryID, "Description": txn.Description,
 			"Amount": txn.Amount, "OccurredOnValue": dateInputValue(txn.OccurredOn),
-			"CategoryOptions": options,
+			"CategoryOptions": categoriesOfType(allCategories, txn.Type),
 		})
 	}
 }
@@ -378,9 +303,8 @@ func editTransactionRowHandler(deps Deps) http.HandlerFunc {
 func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -400,9 +324,8 @@ func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 func deleteConfirmTransactionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 		if _, err := deps.Queries.GetTransaction(r.Context(), sqlcgen.GetTransactionParams{ID: id, UserID: userID}); err != nil {
@@ -416,9 +339,8 @@ func deleteConfirmTransactionHandler(deps Deps) http.HandlerFunc {
 func updateTransactionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -462,15 +384,10 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		}
 		if formErr != "" {
 			allCategories, _ := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
-			var options []sqlcgen.Category
-			for _, c := range allCategories {
-				if c.Type == existing.Type {
-					options = append(options, c)
-				}
-			}
 			renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
 				"ID": id, "CategoryID": categoryID, "Description": description, "Amount": amount,
-				"OccurredOnValue": r.FormValue("occurred_on"), "CategoryOptions": options, "Error": formErr,
+				"OccurredOnValue": r.FormValue("occurred_on"),
+				"CategoryOptions": categoriesOfType(allCategories, existing.Type), "Error": formErr,
 			})
 			return
 		}
@@ -485,28 +402,21 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		from, to := monthRangeFromRequest(r)
-		header, err := currentHeaderBalance(r, deps, userID)
-		if err != nil {
-			http.Error(w, "could not load totals", http.StatusInternalServerError)
-			return
-		}
-		transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
-		if err != nil {
-			http.Error(w, "could not load transactions", http.StatusInternalServerError)
+		totals, ok := freshTotals(w, r, deps, userID)
+		if !ok {
 			return
 		}
 
-		// Reuses transaction_create_response (Task 6) -- despite the name it
-		// is just "a row plus the three OOB total fragments", which is
-		// exactly what a successful edit needs too.
+		// transaction_create_response despite this being an edit: the
+		// fragment is just "a row plus the OOB totals", which is exactly
+		// what a successful edit returns too.
 		renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
 			"Row": map[string]any{
 				"ID": updated.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
 				"Amount": updated.Amount, "Type": updated.Type,
 			},
-			"Totals": totalsOOBData(header, len(transactions), from),
+			"Totals": totals,
 		})
 	}
 }
@@ -514,9 +424,8 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -525,18 +434,11 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		from, to := monthRangeFromRequest(r)
-		header, err := currentHeaderBalance(r, deps, userID)
-		if err != nil {
-			http.Error(w, "could not load totals", http.StatusInternalServerError)
-			return
-		}
-		transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
-		if err != nil {
-			http.Error(w, "could not load transactions", http.StatusInternalServerError)
+		totals, ok := freshTotals(w, r, deps, userID)
+		if !ok {
 			return
 		}
 
-		renderNamed(w, r, deps, "transactions", "totals_oob", "", totalsOOBData(header, len(transactions), from))
+		renderNamed(w, r, deps, "transactions", "totals_oob", "", totals)
 	}
 }

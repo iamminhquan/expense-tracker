@@ -11,15 +11,14 @@ import (
 )
 
 // renderMobilePageHeader executes the shared sticky mobile header partial on
-// its own, the same way renderBalanceCard does for balance_card.html: the
-// data is a plain map because the production Data structs are unexported,
-// and what's under test is the markup a given ActiveNav/month state
-// produces.
+// its own: the data is a plain map because the production Data structs are
+// unexported, and what's under test is the markup a given ActiveNav/month
+// state produces.
 func renderMobilePageHeader(t *testing.T, data map[string]any) string {
 	t.Helper()
-	tmpl := template.Must(template.New("layout.html").
+	tmpl := template.Must(template.New("mobile_header.html").
 		Funcs(handlers.TemplateFuncs()).
-		ParseFiles("../web/templates/layout.html"))
+		ParseFiles("../web/templates/mobile_header.html"))
 	var sb strings.Builder
 	if err := tmpl.ExecuteTemplate(&sb, "mobile_page_header", data); err != nil {
 		t.Fatalf("execute mobile_page_header: %v", err)
@@ -116,8 +115,8 @@ func TestTransactionsPageBottomAddButtonRemoved(t *testing.T) {
 	}
 }
 
-// categories.html should keep the openAddCategorySheet() function (the
-// shared header's + button, defined in layout.html, calls it) but drop the
+// categories.js should keep the openAddCategorySheet() function (the shared
+// header's + button, defined in mobile_header.html, calls it) but drop the
 // page-bottom button that used to trigger it directly from this file.
 func TestCategoriesPageBottomAddButtonRemoved(t *testing.T) {
 	body, err := os.ReadFile("../web/templates/categories.html")
@@ -148,13 +147,13 @@ func TestMainContentClearsOnlyTheBottomNavOnMobile(t *testing.T) {
 var navMobileHeaderRe = regexp.MustCompile(`(?s)\{\{define "nav_mobile_header"\}\}(.*?)\{\{end\}\}`)
 
 func TestMobileTopBarBlendsIntoTheAppBackground(t *testing.T) {
-	body, err := os.ReadFile("../web/templates/layout.html")
+	body, err := os.ReadFile("../web/templates/mobile_header.html")
 	if err != nil {
-		t.Fatalf("read layout.html: %v", err)
+		t.Fatalf("read mobile_header.html: %v", err)
 	}
 	m := navMobileHeaderRe.FindStringSubmatch(string(body))
 	if m == nil {
-		t.Fatal("nav_mobile_header block not found in layout.html")
+		t.Fatal("nav_mobile_header block not found in mobile_header.html")
 	}
 	if !strings.Contains(m[1], "bg-app") {
 		t.Error("mobile top bar no longer uses the bg-app token, so it won't blend into the new sticky header below it")

@@ -1,0 +1,30 @@
+{{/* The running balance, shown next to the user menu in both nav bars.
+     Clicking/tapping it opens a small popover with the spent-ratio line for
+     the month itself -- the figure carries forward across months, but that
+     ratio is still a statement about the current one. .HeaderBalance always
+     reflects the real current month (authPageData), not whatever month the
+     page itself is browsing. */}}
+{{define "header_balance"}}
+<details class="relative shrink-0" data-balance-popover>
+  <summary class="px-2 py-1 rounded-[7px] hover:bg-track cursor-pointer list-none [&::-webkit-details-marker]:hidden font-mono text-[13px] font-medium {{if .HeaderBalance.Empty}}text-ink-zero{{else if lt .HeaderBalance.Remaining 0}}text-expense{{else}}text-ink-muted{{end}}">{{if .HeaderBalance.Empty}}0₫{{else}}{{vndBalance .HeaderBalance.Remaining}}{{end}}</summary>
+  <div class="absolute right-0 top-full mt-1 w-[200px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
+    <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">LEFT THIS MONTH</p>
+    <p class="font-mono text-[19px] font-semibold mb-2 {{if .HeaderBalance.Empty}}text-ink-zero{{else if lt .HeaderBalance.Remaining 0}}text-expense{{else}}text-ink{{end}}" style="letter-spacing:-0.02em">{{if .HeaderBalance.Empty}}0₫{{else}}{{vndBalance .HeaderBalance.Remaining}}{{end}}</p>
+    <div class="h-[6px] rounded-full bg-track overflow-hidden mb-2">
+      <div class="h-full rounded-full bg-expense" style="width: {{.HeaderBalance.SpentPct}}%"></div>
+    </div>
+    <p class="text-[12px] text-ink-faint">{{.HeaderBalance.RatioLabel}}</p>
+  </div>
+</details>
+{{end}}
+
+{{/* Both nav bars render the widget and both are in the DOM at once, so a
+     mutation has to swap both or leave one of them stale at whichever
+     breakpoint the user happens to be on. Two ids rather than one selector:
+     an id-keyed swap is the part of hx-swap-oob with no ambiguity about how
+     many elements it reaches. The span carries `contents` so it disappears
+     from layout and the details element stays the flex child it was. */}}
+{{define "header_balance_oob"}}
+<span id="header-balance-desktop" class="contents" hx-swap-oob="true">{{template "header_balance" .}}</span>
+<span id="header-balance-mobile" class="contents" hx-swap-oob="true">{{template "header_balance" .}}</span>
+{{end}}

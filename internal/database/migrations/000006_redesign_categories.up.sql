@@ -1,6 +1,6 @@
--- Move the placeholder 8-category seed from 000005 to the exact 9
--- categories and hex values SPEC.md section 4.3 specifies, and add the
--- constraints the redesigned category UI needs: a fixed 9-color palette (8
+-- Move the placeholder 8-category seed from 000005 to the 9 shared default
+-- categories and hex values the app ships with, and add the constraints the
+-- redesigned category UI needs: a fixed 9-color palette (8
 -- user-selectable swatches + the reserved gray for "Khác"), and a per-user
 -- uniqueness rule so a user can't have two categories of the same type
 -- sharing a name (Postgres treats NULL user_id rows as always-distinct in

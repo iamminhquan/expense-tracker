@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"html/template"
 	"log"
 	"net/http"
 	"net/mail"
@@ -13,7 +12,6 @@ import (
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // usernamePattern mirrors the 000009 migration's CHECK constraint: a
@@ -23,28 +21,6 @@ import (
 // and a Postgres one are different enough dialects that sharing the string
 // wouldn't buy much.
 var usernamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
-
-// Deps holds shared dependencies for handlers.
-//
-// Templates is keyed by page name (e.g. "auth", "categories"). Each entry
-// is a *template.Template built from layout.html plus that page's own
-// template file(s), so that every template set has only a single
-// {{define "content"}} block in scope. This avoids a collision that would
-// occur if all page templates were parsed together into one shared
-// *template.Template: Go's html/template registers "content" as a single
-// global name per template set, so the last-parsed page's block would win
-// for every page.
-type Deps struct {
-	DB         *pgxpool.Pool
-	Queries    *sqlcgen.Queries
-	Sessions   *auth.Manager
-	Templates  map[string]*template.Template
-	CookieName string
-	// SecureCookies gates the Secure attribute on the session and CSRF
-	// cookies; see internal/config.Config.SecureCookies for how it's
-	// populated.
-	SecureCookies bool
-}
 
 // renderAuthFragmentOrPage renders just the auth_card_body fragment when
 // the request came from htmx (tab switch, or a validation re-render after

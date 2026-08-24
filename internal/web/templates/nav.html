@@ -1,0 +1,48 @@
+{{/* The two nav bars and the wordmark they share. Both bars are always in
+     the DOM; each is hidden at the breakpoint the other owns, which is why a
+     mutation that refreshes anything inside them has to reach both. */}}
+
+{{/* Wordmark, two variants. "logo_nav" is the clickable one in the top bars
+     (18px on mobile, 19px on desktop -- each bar only renders at one of the
+     two breakpoints); "logo_auth" is the static one on login/register. */}}
+{{define "logo_nav"}}
+<a href="/dashboard" class="wordmark shrink-0 text-[18px] md:text-[19px]" aria-label="$pend — Expenses">$pend</a>
+{{end}}
+
+{{define "logo_auth"}}
+<span role="img" aria-label="$pend — Expenses" class="wordmark text-[34px] md:text-[38px]">$pend</span>
+{{end}}
+
+{{define "nav_desktop"}}
+<nav class="hidden md:flex items-center h-[60px] bg-surface border-b border-border-nav sticky top-0 z-40">
+  <div class="w-full max-w-[1280px] mx-auto h-full flex items-center px-9 gap-10">
+    {{template "logo_nav" .}}
+    <div class="flex items-center gap-2">
+      <a href="/dashboard" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Overview</a>
+      <a href="/transactions" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Transactions</a>
+      <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Categories</a>
+    </div>
+    <div class="ml-auto flex items-center gap-3">
+      <span id="header-balance-desktop" class="contents">{{template "header_balance" .}}</span>
+      {{template "user_menu" .}}
+    </div>
+  </div>
+</nav>
+{{end}}
+
+{{define "nav_mobile"}}
+<nav class="md:hidden fixed bottom-4 inset-x-4 bg-surface border border-border-card rounded-[20px] shadow-lg flex z-40 p-[6px]">
+  <a href="/dashboard" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "dashboard"}}bg-accent/10{{end}}">
+    <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "dashboard"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"/></svg>
+    <span class="text-[11px] {{if eq .ActiveNav "dashboard"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Overview</span>
+  </a>
+  <a href="/transactions" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "transactions"}}bg-accent/10{{end}}">
+    <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "transactions"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h18M16.5 3L21 7.5m0 0L16.5 12M21 7.5H3"/></svg>
+    <span class="text-[11px] {{if eq .ActiveNav "transactions"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Transactions</span>
+  </a>
+  <a href="/categories" class="flex-1 flex flex-col items-center justify-center gap-[3px] py-2 rounded-[14px] {{if eq .ActiveNav "categories"}}bg-accent/10{{end}}">
+    <svg class="w-[18px] h-[18px] {{if eq .ActiveNav "categories"}}text-accent{{else}}text-ink-faint{{end}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/><path d="M6 6h.008v.008H6V6z"/></svg>
+    <span class="text-[11px] {{if eq .ActiveNav "categories"}}text-accent font-semibold{{else}}text-ink-faint{{end}}">Categories</span>
+  </a>
+</nav>
+{{end}}

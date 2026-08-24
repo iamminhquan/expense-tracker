@@ -11,16 +11,15 @@ import (
 )
 
 // TemplateFuncs returns the FuncMap every page template needs for
-// formatting money and dates. SPEC.md section 1 wrote these in Vietnamese
-// convention (dots for thousands, dd/mm/yyyy); with the UI in English they
-// are comma-separated and the month is spelled out -- see SPEC.md's English
-// formatting note.
+// formatting money and dates. The app was originally specified in
+// Vietnamese convention (dots for thousands, dd/mm/yyyy); with the UI in
+// English the rules are commas for thousands, a trailing ₫, and a
+// spelled-out month ("11 Aug 2026").
 func TemplateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"vnd":        vnd,
 		"vndSigned":  vndSigned,
 		"vndBalance": vndBalance,
-		"dateFull":   dateFull,
 		"dateShort":  dateShort,
 		"catName":    i18n.CategoryName,
 		"countOf":    countOf,
@@ -39,8 +38,8 @@ func vnd(n int64) string {
 	return formatThousands(n) + "₫"
 }
 
-// vndSigned formats a transaction amount with the sign SPEC.md section 3.3
-// assigns by transaction type: "-" for expense, "+" for anything else.
+// vndSigned formats a transaction amount with the sign its type implies:
+// "-" for expense, "+" for anything else.
 func vndSigned(n int64, txnType string) string {
 	sign := "+"
 	if txnType == "expense" {
@@ -72,19 +71,6 @@ func formatThousands(n int64) string {
 	}
 	parts = append([]string{s}, parts...)
 	return strings.Join(parts, ",")
-}
-
-// dateFull formats a DATE column as "11 Aug 2026" -- used in forms and the
-// desktop transaction list's date column.
-//
-// The month is spelled out rather than numeric because an English-reading
-// audience splits on what 11/08 means: British reads the day first, American
-// the month, and nothing in the string itself settles it.
-func dateFull(d pgtype.Date) string {
-	if !d.Valid {
-		return ""
-	}
-	return d.Time.Format("02 Jan 2006")
 }
 
 // dateShort formats a DATE column as "11 Aug" -- used in the transaction

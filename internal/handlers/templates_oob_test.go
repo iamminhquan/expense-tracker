@@ -38,20 +38,26 @@ func TestHeaderBalanceHasExactlyOneDefinition(t *testing.T) {
 	if len(found) != 1 {
 		t.Fatalf(`{{define "header_balance"}} appears %d times (%v), want exactly 1`, len(found), found)
 	}
-	if found[0] != "layout.html" {
-		t.Errorf(`"header_balance" defined in %s, want layout.html`, found[0])
+	if found[0] != "header_balance.html" {
+		t.Errorf(`"header_balance" defined in %s, want header_balance.html`, found[0])
 	}
 }
 
 // Both nav bars render the widget and both sit in the DOM at once, so a swap
 // that names only one id leaves the other stale at whichever breakpoint the
-// user is on. Each id has to appear as an in-page target and again in the
+// user is on. Each id has to appear twice across the shared partials: once as
+// the in-page target in the bar that renders it (nav.html for desktop,
+// mobile_header.html for mobile) and once in header_balance.html's
 // out-of-band fragment, or the swap has nothing to land on.
 func TestHeaderBalanceOOBReachesBothNavBars(t *testing.T) {
-	body := readTemplate(t, "layout.html")
+	shared := []string{"nav.html", "mobile_header.html", "header_balance.html"}
+	var body string
+	for _, name := range shared {
+		body += readTemplate(t, name)
+	}
 	for _, id := range []string{"header-balance-desktop", "header-balance-mobile"} {
 		if got := strings.Count(body, `id="`+id+`"`); got != 2 {
-			t.Errorf(`id=%q appears %d times in layout.html, want 2 (the in-page target and the OOB swap)`, id, got)
+			t.Errorf(`id=%q appears %d times across %v, want 2 (the in-page target and the OOB swap)`, id, got, shared)
 		}
 	}
 }
@@ -61,7 +67,7 @@ func TestHeaderBalanceOOBReachesBothNavBars(t *testing.T) {
 // out of the page it is part of. Only the wrapper the mutation fragment sends
 // is marked for swapping.
 func TestHeaderBalanceIsMarkedOOBOnlyByItsWrapper(t *testing.T) {
-	body := readTemplate(t, "layout.html")
+	body := readTemplate(t, "header_balance.html")
 	widget := body[strings.Index(body, `{{define "header_balance"}}`):]
 	widget = widget[:strings.Index(widget, "{{end}}")]
 	if strings.Contains(widget, "hx-swap-oob") {

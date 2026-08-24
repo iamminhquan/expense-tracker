@@ -41,19 +41,7 @@
 <dialog id="add-category-sheet" class="md:hidden w-full max-w-full m-0 mt-auto mb-0 rounded-t-[20px] rounded-b-none p-0 backdrop:bg-black/32">
   <div class="p-5 pb-8" id="add-category-sheet-body"></div>
 </dialog>
-<script>
-  function openAddCategorySheet() {
-    var slot = document.getElementById('add-category-slot');
-    var body = document.getElementById('add-category-sheet-body');
-    if (slot.firstElementChild) body.appendChild(slot.firstElementChild);
-    document.getElementById('add-category-sheet').showModal();
-  }
-  document.getElementById('add-category-sheet').addEventListener('close', function () {
-    var slot = document.getElementById('add-category-slot');
-    var body = document.getElementById('add-category-sheet-body');
-    if (body.firstElementChild) slot.appendChild(body.firstElementChild);
-  });
-</script>
+<script src="/static/categories.js"></script>
 {{end}}
 
 {{define "add_category_form"}}
@@ -68,8 +56,8 @@
     <div class="flex flex-col gap-[6px]">
       <label class="text-[12px] font-medium text-ink-muted">Type</label>
       <div class="flex bg-track rounded-lg p-[3px] gap-1">
-        <label class="flex-1"><input type="radio" name="type" value="expense" {{if ne .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Expense</span></label>
-        <label class="flex-1"><input type="radio" name="type" value="income" {{if eq .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgba(0,0,0,0.06)] text-ink-muted">Income</span></label>
+        <label class="flex-1"><input type="radio" name="type" value="expense" {{if ne .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgb(var(--c-ink)/0.06)] text-ink-muted">Expense</span></label>
+        <label class="flex-1"><input type="radio" name="type" value="income" {{if eq .CategoryType "income"}}checked{{end}} class="peer hidden"><span class="flex h-8 items-center justify-center rounded-[6px] text-[13px] peer-checked:bg-surface peer-checked:font-semibold peer-checked:shadow-[0_1px_2px_rgb(var(--c-ink)/0.06)] text-ink-muted">Income</span></label>
       </div>
     </div>
     <div class="flex flex-col gap-[6px]">

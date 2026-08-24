@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"context"
-	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +14,7 @@ import (
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
 	"expensetracker/internal/sqlcgen"
+	"expensetracker/internal/web"
 )
 
 func newTestDeps(t *testing.T) handlers.Deps {
@@ -29,11 +29,12 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 	t.Cleanup(pool.Close)
 
-	templates := map[string]*template.Template{
-		"auth":         template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/auth.html", "../web/templates/auth_card_body.html")),
-		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/categories.html", "../web/templates/category_row.html")),
-		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html", "../web/templates/transaction_row.html")),
-		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html")),
+	// The same sets cmd/server builds, so a template file added to one page
+	// and forgotten in the other can no longer make the tests pass against a
+	// shape the server never renders.
+	templates, err := web.Templates(handlers.TemplateFuncs())
+	if err != nil {
+		t.Fatalf("parse templates: %v", err)
 	}
 
 	return handlers.Deps{
@@ -49,7 +50,7 @@ func newTestDeps(t *testing.T) handlers.Deps {
 // csrfTokenFor issues a GET request to obtain a fresh csrf_token cookie.
 // Every mutating request built by a test must attach this cookie's value as
 // both the cookie itself and the X-CSRF-Token header via withCSRF, or
-// csrf.Middleware (wired into every route in Step 11) rejects it with 403.
+// csrf.Middleware, which is wired into every route, rejects it with 403.
 func csrfTokenFor(t *testing.T, router http.Handler) *http.Cookie {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/login", nil)
@@ -144,10 +145,10 @@ func TestLoginAndRegisterPagesRenderDistinctContent(t *testing.T) {
 	}
 }
 
-// TestAuthTabSwitchReturnsFragmentOnly covers the htmx tab-switch contract
-// from SPEC.md section 2: a request carrying HX-Request must get back just
-// the auth_card_body fragment, not a full <html> page, so htmx can swap it
-// into #auth-card without a flash of the logo/tagline re-rendering.
+// TestAuthTabSwitchReturnsFragmentOnly covers the htmx tab-switch contract:
+// a request carrying HX-Request must get back just the auth_card_body
+// fragment, not a full <html> page, so htmx can swap it into #auth-card
+// without a flash of the logo/tagline re-rendering.
 func TestAuthTabSwitchReturnsFragmentOnly(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
@@ -166,9 +167,9 @@ func TestAuthTabSwitchReturnsFragmentOnly(t *testing.T) {
 	}
 }
 
-// TestLoginSuccessSendsHXRedirect covers PROMPT.md's "every mutation
-// returns a fragment, never a full reload" rule applied to the one case
-// that needs a real navigation: login/register success signal it via the
+// TestLoginSuccessSendsHXRedirect covers the "every mutation returns a
+// fragment, never a full reload" rule applied to the one case that needs a
+// real navigation: login/register success signal it via the
 // HX-Redirect response header instead of an HTTP 3xx, since htmx treats a
 // 3xx as just another response to swap in, not a page navigation.
 func TestLoginSuccessSendsHXRedirect(t *testing.T) {
@@ -201,8 +202,8 @@ func TestLoginSuccessSendsHXRedirect(t *testing.T) {
 	}
 }
 
-// TestRegisterPasswordMismatchShowsError covers the new "Confirm password"
-// field SPEC.md section 2 adds to the register tab.
+// TestRegisterPasswordMismatchShowsError covers the "Confirm password"
+// field on the register tab.
 func TestRegisterPasswordMismatchShowsError(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)

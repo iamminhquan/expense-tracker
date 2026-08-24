@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
 	"expensetracker/internal/sqlcgen"
+	"expensetracker/internal/web"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -87,11 +87,9 @@ func main() {
 	defer pool.Close()
 
 	queries := sqlcgen.New(pool)
-	templates := map[string]*template.Template{
-		"auth":         template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/auth.html", "internal/web/templates/auth_card_body.html")),
-		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/categories.html", "internal/web/templates/category_row.html")),
-		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/transactions.html", "internal/web/templates/transaction_row.html")),
-		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/dashboard.html")),
+	templates, err := web.Templates(handlers.TemplateFuncs())
+	if err != nil {
+		log.Fatalf("parse templates: %v", err)
 	}
 
 	deps := handlers.Deps{

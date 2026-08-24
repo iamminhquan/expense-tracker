@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"expensetracker/internal/auth"
@@ -14,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// categorySwatches is the fixed 8-color palette SPEC.md section 1 offers in
-// the category color picker. #A1A1AA (the 9th seeded color) is deliberately
-// excluded here -- it's reserved for the "Other" default and the chart's
-// synthetic "Other" aggregation, never user-selectable.
+// categorySwatches is the fixed 8-color palette the category color picker
+// offers. #A1A1AA (the 9th seeded color) is deliberately excluded here --
+// it's reserved for the "Other" default and the chart's synthetic "Other"
+// aggregation, never user-selectable.
 var categorySwatches = []string{
 	"#D97757", "#5B8DEF", "#8B7BD8", "#6BA292",
 	"#E0A82E", "#D97AA0", "#4FA871", "#7CA65C",
@@ -35,8 +34,9 @@ func isValidSwatch(color string) bool {
 // categoryRowData builds the flat map category_row.html and
 // category_row_edit.html both expect. Every response path that renders a
 // row goes through this so the template never has to distinguish a raw
-// sqlc struct from a hand-built one -- see Task 4's design notes for why
-// that distinction matters for the optional OOBTarget field.
+// sqlc struct from a hand-built one -- only some paths carry an OOBTarget,
+// and a struct would have to grow a field for it.
+//
 // slug is what tells a shared default apart from a category the user made:
 // the template resolves the display name through catName, which needs it,
 // and a map key that is simply absent makes html/template fail the whole
@@ -142,9 +142,8 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 		color := r.FormValue("color")
@@ -154,9 +153,9 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		}
 
 		// UpdateCategoryColor's WHERE clause matches a row owned by this
-		// user OR a shared default (user_id IS NULL) -- SPEC.md section 4.1
-		// explicitly lets defaults have a working "Change color" action with no
-		// ownership carve-out, unlike rename/delete.
+		// user OR a shared default (user_id IS NULL): recolouring a default
+		// is allowed for everyone, unlike rename/delete, which carve
+		// defaults out.
 		updated, err := deps.Queries.UpdateCategoryColor(r.Context(), sqlcgen.UpdateCategoryColorParams{
 			ID: id, UserID: pgInt64(userID), Color: color,
 		})
@@ -176,9 +175,8 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 func editCategoryHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
@@ -197,9 +195,8 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 		row, err := deps.Queries.GetCategoryWithTransactionCount(r.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
@@ -214,9 +211,8 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -288,9 +284,8 @@ func respondCategoryDeleted(w http.ResponseWriter, r *http.Request, deps Deps, u
 func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		id, err := strconv.ParseInt(chiURLParam(r, "id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+		id, ok := idParam(w, r)
+		if !ok {
 			return
 		}
 
@@ -311,10 +306,9 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if count > 0 && category.Type == "income" {
-			// No income-side "Other" exists in the 9-category default set to
-			// reassign into (confirmed with the human via AskUserQuestion),
-			// so an income category with existing transactions can't be
-			// deleted at all.
+			// The 9 shared defaults have no income-side "Other" to reassign
+			// into, so an income category with existing transactions cannot
+			// be deleted at all -- only emptied first.
 			http.Error(w, "category has existing transactions", http.StatusConflict)
 			return
 		}
@@ -328,14 +322,14 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			defer tx.Rollback(r.Context())
 			qtx := deps.Queries.WithTx(tx)
 
-			khac, err := qtx.GetDefaultCategoryForReassignment(r.Context())
+			other, err := qtx.GetDefaultCategoryForReassignment(r.Context())
 			if err != nil {
 				log.Printf("delete category: load Other default: %v", err)
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
 			}
 			if _, err := qtx.ReassignCategoryTransactions(r.Context(), sqlcgen.ReassignCategoryTransactionsParams{
-				CategoryID: khac.ID, CategoryID_2: id, UserID: userID,
+				CategoryID: other.ID, CategoryID_2: id, UserID: userID,
 			}); err != nil {
 				log.Printf("delete category: reassign transactions: %v", err)
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
