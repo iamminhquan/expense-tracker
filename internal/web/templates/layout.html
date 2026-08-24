@@ -435,6 +435,17 @@
 </details>
 {{end}}
 
+{{/* Both nav bars render the widget and both are in the DOM at once, so a
+     mutation has to swap both or leave one of them stale at whichever
+     breakpoint the user happens to be on. Two ids rather than one selector:
+     an id-keyed swap is the part of hx-swap-oob with no ambiguity about how
+     many elements it reaches. The span carries `contents` so it disappears
+     from layout and the details element stays the flex child it was. */}}
+{{define "header_balance_oob"}}
+<span id="header-balance-desktop" class="contents" hx-swap-oob="true">{{template "header_balance" .}}</span>
+<span id="header-balance-mobile" class="contents" hx-swap-oob="true">{{template "header_balance" .}}</span>
+{{end}}
+
 {{define "user_menu"}}
 <details class="relative shrink-0" data-user-menu>
   <summary class="flex items-center gap-2 px-2 py-1 rounded-[7px] hover:bg-track cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -480,7 +491,7 @@
     <a href="/categories" class="px-[16px] py-[7px] rounded-[7px] text-[13px] {{if eq .ActiveNav "categories"}}text-accent font-semibold bg-accent/10{{else}}text-nav-idle hover:bg-track hover:text-ink{{end}}">Categories</a>
   </div>
   <div class="ml-auto flex items-center gap-3">
-    {{template "header_balance" .}}
+    <span id="header-balance-desktop" class="contents">{{template "header_balance" .}}</span>
     {{template "user_menu" .}}
   </div>
 </nav>
@@ -490,7 +501,7 @@
 <header class="md:hidden flex items-center justify-between pt-[6px] px-[18px] pb-[2px] bg-app sticky top-0 z-40">
   {{template "logo_nav" .}}
   <div class="flex items-center gap-2">
-    {{template "header_balance" .}}
+    <span id="header-balance-mobile" class="contents">{{template "header_balance" .}}</span>
     {{template "user_menu" .}}
   </div>
 </header>

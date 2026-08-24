@@ -787,11 +787,15 @@ func TestDeleteTransactionOOBTotalsUseActiveMonthFromHXCurrentURL(t *testing.T) 
 		t.Fatalf("expected 200 deleting a transaction, got %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, "99,000") {
-		t.Fatalf("expected OOB totals to reflect the active past month (now empty), not leak the current month's 99,000₫ total, got: %s", body)
-	}
+	// The two out-of-band fragments deliberately describe different months,
+	// and this is the request that pulls them apart: the count belongs to the
+	// past month the page is browsing, which this delete just emptied, while
+	// the nav header balance is always the real current month.
 	if !strings.Contains(body, "0 transactions") {
 		t.Fatalf("expected OOB totals count of 0 for the now-empty active past month, got: %s", body)
+	}
+	if !strings.Contains(body, "-99,000₫") {
+		t.Fatalf("expected the header balance to keep reporting the current month's 99,000₫ spend, got: %s", body)
 	}
 }
 

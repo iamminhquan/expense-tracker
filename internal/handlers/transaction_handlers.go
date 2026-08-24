@@ -58,11 +58,17 @@ func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
 
 // totalsOOBData assembles the payload for the "totals_oob" fragment that
 // every create/update/delete returns alongside its row: the balance card
-// marked for out-of-band swapping, plus the transaction count and the month
-// name the list's empty state needs.
-func totalsOOBData(totals sqlcgen.MonthlyTotalsRow, count int, from pgtype.Date) map[string]any {
+// marked for out-of-band swapping, the refreshed nav header balance, plus
+// the transaction count and the month name the list's empty state needs.
+//
+// HeaderBalance is the real current month even when the page is browsing an
+// older one, because that is what the widget in the layout reports. It is a
+// second query rather than something derived from totals, which are scoped
+// to the browsed month.
+func totalsOOBData(totals sqlcgen.MonthlyTotalsRow, header balanceCard, count int, from pgtype.Date) map[string]any {
 	return map[string]any{
 		"Balance":         newBalanceCard(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver, from.Time, "transactions").asOOB(),
+		"HeaderBalance":   header,
 		"Count":           count,
 		"MonthLabelLower": monthLabelLower(from.Time),
 	}
@@ -229,6 +235,11 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		http.Error(w, "could not load totals", http.StatusInternalServerError)
 		return
 	}
+	header, err := currentHeaderBalance(r, deps, userID)
+	if err != nil {
+		http.Error(w, "could not load totals", http.StatusInternalServerError)
+		return
+	}
 	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 	if err != nil {
 		http.Error(w, "could not load transactions", http.StatusInternalServerError)
@@ -242,7 +253,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 			"Description": created.Description, "OccurredOn": created.OccurredOn,
 			"Amount": created.Amount, "Type": created.Type,
 		},
-		"Totals": totalsOOBData(totals, len(transactions), from),
+		"Totals": totalsOOBData(totals, header, len(transactions), from),
 	})
 }
 
@@ -494,6 +505,11 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "could not load totals", http.StatusInternalServerError)
 			return
 		}
+		header, err := currentHeaderBalance(r, deps, userID)
+		if err != nil {
+			http.Error(w, "could not load totals", http.StatusInternalServerError)
+			return
+		}
 		transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
@@ -509,7 +525,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
 				"Amount": updated.Amount, "Type": updated.Type,
 			},
-			"Totals": totalsOOBData(totals, len(transactions), from),
+			"Totals": totalsOOBData(totals, header, len(transactions), from),
 		})
 	}
 }
@@ -534,12 +550,17 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "could not load totals", http.StatusInternalServerError)
 			return
 		}
+		header, err := currentHeaderBalance(r, deps, userID)
+		if err != nil {
+			http.Error(w, "could not load totals", http.StatusInternalServerError)
+			return
+		}
 		transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
 			return
 		}
 
-		renderNamed(w, r, deps, "transactions", "totals_oob", "", totalsOOBData(totals, len(transactions), from))
+		renderNamed(w, r, deps, "transactions", "totals_oob", "", totalsOOBData(totals, header, len(transactions), from))
 	}
 }
