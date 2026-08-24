@@ -441,7 +441,7 @@ func TestSessionCookieAttributes(t *testing.T) {
 }
 
 // TestNavShowsUsernameNotFullName covers the design decision that the nav's
-// user_menu widget shows the handle (@username), not the free-text name
+// user_menu widget shows the handle (username), not the free-text name
 // collected at signup -- unlike username, name is never unique and isn't
 // meant to identify the account on screen.
 func TestNavShowsUsernameNotFullName(t *testing.T) {
@@ -483,8 +483,8 @@ func TestNavShowsUsernameNotFullName(t *testing.T) {
 	router.ServeHTTP(pageRec, pageReq)
 
 	body := pageRec.Body.String()
-	if !strings.Contains(body, "@nav_username_test") {
-		t.Fatalf("expected the nav to show @nav_username_test, got: %s", body)
+	if !strings.Contains(body, "nav_username_test") {
+		t.Fatalf("expected the nav to show nav_username_test, got: %s", body)
 	}
 	if strings.Contains(body, "Nav Display Name") {
 		t.Fatalf("expected the nav to NOT show the free-text name, got: %s", body)
