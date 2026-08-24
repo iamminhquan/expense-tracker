@@ -87,15 +87,15 @@ func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string,
 // Mutation handlers need this as well as full page renders: their responses
 // swap the widget back out of band, and without a fresh figure the number a
 // user is looking at goes wrong the moment they add anything.
-func currentHeaderBalance(r *http.Request, deps Deps, userID int64) (balanceCard, error) {
+func currentHeaderBalance(r *http.Request, deps Deps, userID int64) (balanceSummary, error) {
 	from, to := currentMonthRange()
 	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
 	})
 	if err != nil {
-		return balanceCard{}, err
+		return balanceSummary{}, err
 	}
-	return newBalanceCard(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver, from.Time, "header"), nil
+	return newBalanceSummary(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver), nil
 }
 
 // authPageData loads the fields every authenticated page's nav needs: the

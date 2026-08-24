@@ -77,8 +77,8 @@ func main() {
 	templates := map[string]*template.Template{
 		"auth":         template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/auth.html", "internal/web/templates/auth_card_body.html")),
 		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/categories.html", "internal/web/templates/category_row.html")),
-		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/transactions.html", "internal/web/templates/transaction_row.html", "internal/web/templates/balance_card.html")),
-		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/dashboard.html", "internal/web/templates/balance_card.html")),
+		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/transactions.html", "internal/web/templates/transaction_row.html")),
+		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("internal/web/templates/layout.html", "internal/web/templates/dashboard.html")),
 	}
 
 	deps := handlers.Deps{

@@ -32,8 +32,8 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	templates := map[string]*template.Template{
 		"auth":         template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/auth.html", "../web/templates/auth_card_body.html")),
 		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/categories.html", "../web/templates/category_row.html")),
-		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html", "../web/templates/transaction_row.html", "../web/templates/balance_card.html")),
-		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html", "../web/templates/balance_card.html")),
+		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html", "../web/templates/transaction_row.html")),
+		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html")),
 	}
 
 	return handlers.Deps{

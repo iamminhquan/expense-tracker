@@ -8,18 +8,19 @@ import (
 	"testing"
 )
 
-// The balance card is rendered in-page and again as an OOB fragment after
-// every mutation. Both go through one {{define}}, so the two copies cannot
-// drift apart the way #totals-summary's hand-duplicated markup used to --
-// this test just holds that single-definition property in place.
-func TestBalanceCardHasExactlyOneDefinition(t *testing.T) {
+// The header widget is rendered from three places -- both nav bars and the
+// out-of-band fragment every mutation returns -- so all three go through one
+// {{define}}. Duplicating the markup instead would let the copies drift, and
+// a widget that renders differently after a mutation than it did on page load
+// is exactly the bug this shape prevents.
+func TestHeaderBalanceHasExactlyOneDefinition(t *testing.T) {
 	dir := "../web/templates"
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read templates dir: %v", err)
 	}
 
-	defineRe := regexp.MustCompile(`{{\s*define\s+"balance_card"\s*}}`)
+	defineRe := regexp.MustCompile(`{{\s*define\s+"header_balance"\s*}}`)
 	var found []string
 	for _, e := range entries {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".html" {
@@ -35,48 +36,48 @@ func TestBalanceCardHasExactlyOneDefinition(t *testing.T) {
 	}
 
 	if len(found) != 1 {
-		t.Fatalf(`{{define "balance_card"}} appears %d times (%v), want exactly 1`, len(found), found)
+		t.Fatalf(`{{define "header_balance"}} appears %d times (%v), want exactly 1`, len(found), found)
 	}
-	if found[0] != "balance_card.html" {
-		t.Errorf(`"balance_card" defined in %s, want balance_card.html`, found[0])
-	}
-}
-
-// Every mutation handler swaps the card by id, and the month picker re-renders
-// it inside the month section, so the id has to be fixed rather than derived
-// from anything in the data.
-func TestBalanceCardRootCarriesTheFixedID(t *testing.T) {
-	body := readTemplate(t, "balance_card.html")
-	if !strings.Contains(body, `id="balance-card"`) {
-		t.Error(`balance_card.html has no id="balance-card" root`)
+	if found[0] != "layout.html" {
+		t.Errorf(`"header_balance" defined in %s, want layout.html`, found[0])
 	}
 }
 
-// hx-swap-oob must be conditional. The month picker's response is itself an
-// htmx swap containing this card; if the attribute were unconditional, htmx
-// would pull the card out of that fragment and swap it into the element the
-// same fragment is in the middle of replacing.
-func TestBalanceCardMarksItselfOOBOnlyWhenAsked(t *testing.T) {
-	body := readTemplate(t, "balance_card.html")
-	// Matches the attribute itself, not the word where the comment above it
-	// explains why the attribute is conditional.
-	oobRe := regexp.MustCompile(`hx-swap-oob="`)
-	for _, m := range oobRe.FindAllStringIndex(body, -1) {
-		window := body[max(0, m[0]-40):m[0]]
-		if !strings.Contains(window, "{{if .OOB}}") {
-			t.Errorf("hx-swap-oob at offset %d is not guarded by {{if .OOB}}: %q", m[0], window)
+// Both nav bars render the widget and both sit in the DOM at once, so a swap
+// that names only one id leaves the other stale at whichever breakpoint the
+// user is on. Each id has to appear as an in-page target and again in the
+// out-of-band fragment, or the swap has nothing to land on.
+func TestHeaderBalanceOOBReachesBothNavBars(t *testing.T) {
+	body := readTemplate(t, "layout.html")
+	for _, id := range []string{"header-balance-desktop", "header-balance-mobile"} {
+		if got := strings.Count(body, `id="`+id+`"`); got != 2 {
+			t.Errorf(`id=%q appears %d times in layout.html, want 2 (the in-page target and the OOB swap)`, id, got)
 		}
 	}
-	if !strings.Contains(body, "{{if .OOB}}") {
-		t.Error("balance_card.html never emits hx-swap-oob; mutations could not update it")
+}
+
+// The widget itself must never carry hx-swap-oob: it is rendered in-page by
+// both nav bars, and an unconditional attribute there would have htmx lift it
+// out of the page it is part of. Only the wrapper the mutation fragment sends
+// is marked for swapping.
+func TestHeaderBalanceIsMarkedOOBOnlyByItsWrapper(t *testing.T) {
+	body := readTemplate(t, "layout.html")
+	widget := body[strings.Index(body, `{{define "header_balance"}}`):]
+	widget = widget[:strings.Index(widget, "{{end}}")]
+	if strings.Contains(widget, "hx-swap-oob") {
+		t.Error(`the header_balance widget carries hx-swap-oob itself; only header_balance_oob may`)
+	}
+	if !strings.Contains(body, `{{define "header_balance_oob"}}`) {
+		t.Error("no header_balance_oob wrapper; mutations could not refresh the widget")
 	}
 }
 
 // The balance used to be spelled out in three other places on the
-// transactions page. The card replaces all of them -- leaving one behind
-// means two numbers on screen that disagree the moment one stops updating.
+// transactions page. The nav widget replaces all of them -- leaving one
+// behind means two numbers on screen that disagree the moment one stops
+// updating.
 func TestRetiredTotalsElementsAreGone(t *testing.T) {
-	retired := []string{"remaining-row", "mobile-stat-cards", "totals-summary"}
+	retired := []string{"remaining-row", "mobile-stat-cards", "totals-summary", "balance-card"}
 	dir := "../web/templates"
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -89,7 +90,7 @@ func TestRetiredTotalsElementsAreGone(t *testing.T) {
 		body := readTemplate(t, e.Name())
 		for _, id := range retired {
 			if strings.Contains(body, `id="`+id+`"`) {
-				t.Errorf(`%s still renders id=%q, which the balance card replaced`, e.Name(), id)
+				t.Errorf(`%s still renders id=%q, which the nav balance widget replaced`, e.Name(), id)
 			}
 		}
 	}
