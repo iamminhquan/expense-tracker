@@ -29,11 +29,16 @@ dashboard's category breakdown chart.
    variables) and adjust `DATABASE_URL` to point at your Postgres instance:
 
    ```
-   DATABASE_URL=postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable
+   DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable
    PORT=8080
    SESSION_COOKIE_NAME=session_id
    SECURE_COOKIES=false
    ```
+
+   `USER` and `PASSWORD` are placeholders — substitute your own Postgres
+   role and its password. `.env` is gitignored so real credentials stay out
+   of the repository; keep them out of `.env.example` as well, which is
+   committed and ships with every value blank.
 
    Set `SECURE_COOKIES=true` only once the app is served over HTTPS —
    otherwise browsers will reject the session cookie and nobody can log in.
@@ -63,7 +68,7 @@ Point it at a scratch Postgres database you don't mind schema churn against
 (the test suite creates and drops throwaway databases/rows as needed):
 
 ```
-TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./...
+TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./...
 ```
 
 This single invocation exercises every package, including the migration
