@@ -28,7 +28,7 @@ func carryoverFixture(t *testing.T, deps handlers.Deps, email string) int64 {
 	deps.DB.Exec(ctx, "DELETE FROM users WHERE email = $1", email)
 
 	user, err := deps.Queries.CreateUser(ctx, sqlcgen.CreateUserParams{
-		Email: email, PasswordHash: "x", Name: "Carry Over",
+		Email: email, PasswordHash: "x", Name: "Carry Over", Username: usernameFor(email),
 	})
 	if err != nil {
 		t.Fatalf("create user: %v", err)
