@@ -92,14 +92,32 @@ spelled-out month (`11 Aug 2026`) — `docs/design/design_handoff_expense_tracke
 still states the original Vietnamese convention and carries a dated note
 recording what replaced it.
 
-The dashboard and transactions pages both render `balance_card.html`, a
-shared partial for the month's remaining balance and spending ratio bar.
-Its data (`internal/handlers/balance.go`'s `balanceCard` struct, built by
-`newBalanceCard`) is computed in Go rather than the template because
-`html/template` cannot divide, and because every percentage here — a month
-with no income, a month that overspent its income — is a division that has
-to be guarded. The two pages pass a different `Variant` string so the
-partial can size itself and decide whether to draw its own Spent/Earned row.
+**The balance** lives in one place: the `header_balance` widget in both nav
+bars (`layout.html`). There is no balance card in any page body — that
+partial existed once and was deleted. The widget always reports the real
+current month, never the month a page happens to be browsing, because it
+sits in the layout above the month picker.
+
+It carries forward across months rather than resetting on the 1st: what a
+month closes at is exactly what the next one opens with. `MonthlyTotals`
+returns that carried-in figure as a third column (`carried_over`) alongside
+the month's own two totals, so the one query serves both. Its `WHERE` reaches
+back over the user's whole history and each column narrows from there through
+its own `FILTER` — read it carefully before changing it, and note the
+`::bigint` wrapping the whole subtraction, without which sqlc types it `int32`
+and overflows past 2.1 tỷ đồng.
+
+`internal/handlers/balance.go`'s `balanceSummary` struct (built by
+`newBalanceSummary`) resolves the percentages in Go rather than the template,
+because `html/template` cannot divide and because every percentage here — a
+month with no income, a month that overspent its income — is a division that
+has to be guarded. Only the balance is cumulative; the ratio bar and its
+caption still measure the displayed month against that month's own income.
+
+Both nav bars render the widget and both are in the DOM at once, so every
+mutation response returns `header_balance_oob`, which swaps two ids rather
+than relying on one selector. Wrapper spans carry `contents` so they leave no
+trace in the flex layout.
 
 **Mobile navigation** (`layout.html`'s `nav_mobile_header` and
 `mobile_page_header` template blocks): below `md`, the nav collapses into a

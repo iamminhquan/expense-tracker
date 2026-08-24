@@ -80,6 +80,24 @@ func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string,
 	}
 }
 
+// currentHeaderBalance builds the balance the nav widget shows. It is always
+// the real current month, never the month a page happens to be browsing --
+// the widget sits in the layout, above and outside the month picker.
+//
+// Mutation handlers need this as well as full page renders: their responses
+// swap the widget back out of band, and without a fresh figure the number a
+// user is looking at goes wrong the moment they add anything.
+func currentHeaderBalance(r *http.Request, deps Deps, userID int64) (balanceSummary, error) {
+	from, to := currentMonthRange()
+	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{
+		UserID: userID, OccurredOn: from, OccurredOn_2: to,
+	})
+	if err != nil {
+		return balanceSummary{}, err
+	}
+	return newBalanceSummary(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver), nil
+}
+
 // authPageData loads the fields every authenticated page's nav needs: the
 // user's display name/initial, which nav link is active, and the real
 // current month's balance for the header widget (independent of whatever
@@ -95,12 +113,10 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 		initial = strings.ToUpper(string(runes[0]))
 	}
 
-	from, to := currentMonthRange()
-	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
+	headerBalance, err := currentHeaderBalance(r, deps, userID)
 	if err != nil {
 		return nil, err
 	}
-	headerBalance := newBalanceCard(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver, from.Time, "header")
 
 	return map[string]any{
 		"ShowNav":       true,

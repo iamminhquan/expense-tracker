@@ -30,6 +30,7 @@
      in the nav header widget, which reads the real current month independent
      of whatever month this page is browsing, so it needs no OOB update here. */}}
 {{define "totals_oob"}}
+{{template "header_balance_oob" .}}
 <span id="transaction-count" hx-swap-oob="true" class="text-[12px] text-ink-faint">{{countOf .Count "transaction"}}</span>
 <div id="transactions-empty" hx-swap-oob="true">
   {{if eq .Count 0}}

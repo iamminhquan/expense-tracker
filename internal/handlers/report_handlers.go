@@ -101,7 +101,6 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 		"AvailableMonths":         available,
 		"TotalExpense":            totals.TotalExpense,
 		"TotalIncome":             totals.TotalIncome,
-		"Balance":                 newBalanceCard(totals.TotalExpense, totals.TotalIncome, totals.CarriedOver, from.Time, "dashboard"),
 		"ExpenseComparison":       comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
 		"IncomeComparison":        comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
 		"ExpenseComparisonMobile": comparisonTextMobile(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
