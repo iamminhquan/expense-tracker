@@ -30,7 +30,7 @@
         <button type="button" hx-get="/transactions?month={{.Value}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
         {{end}}
       </div>
-      <span id="transaction-count" class="text-[12px] text-ink-faint">{{countOf (len .Transactions) "transaction"}}</span>
+      <span id="transaction-count" class="text-[12px] text-ink-faint">{{countOf .TotalCount "transaction"}}</span>
     </div>
   </div>
 
@@ -47,6 +47,42 @@
       </div>
       {{end}}
     </div>
+    <div id="transactions-pager">{{template "transactions_pager" .Pager}}</div>
   </div>
 </div>
+{{end}}
+
+{{/* What a create issued from page 2 or later answers with: the whole month
+     section rebuilt at page 1, plus the nav balance widget, which lives
+     outside the swapped section and would otherwise keep showing the figure
+     from before the transaction was added. */}}
+{{define "transactions_first_page_response"}}{{template "transactions_month_section" .}}{{template "header_balance_oob" .}}{{end}}
+
+{{/* The Prev/Next footer under the list. It renders nothing at all while the
+     month fits on one page, but the wrapper holding it always exists so a
+     mutation's out-of-band swap still has an element to replace -- adding or
+     deleting a row is exactly what moves the page count across that
+     threshold.
+
+     Both links carry the month as well as the page: the picker above pushes
+     "?month=", so a pager that only sent "?page=" would bounce an older month
+     back to today's on the first click. Swapping the whole month section
+     (rather than just the list) is what keeps the count, the empty state and
+     this footer consistent with the rows above them. */}}
+{{define "transactions_pager"}}
+{{if gt .TotalPages 1}}
+<div class="flex items-center justify-between gap-3 px-4 py-3 border-t border-border-list">
+  {{if .HasPrev}}
+  <button type="button" hx-get="/transactions?month={{.MonthValue}}&page={{.PrevPage}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink">&lsaquo; Prev</button>
+  {{else}}
+  <span class="h-8 px-3 rounded-lg border border-border-input text-[13px] font-medium text-ink-faintest flex items-center">&lsaquo; Prev</span>
+  {{end}}
+  <span class="text-[12px] text-ink-faint">Page {{.Page}} of {{.TotalPages}}</span>
+  {{if .HasNext}}
+  <button type="button" hx-get="/transactions?month={{.MonthValue}}&page={{.NextPage}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink">Next &rsaquo;</button>
+  {{else}}
+  <span class="h-8 px-3 rounded-lg border border-border-input text-[13px] font-medium text-ink-faintest flex items-center">Next &rsaquo;</span>
+  {{end}}
+</div>
+{{end}}
 {{end}}

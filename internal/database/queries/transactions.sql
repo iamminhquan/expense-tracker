@@ -1,9 +1,19 @@
+-- ListTransactionsForMonth returns one page of the month's transactions. The
+-- list page is paginated (see pageSize in internal/handlers/paging.go), so
+-- every caller wants a window rather than the whole month; a caller that only
+-- needs how many there are should use CountTransactionsForMonth instead of
+-- reading rows it will throw away.
 -- name: ListTransactionsForMonth :many
 SELECT t.*, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
-ORDER BY t.occurred_on DESC, t.id DESC;
+ORDER BY t.occurred_on DESC, t.id DESC
+LIMIT $4 OFFSET $5;
+
+-- name: CountTransactionsForMonth :one
+SELECT COUNT(*)::bigint AS count FROM transactions
+WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3;
 
 -- name: CreateTransaction :one
 INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
