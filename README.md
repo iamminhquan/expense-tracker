@@ -52,6 +52,10 @@ dashboard's category breakdown chart.
    go run ./cmd/server
    ```
 
+   The server loads `.env` itself on startup (via `godotenv`), so there is
+   no need to `export` or `source` it first — a variable already set in the
+   environment still takes priority over the file.
+
    On startup the server applies all pending migrations from
    `internal/database/migrations` automatically (using golang-migrate's Go
    library) before it starts listening — there is no separate migration

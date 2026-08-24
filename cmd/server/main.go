@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/config"
@@ -18,6 +19,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 )
 
 // migrationsSourceURL points at the migrations directory relative to the
@@ -60,6 +62,14 @@ func runMigrations(dsn, migrationsPath string) error {
 }
 
 func main() {
+	// .env is optional: a deployment that sets these variables directly
+	// (e.g. via the process environment) has no file to load, and that is
+	// not an error. Load() also never overrides a variable already set in
+	// the environment, so an explicit export still wins over the file.
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		log.Fatalf("load .env: %v", err)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("configuration: %v", err)
