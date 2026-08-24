@@ -70,18 +70,3 @@
   </span>
 </div>
 {{end}}
-
-{{define "category_chips"}}
-<div id="mobile-category-chips" class="flex flex-wrap gap-2">
-  {{/* The selected look comes from has-[:checked] alone. Painting the first
-       chip accent unconditionally left it lit after the user picked another
-       one, so two chips read as selected at once. */}}
-  {{range $i, $c := .Categories}}
-  <label class="px-[13px] py-[9px] rounded-full border border-border-input flex items-center gap-2 cursor-pointer has-[:checked]:border-accent has-[:checked]:bg-accent/[0.08]">
-    <input type="radio" name="category_id" value="{{$c.ID}}" {{if eq $i 0}}checked{{end}} class="hidden">
-    <span class="w-2 h-2 rounded-full" style="background-color: {{$c.Color}}"></span>
-    <span class="text-[13px]">{{catName $c.Slug $c.Name}}</span>
-  </label>
-  {{end}}
-</div>
-{{end}}

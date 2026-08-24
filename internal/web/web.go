@@ -29,11 +29,18 @@ var templatesFS embed.FS
 //go:embed static
 var staticFS embed.FS
 
-// sharedTemplates are parsed into every page's set: the page shell, the nav
-// bars, and the balance widget the nav bars render. A page that forgot one
-// of these would fail at execute time with "no such template", not at
-// startup, so they are listed once here rather than repeated per page.
-var sharedTemplates = []string{"layout.html"}
+// sharedTemplates are parsed into every page's set: the page shell, the two
+// nav bars, the mobile header, and the two widgets they both render. A page
+// that forgot one of these would fail at execute time with "no such
+// template", not at startup, so they are listed once here rather than
+// repeated per page.
+var sharedTemplates = []string{
+	"layout.html",
+	"nav.html",
+	"mobile_header.html",
+	"user_menu.html",
+	"header_balance.html",
+}
 
 // pageTemplates maps a page name -- the key handlers use when they call
 // render/renderNamed -- to the files that page's set is built from, on top
@@ -45,7 +52,7 @@ var sharedTemplates = []string{"layout.html"}
 var pageTemplates = map[string][]string{
 	"auth":         {"auth.html", "auth_card_body.html"},
 	"categories":   {"categories.html", "category_row.html"},
-	"transactions": {"transactions.html", "transaction_row.html"},
+	"transactions": {"transactions.html", "transaction_form.html", "transaction_row.html"},
 	"dashboard":    {"dashboard.html"},
 }
 

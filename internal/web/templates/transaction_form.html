@@ -1,0 +1,111 @@
+{{/* The add-transaction form, in its two shapes: a single wrapping row
+     docked above the list on desktop, and the bottom-sheet form on mobile.
+     Both post to the same endpoint and differ only in layout and in which
+     category control they use -- a <select> where there is room for one, a
+     row of chips where the tap target has to be finger-sized. */}}
+
+{{define "quick_add_form"}}
+{{/* A wrapping flex row, not a fixed-width grid: the six columns add up to
+     ~790px, which overflowed the page on any desktop window narrower than
+     880px. Wrapping drops the note and the button onto a second line
+     instead, and keeps the single-row layout once there is room. */}}
+<div id="quick-add-form-wrapper" class="hidden md:block bg-surface border border-border-card rounded-xl p-4">
+  <form id="quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
+    hx-on:transaction-created="this.querySelector('[name=amount]').value=''; this.querySelector('[name=description]').value='';"
+    class="flex flex-wrap items-end gap-[10px]">
+    <input type="hidden" name="ui_source" value="desktop">
+    <div class="flex flex-col gap-[6px] shrink-0">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Type</label>
+      <div class="flex bg-track rounded-lg p-[3px] gap-1 h-9">
+        <label class="px-3 flex items-center cursor-pointer">
+          <input type="radio" name="type" value="expense" {{if ne .SelectedType "income"}}checked{{end}} class="peer hidden"
+            hx-get="/transactions/category-options" hx-target="#category-select" hx-swap="outerHTML" hx-trigger="change" hx-vals='{"type":"expense"}'>
+          <span class="text-[13px] peer-checked:font-semibold">Expense</span>
+        </label>
+        <label class="px-3 flex items-center cursor-pointer">
+          <input type="radio" name="type" value="income" {{if eq .SelectedType "income"}}checked{{end}} class="peer hidden"
+            hx-get="/transactions/category-options" hx-target="#category-select" hx-swap="outerHTML" hx-trigger="change" hx-vals='{"type":"income"}'>
+          <span class="text-[13px] peer-checked:font-semibold">Income</span>
+        </label>
+      </div>
+    </div>
+    <div class="flex flex-col gap-[6px] w-[150px] shrink-0">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Category</label>
+      {{template "category_options" .}}
+    </div>
+    <div class="flex flex-col gap-[6px] w-[130px] shrink-0">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Amount</label>
+      <input name="amount" type="text" inputmode="numeric" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[14px] font-medium w-full">
+    </div>
+    <div class="flex flex-col gap-[6px] w-[150px] shrink-0">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Date</label>
+      <input name="occurred_on" type="date" value="{{.Today}}" required class="h-9 px-3 rounded-lg border border-border-input font-mono text-[13px] w-full">
+    </div>
+    <div class="flex flex-col gap-[6px] flex-1 min-w-[90px]">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Note</label>
+      <input name="description" type="text" placeholder="Optional" class="h-9 px-3 rounded-lg border border-border-input text-[13px] w-full">
+    </div>
+    <button type="submit" class="h-9 px-[18px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold shrink-0">Add</button>
+  </form>
+  {{if .QuickAddError}}<p class="text-[12px] text-expense mt-2">{{.QuickAddError}}</p>{{end}}
+</div>
+{{end}}
+
+{{define "category_options"}}
+<div id="category-select" class="relative">
+  <select name="category_id" class="w-full h-9 pl-3 pr-7 rounded-lg border border-border-input text-[13px] bg-surface appearance-none">
+    {{range .Categories}}<option value="{{.ID}}" style="color: {{.Color}}">{{catName .Slug .Name}}</option>{{end}}
+  </select>
+  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-placeholder text-[10px]">▾</span>
+</div>
+{{end}}
+
+{{define "mobile_quick_add_form"}}
+<form id="mobile-quick-add-form" hx-post="/transactions" hx-target="#transaction-list" hx-swap="afterbegin"
+  hx-on:transaction-created="document.getElementById('mobile-add-sheet').close(); this.reset();"
+  class="flex flex-col gap-4">
+  <input type="hidden" name="ui_source" value="mobile">
+  <div class="flex bg-track rounded-lg p-[3px] gap-1 h-10">
+    <label class="flex-1 flex items-center justify-center cursor-pointer">
+      <input type="radio" name="type" value="expense" {{if ne .SelectedType "income"}}checked{{end}} class="peer hidden"
+        hx-get="/transactions/category-chips" hx-target="#mobile-category-chips" hx-swap="outerHTML" hx-trigger="change" hx-vals='{"type":"expense"}'>
+      <span class="text-[14px] peer-checked:font-semibold">Expense</span>
+    </label>
+    <label class="flex-1 flex items-center justify-center cursor-pointer">
+      <input type="radio" name="type" value="income" {{if eq .SelectedType "income"}}checked{{end}} class="peer hidden"
+        hx-get="/transactions/category-chips" hx-target="#mobile-category-chips" hx-swap="outerHTML" hx-trigger="change" hx-vals='{"type":"income"}'>
+      <span class="text-[14px] peer-checked:font-semibold">Income</span>
+    </label>
+  </div>
+  <!-- The field centres its text, so an empty focused input would draw the
+       caret straight through the middle of the "0" placeholder. Hide the
+       placeholder on focus and the caret stands on its own. -->
+  <input name="amount" type="text" inputmode="numeric" required placeholder="0"
+    class="h-14 px-4 rounded-[10px] border-2 border-accent font-mono text-[24px] font-semibold text-center focus:placeholder-transparent focus:outline-none focus:ring-[3px] focus:ring-accent/[0.12]">
+  {{template "category_chips" .}}
+  <!-- A date input cannot shrink below the width its own "08 / 19 / 2026"
+       needs, so it keeps its natural size and the note takes what is left.
+       Two flex-1 halves overflowed the sheet on a 375px screen. -->
+  <div class="flex gap-3">
+    <input name="occurred_on" type="date" value="{{.Today}}" required class="shrink-0 h-12 px-3 rounded-[10px] border border-border-input font-mono text-[14px]">
+    <input name="description" type="text" placeholder="Note" class="flex-1 min-w-0 h-12 px-3 rounded-[10px] border border-border-input text-[14px]">
+  </div>
+  {{if .QuickAddError}}<p class="text-[12px] text-expense">{{.QuickAddError}}</p>{{end}}
+  <button type="submit" class="h-[50px] rounded-[10px] bg-accent text-on-solid text-[14px] font-semibold">Save transaction</button>
+</form>
+{{end}}
+
+{{define "category_chips"}}
+<div id="mobile-category-chips" class="flex flex-wrap gap-2">
+  {{/* The selected look comes from has-[:checked] alone. Painting the first
+       chip accent unconditionally left it lit after the user picked another
+       one, so two chips read as selected at once. */}}
+  {{range $i, $c := .Categories}}
+  <label class="px-[13px] py-[9px] rounded-full border border-border-input flex items-center gap-2 cursor-pointer has-[:checked]:border-accent has-[:checked]:bg-accent/[0.08]">
+    <input type="radio" name="category_id" value="{{$c.ID}}" {{if eq $i 0}}checked{{end}} class="hidden">
+    <span class="w-2 h-2 rounded-full" style="background-color: {{$c.Color}}"></span>
+    <span class="text-[13px]">{{catName $c.Slug $c.Name}}</span>
+  </label>
+  {{end}}
+</div>
+{{end}}

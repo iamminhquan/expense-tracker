@@ -1,0 +1,35 @@
+{{define "user_menu"}}
+<details class="relative shrink-0" data-user-menu>
+  <summary class="flex items-center gap-2 px-2 py-1 rounded-[7px] hover:bg-track cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+    <span class="w-[26px] h-[26px] md:w-6 md:h-6 rounded-full bg-border-nav flex items-center justify-center text-[11px] font-semibold text-ink-muted">{{.UserInitial}}</span>
+    <span class="text-[13px] text-ink-muted">{{.UserName}}</span>
+  </summary>
+  <div class="absolute right-0 top-full mt-1 w-[220px] p-3 rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
+    <p class="text-[10px] font-semibold tracking-[0.08em] text-ink-faintest mb-2">APPEARANCE</p>
+    <div class="flex bg-track rounded-[9px] p-[3px] gap-1 mb-3" data-theme-switch>
+      {{$theme := .Theme}}
+      <button type="button" data-theme="light" aria-pressed="{{if eq $theme "light"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"light"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "light"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Light</button>
+      <button type="button" data-theme="auto" aria-pressed="{{if eq $theme "auto"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"auto"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "auto"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Auto</button>
+      <button type="button" data-theme="dark" aria-pressed="{{if eq $theme "dark"}}true{{else}}false{{end}}"
+        hx-put="/settings/theme" hx-vals='{"theme":"dark"}' hx-swap="none"
+        class="flex-1 h-7 rounded-[6px] text-[12px] flex items-center justify-center {{if eq $theme "dark"}}bg-accent/10 text-accent font-semibold{{else}}text-ink-faint{{end}}">Dark</button>
+    </div>
+    <button type="button" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
+      <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+      Change password
+    </button>
+    <div class="h-px bg-border-card my-2"></div>
+    <form method="POST" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit" class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-expense hover:bg-expense/10 whitespace-nowrap">
+        <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25"/></svg>
+        Log out
+      </button>
+    </form>
+  </div>
+</details>
+{{end}}
