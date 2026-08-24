@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"context"
-	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +14,7 @@ import (
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
 	"expensetracker/internal/sqlcgen"
+	"expensetracker/internal/web"
 )
 
 func newTestDeps(t *testing.T) handlers.Deps {
@@ -29,11 +29,12 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 	t.Cleanup(pool.Close)
 
-	templates := map[string]*template.Template{
-		"auth":         template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/auth.html", "../web/templates/auth_card_body.html")),
-		"categories":   template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/categories.html", "../web/templates/category_row.html")),
-		"transactions": template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/transactions.html", "../web/templates/transaction_row.html")),
-		"dashboard":    template.Must(template.New("layout.html").Funcs(handlers.TemplateFuncs()).ParseFiles("../web/templates/layout.html", "../web/templates/dashboard.html")),
+	// The same sets cmd/server builds, so a template file added to one page
+	// and forgotten in the other can no longer make the tests pass against a
+	// shape the server never renders.
+	templates, err := web.Templates(handlers.TemplateFuncs())
+	if err != nil {
+		t.Fatalf("parse templates: %v", err)
 	}
 
 	return handlers.Deps{
