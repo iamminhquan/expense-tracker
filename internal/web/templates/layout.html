@@ -30,7 +30,10 @@
 </head>
 <body class="bg-app text-ink font-sans antialiased" hx-boost="true">
   {{if .ShowNav}}{{template "nav_desktop" .}}{{template "nav_mobile_header" .}}{{end}}
-  <main class="{{if .ShowNav}}pb-[76px] md:pb-10{{end}}">
+  {{/* No bottom reserve on mobile: nav_mobile is sticky and in flow, so it
+       carries its own clearance in its margins. A reserve here would stack
+       on top of that and re-open the gap it exists to close. */}}
+  <main class="{{if .ShowNav}}md:pb-10{{end}}">
     {{template "content" .}}
   </main>
   {{if .ShowNav}}{{template "nav_mobile" .}}{{end}}

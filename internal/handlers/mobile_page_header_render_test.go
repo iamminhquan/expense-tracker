@@ -131,16 +131,38 @@ func TestCategoriesPageBottomAddButtonRemoved(t *testing.T) {
 	}
 }
 
-func TestMainContentClearsOnlyTheBottomNavOnMobile(t *testing.T) {
-	body, err := os.ReadFile("../web/templates/layout.html")
+// The mobile bar is sticky and in flow at the end of <body>, not fixed: that
+// is what keeps its gap to the last card the same 14px on a long page and on
+// one too short to scroll. Its own margins are the whole clearance, so <main>
+// must not add a bottom reserve on mobile -- an earlier pb-[76px] there was
+// 8px short of a fixed bar and tucked the last card behind it, and any reserve
+// now would just re-open the gap on the dashboard.
+func TestMobileBottomNavIsStickyAndCarriesItsOwnClearance(t *testing.T) {
+	nav, err := os.ReadFile("../web/templates/nav.html")
+	if err != nil {
+		t.Fatalf("read nav.html: %v", err)
+	}
+	m := regexp.MustCompile(`(?s)\{\{define "nav_mobile"\}\}(.*?)\{\{end\}\}`).FindStringSubmatch(string(nav))
+	if m == nil {
+		t.Fatal("nav_mobile block not found in nav.html")
+	}
+	for _, want := range []string{"sticky", "bottom-4", "mt-[14px]", "mb-4", "mx-4"} {
+		if !strings.Contains(m[1], want) {
+			t.Errorf("nav_mobile lost %q; it needs all of sticky/bottom-4/mt-[14px]/mb-4/mx-4 to sit 14px under the last card on a short page and 16px off the bottom edge on a long one", want)
+		}
+	}
+	if strings.Contains(m[1], "fixed") {
+		t.Error("nav_mobile is fixed again, which strands the whole rest of the screen between the last card and the bar on a page too short to scroll")
+	}
+
+	layout, err := os.ReadFile("../web/templates/layout.html")
 	if err != nil {
 		t.Fatalf("read layout.html: %v", err)
 	}
-	if !strings.Contains(string(body), "pb-[76px]") {
-		t.Error("<main> no longer reserves pb-[76px] for the bottom nav now that the page-bottom button is gone")
-	}
-	if strings.Contains(string(body), "pb-24") {
-		t.Error("<main> still carries the old pb-24, sized to leave room for the removed page-bottom button")
+	for _, unwanted := range []string{"pb-[98px]", "pb-[76px]", "pb-24"} {
+		if strings.Contains(string(layout), unwanted) {
+			t.Errorf("<main> carries %s, a bottom reserve that stacks on top of the sticky nav's own margins", unwanted)
+		}
 	}
 }
 
