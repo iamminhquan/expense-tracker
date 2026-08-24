@@ -119,7 +119,7 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable"),
+		DatabaseURL:       getEnv("DATABASE_URL", "postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable"),
 		Port:              getEnv("PORT", "8080"),
 		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "session_id"),
 	}
@@ -232,7 +232,7 @@ func main() {
 - [ ] **Step 8: Write `.env.example`**
 
 ```
-DATABASE_URL=postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable
+DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable
 PORT=8080
 SESSION_COOKIE_NAME=session_id
 ```
@@ -466,12 +466,12 @@ go get github.com/jackc/pgx/v5
 
 - [ ] **Step 9: Run test to verify it fails (or skips) before migrations exist**
 
-Run: `docker compose up -d postgres && sleep 2 && TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -v`
+Run: `docker compose up -d postgres && sleep 2 && TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -v`
 Expected before Steps 2-6 are in place: FAIL (no migration files). Since this task writes the migrations first, run this after Step 6 to confirm PASS instead — the point of Step 9 is verifying the test harness works against a real DB.
 
 - [ ] **Step 10: Run test to verify it passes**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -v`
 Expected: PASS
 
 - [ ] **Step 11: Commit**
@@ -612,15 +612,15 @@ func TestCreateAndGetUser(t *testing.T) {
 
 - [ ] **Step 7: Run test to verify it fails**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -run TestCreateAndGetUser -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -run TestCreateAndGetUser -v`
 Expected: FAIL if migrations haven't been applied to this DB yet — apply them first with the migrate CLI or by re-running Task 2's test, then re-run.
 
 - [ ] **Step 8: Apply migrations and run test to verify it passes**
 
 Run:
 ```bash
-migrate -database "postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" -path internal/database/migrations up
-TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -run TestCreateAndGetUser -v
+migrate -database "postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" -path internal/database/migrations up
+TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/database/... -run TestCreateAndGetUser -v
 ```
 Expected: PASS
 
@@ -851,7 +851,7 @@ where `timeNow` is simply `time.Now` — add `"time"` to the imports and replace
 
 - [ ] **Step 4: Run test to verify it fails**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -run TestSessionLifecycle -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -run TestSessionLifecycle -v`
 Expected: FAIL — `auth.NewManager` undefined.
 
 - [ ] **Step 5: Write `internal/auth/session.go`**
@@ -931,7 +931,7 @@ func generateToken() (string, error) {
 
 Replace the malformed `if !expiresAt.After(...)` block in `session_test.go` with the corrected `time.Now()` version shown in Step 3, add `"time"` to imports, then run:
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -v`
 Expected: PASS (both `TestHashAndVerifyPassword` and `TestSessionLifecycle`)
 
 - [ ] **Step 7: Commit**
@@ -1028,7 +1028,7 @@ func TestRequireAuthAcceptsValidSession(t *testing.T) {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -run TestRequireAuth -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -run TestRequireAuth -v`
 Expected: FAIL — `auth.RequireAuth` / `auth.UserIDFromContext` undefined.
 
 - [ ] **Step 3: Write `internal/auth/middleware.go`**
@@ -1074,7 +1074,7 @@ func UserIDFromContext(ctx context.Context) (int64, bool) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/auth/... -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1239,7 +1239,7 @@ func TestRegisterThenLoginFlow(t *testing.T) {
 
 - [ ] **Step 5: Run test to verify it fails**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestRegisterThenLoginFlow -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestRegisterThenLoginFlow -v`
 Expected: FAIL — `handlers.Deps` has no fields `DB`/`Queries`/`Sessions`/`Templates`/`CookieName`, and `/register`/`/login` routes don't exist.
 
 - [ ] **Step 6: Extend `Deps` and write `internal/handlers/auth_handlers.go`**
@@ -1378,7 +1378,7 @@ func NewRouter(deps Deps) http.Handler {
 
 - [ ] **Step 8: Run test to verify it passes**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
 Expected: PASS
 
 - [ ] **Step 9: Wire real dependencies in `cmd/server/main.go`**
@@ -1544,7 +1544,7 @@ func TestCreateAndListCategories(t *testing.T) {
 
 - [ ] **Step 4: Run test to verify it fails**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestCreateAndListCategories -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestCreateAndListCategories -v`
 Expected: FAIL — `/categories` route doesn't exist.
 
 - [ ] **Step 5: Write `internal/web/templates/categories.html`**
@@ -1666,7 +1666,7 @@ func chiURLParam(r *http.Request, key string) string {
 
 - [ ] **Step 8: Run test to verify it passes**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
 Expected: PASS
 
 - [ ] **Step 9: Commit**
@@ -1799,7 +1799,7 @@ Add `"context"` and `"fmt"` to the imports at the top of the file alongside the 
 
 - [ ] **Step 4: Run test to verify it fails**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestTransactionCRUDAndIsolation -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestTransactionCRUDAndIsolation -v`
 Expected: FAIL — `/transactions` POST route doesn't exist yet.
 
 - [ ] **Step 5: Write `internal/web/templates/transactions.html`, `transaction_row.html`, `transaction_form.html`**
@@ -1953,7 +1953,7 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 
 - [ ] **Step 8: Run test to verify it passes**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
 Expected: PASS
 
 - [ ] **Step 9: Commit**
@@ -2060,7 +2060,7 @@ Add `"context"` to the imports.
 
 - [ ] **Step 4: Run test to verify it fails**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestDashboardShowsMonthlyTotal -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestDashboardShowsMonthlyTotal -v`
 Expected: FAIL — `/dashboard` route doesn't exist.
 
 - [ ] **Step 5: Write `internal/web/templates/dashboard.html`**
@@ -2153,7 +2153,7 @@ Note: the `{{.BreakdownLabelsJSON}}` etc. fields are pre-marshaled JSON strings;
 
 - [ ] **Step 8: Run test to verify it passes**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -v`
 Expected: PASS
 
 - [ ] **Step 9: Commit**
@@ -2258,12 +2258,12 @@ Add `"context"` to the imports.
 
 - [ ] **Step 3: Run test to verify it fails or passes**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestEndToEndRegisterAddTransactionSeeDashboard -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./internal/handlers/... -run TestEndToEndRegisterAddTransactionSeeDashboard -v`
 Expected: Should already PASS since all routes exist from prior tasks — this test locks in the full flow as a regression guard. If it fails, debug against the specific handler it touches (register/login/transactions/dashboard) rather than changing the test's assertions.
 
 - [ ] **Step 4: Run the full test suite**
 
-Run: `TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./... -v`
+Run: `TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./... -v`
 Expected: all PASS.
 
 - [ ] **Step 5: Commit**
@@ -2323,7 +2323,7 @@ services:
     depends_on:
       - postgres
     environment:
-      DATABASE_URL: postgres://expense:expense@postgres:5432/expense_tracker?sslmode=disable
+      DATABASE_URL: postgres://USER:PASSWORD@postgres:5432/expense_tracker?sslmode=disable
       PORT: 8080
     ports:
       - "8080:8080"
@@ -2343,7 +2343,7 @@ Run:
 ```bash
 docker compose up -d
 sleep 3
-migrate -database "postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" -path internal/database/migrations up
+migrate -database "postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" -path internal/database/migrations up
 curl -f http://localhost:8080/healthz
 ```
 Expected: `curl` prints `ok` and exits 0.

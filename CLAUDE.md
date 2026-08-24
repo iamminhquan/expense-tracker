@@ -37,7 +37,7 @@ Run the full test suite (DB-touching tests are skipped unless
 create/drop throwaway databases and rows):
 
 ```
-TEST_DATABASE_URL="postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable" go test ./...
+TEST_DATABASE_URL="postgres://USER:PASSWORD@localhost:5432/expense_tracker?sslmode=disable" go test ./...
 ```
 
 Run a single package or test:

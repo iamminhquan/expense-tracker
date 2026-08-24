@@ -1,9 +1,16 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strconv"
 )
+
+// ErrMissingDatabaseURL is returned when DATABASE_URL is unset or blank.
+// There is deliberately no fallback: a default would have to spell out a
+// username and password in the source tree, and would let the app connect
+// somewhere the operator never named rather than saying what is missing.
+var ErrMissingDatabaseURL = errors.New("DATABASE_URL is not set (copy .env.example to .env and fill it in)")
 
 type Config struct {
 	DatabaseURL       string
@@ -16,13 +23,21 @@ type Config struct {
 	SecureCookies bool
 }
 
-func Load() Config {
+// Load reads the configuration from the environment. Everything but the
+// database URL has a safe default, because nothing else here is a secret and
+// a missing PORT is not a reason to refuse to start.
+func Load() (Config, error) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return Config{}, ErrMissingDatabaseURL
+	}
+
 	return Config{
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://expense:expense@localhost:5432/expense_tracker?sslmode=disable"),
+		DatabaseURL:       databaseURL,
 		Port:              getEnv("PORT", "8080"),
 		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "session_id"),
 		SecureCookies:     getEnvBool("SECURE_COOKIES", false),
-	}
+	}, nil
 }
 
 func getEnv(key, fallback string) string {

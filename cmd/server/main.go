@@ -60,7 +60,10 @@ func runMigrations(dsn, migrationsPath string) error {
 }
 
 func main() {
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("configuration: %v", err)
+	}
 	ctx := context.Background()
 
 	if err := runMigrations(cfg.DatabaseURL, migrationsSourceURL); err != nil {
