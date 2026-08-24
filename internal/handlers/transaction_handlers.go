@@ -28,18 +28,20 @@ func categoriesOfType(categories []sqlcgen.Category, typ string) []sqlcgen.Categ
 
 // totalsOOBData assembles the payload for the "totals_oob" fragment that
 // every create/update/delete returns alongside its row: the refreshed nav
-// header balance, plus the transaction count and the month name the list's
-// empty state needs.
+// header balance, plus the transaction count, the month name the list's
+// empty state needs, and the pager, whose page count moves whenever a row is
+// added or removed.
 //
 // The header balance is the real current month even when the page is
 // browsing an older one, because that is what the widget in the layout
 // reports -- which is why it arrives as its own argument rather than being
 // derived from anything scoped to the browsed month.
-func totalsOOBData(header balanceSummary, count int, from pgtype.Date) map[string]any {
+func totalsOOBData(header balanceSummary, count int64, from pgtype.Date, p pager) map[string]any {
 	return map[string]any{
 		"HeaderBalance":   header,
 		"Count":           count,
 		"MonthLabelLower": monthLabelLower(from.Time),
+		"Pager":           p,
 	}
 }
 
@@ -59,15 +61,21 @@ func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64
 		http.Error(w, "could not load totals", http.StatusInternalServerError)
 		return nil, false
 	}
-	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{
+	count, err := deps.Queries.CountTransactionsForMonth(r.Context(), sqlcgen.CountTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
 	})
 	if err != nil {
 		http.Error(w, "could not load transactions", http.StatusInternalServerError)
 		return nil, false
 	}
-	return totalsOOBData(header, len(transactions), from), true
+	return totalsOOBData(header, count, from, newPager(pageFromRequest(r), count, monthValueOf(from))), true
 }
+
+// monthValueOf renders a resolved month bound back into the "YYYY-MM" the
+// pager's links carry, so a link built from a month that arrived as an empty
+// param still names the month it belongs to instead of dropping back to
+// today's on the next click.
+func monthValueOf(from pgtype.Date) string { return from.Time.Format("2006-01") }
 
 func transactionsPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +86,7 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		data, err := buildTransactionsPageData(r, deps, userID, r.URL.Query().Get("month"), "", "")
+		data, err := buildTransactionsPageData(r, deps, userID, r.URL.Query().Get("month"), pageParam(r.URL.Query().Get("page")), "", "")
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
 			return
@@ -96,11 +104,22 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 // full page and the transactions_month_section fragment the month dropdown
 // swaps in) needs: the selected month's transactions/totals, the dropdown's
 // list of other months with data, and the quick-add form's own state.
-func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam, quickAddError, selectedType string) (map[string]any, error) {
+func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam string, page int, quickAddError, selectedType string) (map[string]any, error) {
 	from, to := monthRangeFor(monthParam)
+
+	// The count comes first: which page exists at all depends on it, and the
+	// chip above the list reports the whole month rather than the page.
+	count, err := deps.Queries.CountTransactionsForMonth(r.Context(), sqlcgen.CountTransactionsForMonthParams{
+		UserID: userID, OccurredOn: from, OccurredOn_2: to,
+	})
+	if err != nil {
+		return nil, err
+	}
+	pgr := newPager(page, count, monthValueOf(from))
 
 	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
+		Limit: pageSize, Offset: pgr.Offset(),
 	})
 	if err != nil {
 		return nil, err
@@ -133,6 +152,8 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 
 	return map[string]any{
 		"Transactions":      transactions,
+		"TotalCount":        count,
+		"Pager":             pgr,
 		"MonthLabel":        monthLabel(from.Time),
 		"MonthLabelLower":   monthLabelLower(from.Time),
 		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
@@ -208,12 +229,44 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		return
 	}
 
+	w.Header().Set("HX-Trigger", "transaction-created")
+
+	// A transaction added while browsing page 2 or later belongs at the top of
+	// page 1, not wherever the user happened to be looking -- prepending it
+	// into the page they are on would file it under the wrong window entirely.
+	// So instead of the usual single row, re-render the whole month section at
+	// page 1 and point htmx at it. The month comes back out of the resolved
+	// bounds rather than the raw param, so the pushed URL is always a
+	// well-formed "YYYY-MM".
+	if pageFromRequest(r) > 1 {
+		from, _ := monthRangeFromRequest(r)
+		month := monthValueOf(from)
+		data, err := buildTransactionsPageData(r, deps, userID, month, 1, "", "")
+		if err != nil {
+			http.Error(w, "could not load transactions", http.StatusInternalServerError)
+			return
+		}
+		// The swap replaces the list section, which the nav sits outside of,
+		// so the balance widget still needs its own out-of-band update -- the
+		// same one freshTotals folds into the ordinary single-row response.
+		header, err := currentHeaderBalance(r, deps, userID)
+		if err != nil {
+			http.Error(w, "could not load totals", http.StatusInternalServerError)
+			return
+		}
+		data["HeaderBalance"] = header
+		w.Header().Set("HX-Retarget", "#transactions-month-section")
+		w.Header().Set("HX-Reswap", "outerHTML")
+		w.Header().Set("HX-Push-Url", "/transactions?month="+month)
+		renderNamed(w, r, deps, "transactions", "transactions_first_page_response", "transactions", data)
+		return
+	}
+
 	totals, ok := freshTotals(w, r, deps, userID)
 	if !ok {
 		return
 	}
 
-	w.Header().Set("HX-Trigger", "transaction-created")
 	renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
 		"Row": map[string]any{
 			"ID": created.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,

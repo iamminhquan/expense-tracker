@@ -41,6 +41,7 @@
   </div>
   {{end}}
 </div>
+<div id="transactions-pager" hx-swap-oob="true">{{template "transactions_pager" .Pager}}</div>
 {{end}}
 
 {{define "transaction_create_response"}}{{template "transaction_row" .Row}}{{template "totals_oob" .Totals}}{{end}}

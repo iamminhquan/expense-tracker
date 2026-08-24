@@ -188,10 +188,15 @@ func TestCreateTransactionRejectsForeignCategory(t *testing.T) {
 		t.Fatalf("get user B: %v", err)
 	}
 	monthStart := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC)
+	// The query is paginated, and a zero Limit would mean LIMIT 0 -- an empty
+	// result that would satisfy the "nothing leaked" assertion below no matter
+	// what the handler did. The limit is therefore set high enough to see
+	// everything this test could possibly have created.
 	txns, err := deps.Queries.ListTransactionsForMonth(ctx, sqlcgen.ListTransactionsForMonthParams{
 		UserID:       userB.ID,
 		OccurredOn:   pgtype.Date{Time: monthStart, Valid: true},
 		OccurredOn_2: pgtype.Date{Time: monthStart.AddDate(0, 1, 0), Valid: true},
+		Limit:        100,
 	})
 	if err != nil {
 		t.Fatalf("list user B transactions: %v", err)

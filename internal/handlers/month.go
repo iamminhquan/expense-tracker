@@ -45,15 +45,24 @@ func monthRangeFor(param string) (from, to pgtype.Date) {
 // empty/malformed fallback) when the header is absent or unparseable, e.g.
 // non-htmx requests.
 func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
+	return monthRangeFor(monthParamFromRequest(r))
+}
+
+// monthParamFromRequest pulls the raw "YYYY-MM" out of the originating page's
+// URL, for the callers that have to hand it on rather than resolve it -- a
+// create that re-renders the whole list section needs the month value the
+// pager's own links will be built from. Returns "" when there is nothing to
+// read, which every consumer treats as the current month.
+func monthParamFromRequest(r *http.Request) string {
 	raw := r.Header.Get("HX-Current-URL")
 	if raw == "" {
-		return currentMonthRange()
+		return ""
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return currentMonthRange()
+		return ""
 	}
-	return monthRangeFor(u.Query().Get("month"))
+	return u.Query().Get("month")
 }
 
 // vietnamLocation is loaded once at package init and reused by every

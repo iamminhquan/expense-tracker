@@ -75,6 +75,24 @@ func (q *Queries) CountTransactionsForCategory(ctx context.Context, arg CountTra
 	return count, err
 }
 
+const countTransactionsForMonth = `-- name: CountTransactionsForMonth :one
+SELECT COUNT(*)::bigint AS count FROM transactions
+WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3
+`
+
+type CountTransactionsForMonthParams struct {
+	UserID       int64       `json:"user_id"`
+	OccurredOn   pgtype.Date `json:"occurred_on"`
+	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
+}
+
+func (q *Queries) CountTransactionsForMonth(ctx context.Context, arg CountTransactionsForMonthParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTransactionsForMonth, arg.UserID, arg.OccurredOn, arg.OccurredOn_2)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -237,12 +255,15 @@ FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
 ORDER BY t.occurred_on DESC, t.id DESC
+LIMIT $4 OFFSET $5
 `
 
 type ListTransactionsForMonthParams struct {
 	UserID       int64       `json:"user_id"`
 	OccurredOn   pgtype.Date `json:"occurred_on"`
 	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
+	Limit        int32       `json:"limit"`
+	Offset       int32       `json:"offset"`
 }
 
 type ListTransactionsForMonthRow struct {
@@ -260,8 +281,19 @@ type ListTransactionsForMonthRow struct {
 	CategoryColor string             `json:"category_color"`
 }
 
+// ListTransactionsForMonth returns one page of the month's transactions. The
+// list page is paginated (see pageSize in internal/handlers/paging.go), so
+// every caller wants a window rather than the whole month; a caller that only
+// needs how many there are should use CountTransactionsForMonth instead of
+// reading rows it will throw away.
 func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransactionsForMonthParams) ([]ListTransactionsForMonthRow, error) {
-	rows, err := q.db.Query(ctx, listTransactionsForMonth, arg.UserID, arg.OccurredOn, arg.OccurredOn_2)
+	rows, err := q.db.Query(ctx, listTransactionsForMonth,
+		arg.UserID,
+		arg.OccurredOn,
+		arg.OccurredOn_2,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
