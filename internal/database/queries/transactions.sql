@@ -1,19 +1,47 @@
--- ListTransactionsForMonth returns one page of the month's transactions. The
+-- ListTransactionsForMonth returns one page of the month's transactions,
+-- narrowed by whatever the search box and filter panel are asking for. The
 -- list page is paginated (see pageSize in internal/handlers/paging.go), so
 -- every caller wants a window rather than the whole month; a caller that only
 -- needs how many there are should use CountTransactionsForMonth instead of
 -- reading rows it will throw away.
+--
+-- The five filter parameters are all nullable, and a NULL switches its own
+-- predicate off -- which is why the filters live here rather than in a second
+-- query: the unfiltered list is just this one with five NULLs, so there is
+-- only ever one code path to keep in step with CountTransactionsForMonth.
+-- That matters because the count is what the pager and the count chip are
+-- built from; a count that did not know about the filters would promise
+-- pages the list cannot fill.
+--
+-- The search is a case-insensitive substring match on the note. It cannot use
+-- an index and does not need to: the month window in front of it is already
+-- covered by idx_transactions_user_id_occurred_on, and one person's month is
+-- not a large scan.
 -- name: ListTransactionsForMonth :many
 SELECT t.*, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
+  AND (sqlc.narg('search')::text IS NULL OR t.description ILIKE '%' || sqlc.narg('search')::text || '%')
+  AND (sqlc.narg('type')::text IS NULL OR t.type = sqlc.narg('type')::text)
+  AND (sqlc.narg('category_id')::bigint IS NULL OR t.category_id = sqlc.narg('category_id')::bigint)
+  AND (sqlc.narg('min_amount')::bigint IS NULL OR t.amount >= sqlc.narg('min_amount')::bigint)
+  AND (sqlc.narg('max_amount')::bigint IS NULL OR t.amount <= sqlc.narg('max_amount')::bigint)
 ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT $4 OFFSET $5;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
+-- CountTransactionsForMonth answers how many rows the list above would have,
+-- and so carries exactly the same filter predicates. Keep the two WHERE
+-- clauses identical: everything that reads a page -- the pager's page count,
+-- the count chip, the empty state -- trusts that they agree.
 -- name: CountTransactionsForMonth :one
-SELECT COUNT(*)::bigint AS count FROM transactions
-WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3;
+SELECT COUNT(*)::bigint AS count FROM transactions t
+WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
+  AND (sqlc.narg('search')::text IS NULL OR t.description ILIKE '%' || sqlc.narg('search')::text || '%')
+  AND (sqlc.narg('type')::text IS NULL OR t.type = sqlc.narg('type')::text)
+  AND (sqlc.narg('category_id')::bigint IS NULL OR t.category_id = sqlc.narg('category_id')::bigint)
+  AND (sqlc.narg('min_amount')::bigint IS NULL OR t.amount >= sqlc.narg('min_amount')::bigint)
+  AND (sqlc.narg('max_amount')::bigint IS NULL OR t.amount <= sqlc.narg('max_amount')::bigint);
 
 -- name: CreateTransaction :one
 INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
