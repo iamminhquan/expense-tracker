@@ -203,3 +203,70 @@ document.addEventListener('click', function (evt) {
   });
   if (toggle) toggle.nextElementSibling.classList.toggle('hidden');
 });
+
+// The transactions filter panel (transaction_filters.html): its toggle, and
+// the badge counting how many filters are on.
+//
+// The badge is counted here rather than rendered by the server because the
+// form carries hx-preserve -- htmx keeps the node the browser already has, so
+// the server's copy is discarded on every swap after the first. The rule
+// matches txnFilters.ActiveCount in Go: the search, the type and the category
+// count one each, and the amount range counts one however many of its two
+// ends are filled in.
+document.addEventListener('click', function (evt) {
+  var toggle = evt.target.closest && evt.target.closest('[data-filter-panel-toggle]');
+  if (!toggle) return;
+  var panel = toggle.closest('form').querySelector('[data-filter-panel]');
+  if (panel) panel.classList.toggle('hidden');
+});
+
+document.addEventListener('input', updateFilterBadge);
+document.addEventListener('change', updateFilterBadge);
+
+function updateFilterBadge(evt) {
+  var form = evt.target.closest && evt.target.closest('#transaction-filters');
+  if (!form) return;
+  var badge = form.querySelector('#filter-badge');
+  if (!badge) return;
+  var value = function (name) {
+    var el = form.querySelector('[name="' + name + '"]');
+    return el && el.value.trim() !== '';
+  };
+  var count = ['q', 'type', 'category'].filter(value).length + (value('min') || value('max') ? 1 : 0);
+  badge.textContent = count;
+  badge.classList.toggle('hidden', count === 0);
+}
+
+// Give the filter controls their focus back after a swap.
+//
+// The filter form carries hx-preserve, so htmx keeps the node the browser
+// already has -- values and caret positions survive. What does not survive is
+// focus: preserving means moving that node into the freshly rendered content,
+// and a moved element is blurred by the browser. For a search box that fires
+// as you type, that lands halfway through a word, so the next keystroke would
+// go nowhere.
+(function () {
+  var pending = null;
+
+  document.addEventListener('htmx:beforeSwap', function () {
+    var el = document.activeElement;
+    if (!el || !el.closest || !el.closest('#transaction-filters')) return;
+    pending = { el: el, start: el.selectionStart, end: el.selectionEnd };
+  });
+
+  document.addEventListener('htmx:afterSwap', function () {
+    if (!pending) return;
+    var was = pending;
+    pending = null;
+    if (!was.el.isConnected) return;
+    was.el.focus();
+    // Only the text-like inputs report a selection; a <select> gives null.
+    if (was.start !== null && was.el.setSelectionRange) {
+      try {
+        was.el.setSelectionRange(was.start, was.end);
+      } catch (e) {
+        /* an input type that does not support selection -- focus is enough */
+      }
+    }
+  });
+})();

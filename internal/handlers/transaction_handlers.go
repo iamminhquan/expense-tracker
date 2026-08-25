@@ -243,17 +243,23 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 
 	w.Header().Set("HX-Trigger", "transaction-created")
 
-	// A transaction added while browsing page 2 or later belongs at the top of
-	// page 1, not wherever the user happened to be looking -- prepending it
-	// into the page they are on would file it under the wrong window entirely.
-	// So instead of the usual single row, re-render the whole month section at
-	// page 1 and point htmx at it. The month comes back out of the resolved
-	// bounds rather than the raw param, so the pushed URL is always a
-	// well-formed "YYYY-MM".
-	if pageFromRequest(r) > 1 {
+	// Two situations where the new row does not belong where the user is
+	// looking, and both are answered the same way: re-render the whole month
+	// section at page 1 and point htmx at it, instead of the usual single row.
+	//
+	// Past the first page, a new transaction belongs at the top of page 1, not
+	// in whichever window the user happened to be browsing. With a filter on,
+	// it may not belong in the list at all -- prepending it would show a row
+	// that does not match what the list claims to be showing.
+	//
+	// The month comes back out of the resolved bounds rather than the raw
+	// param, so the pushed URL is always a well-formed "YYYY-MM", and it keeps
+	// the filters so a reload lands on the same view.
+	filters := filtersFromHXCurrentURL(r)
+	if pageFromRequest(r) > 1 || filters.Any() {
 		from, _ := monthRangeFromRequest(r)
 		month := monthValueOf(from)
-		data, err := buildTransactionsPageData(r, deps, userID, month, 1, filtersFromHXCurrentURL(r), "", "")
+		data, err := buildTransactionsPageData(r, deps, userID, month, 1, filters, "", "")
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
 			return
@@ -269,7 +275,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		data["HeaderBalance"] = header
 		w.Header().Set("HX-Retarget", "#transactions-month-section")
 		w.Header().Set("HX-Reswap", "outerHTML")
-		w.Header().Set("HX-Push-Url", "/transactions?month="+month)
+		w.Header().Set("HX-Push-Url", transactionsURL(month, 1, filters))
 		renderNamed(w, r, deps, "transactions", "transactions_first_page_response", "transactions", data)
 		return
 	}

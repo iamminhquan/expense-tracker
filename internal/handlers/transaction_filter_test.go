@@ -3,6 +3,8 @@ package handlers_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -221,5 +223,222 @@ func TestTheCountChipReportsWhatTheFilterMatched(t *testing.T) {
 	}
 	if body := getTransactions(t, router, f.cookie, "?q=coffee"); !strings.Contains(body, "2 transactions") {
 		t.Error("expected the chip to report the 2 matches, not the whole month")
+	}
+}
+
+// getTransactionsFragment issues the request htmx issues for the list, and
+// hands back the response so a test can look at its headers as well as its
+// body.
+func getTransactionsFragment(t *testing.T, router http.Handler, cookie *http.Cookie, query string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/transactions"+query, nil)
+	req.Header.Set("HX-Request", "true")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /transactions%s: expected 200, got %d", query, rec.Code)
+	}
+	return rec
+}
+
+func TestTheFilterFormShowsWhatIsBeingFiltered(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-form@example.com")
+
+	category := strconv.FormatInt(f.foodID, 10)
+	body := getTransactions(t, router, f.cookie, "?q=coffee&type=expense&category="+category+"&min=1000&max=90000")
+
+	for _, want := range []string{
+		`name="q"`, `value="coffee"`,
+		`name="type"`, `name="category"`, `name="min"`, `name="max"`,
+		`value="1000"`, `value="90000"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected the filter form to carry %s", want)
+		}
+	}
+	if !strings.Contains(body, `value="`+category+`" selected`) {
+		t.Error("expected the filtered category to come back selected")
+	}
+	if !strings.Contains(body, `value="expense" selected`) {
+		t.Error("expected the filtered type to come back selected")
+	}
+}
+
+func TestTheFilterBadgeCountsWhatIsActive(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-badge@example.com")
+
+	plain := getTransactions(t, router, f.cookie, "")
+	if strings.Contains(plain, `id="filter-badge"><span`) {
+		t.Error("expected no badge while nothing is filtered")
+	}
+
+	filtered := getTransactions(t, router, f.cookie, "?q=coffee&type=expense&min=1000")
+	if !strings.Contains(filtered, ">3<") {
+		t.Error("expected the badge to count search, type and the amount range as 3")
+	}
+}
+
+// The two empty lists are different situations and say different things: a
+// month with nothing in it invites you to add something, a filter that
+// matched nothing invites you to widen it.
+func TestAnEmptyFilterResultSaysSoRatherThanClaimingTheMonthIsEmpty(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-empty@example.com")
+
+	body := getTransactions(t, router, f.cookie, "?q=nothingmatchesthis")
+
+	if !strings.Contains(body, "No transactions match") {
+		t.Error("expected the empty state to blame the filters")
+	}
+	if strings.Contains(body, "No transactions in") {
+		t.Error("expected the month's own empty state to stay out of a filtered list")
+	}
+	if !strings.Contains(body, "Clear filters") {
+		t.Error("expected a way out of a filter that matched nothing")
+	}
+}
+
+// The filter controls submit their whole form, so the URL htmx would push
+// carries an empty parameter for every blank control. The handler pushes a
+// canonical one instead.
+func TestAFilteredFragmentPushesACanonicalURL(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-push@example.com")
+
+	rec := getTransactionsFragment(t, router, f.cookie, "?q=coffee&type=&category=&min=&max=")
+
+	want := "/transactions?month=" + time.Now().Format("2006-01") + "&q=coffee"
+	if got := rec.Header().Get("HX-Push-Url"); got != want {
+		t.Errorf("expected pushed URL %q, got %q", want, got)
+	}
+}
+
+// Switching month has to carry the filters along, or the list would silently
+// widen under the user. Both pickers -- the desktop dropdown and the mobile
+// one -- do it by including the filter form in their own request.
+func TestTheMonthPickerCarriesTheFiltersAlong(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-carry@example.com")
+
+	body := getTransactions(t, router, f.cookie, "?q=coffee")
+
+	if strings.Count(body, `hx-include="#transaction-filters"`) < 2 {
+		t.Error("expected both month pickers to include the filter form")
+	}
+}
+
+// Turning a page has to carry them too, which the fixture above is too small
+// to show: with only four transactions there is no pager to inspect.
+func TestThePagerCarriesTheFiltersAlong(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	cookie := pagingUser(t, deps, router, "filter-pager@example.com", 30)
+
+	body := getTransactions(t, router, cookie, "?q=Txn")
+
+	if !strings.Contains(body, "Page 1 of 2") {
+		t.Fatal("expected 30 matching rows to still be paged")
+	}
+	// Only the pager's own markup counts here: the month pickers elsewhere on
+	// the page carry the same attribute, and would mask its absence.
+	pagerHTML := body[strings.Index(body, `id="transactions-pager"`):]
+	pagerHTML = pagerHTML[:strings.Index(pagerHTML, "</div>")]
+	if !strings.Contains(pagerHTML, `hx-include="#transaction-filters"`) {
+		t.Errorf("expected the pager to include the filter form, got:\n%s", pagerHTML)
+	}
+}
+
+// idOfTransaction finds a seeded row by its note.
+func idOfTransaction(t *testing.T, deps handlers.Deps, userID int64, note string) int64 {
+	t.Helper()
+	var id int64
+	err := deps.DB.QueryRow(context.Background(),
+		"SELECT id FROM transactions WHERE user_id = $1 AND description = $2", userID, note).Scan(&id)
+	if err != nil {
+		t.Fatalf("find %q: %v", note, err)
+	}
+	return id
+}
+
+// A transaction added while a filter is on may not belong in the list it was
+// added from, so the create answers with the whole section rebuilt rather
+// than prepending a row that does not match -- the same answer it already
+// gives a create issued from page 2.
+func TestCreatingWhileFilteredRebuildsTheListInsteadOfPrependingARow(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-create@example.com")
+
+	form := url.Values{
+		"category_id": {strconv.FormatInt(f.foodID, 10)},
+		"amount":      {"31000"},
+		"type":        {"expense"},
+		"description": {"Bought a notebook"},
+		"occurred_on": {time.Now().Format("2006-01-02")},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/transactions", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	req.Header.Set("HX-Current-URL", "http://example.test/transactions?q=coffee")
+	req.AddCookie(f.cookie)
+	withCSRF(req, csrfTokenFor(t, router))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `id="transactions-month-section"`) {
+		t.Error("expected the whole filtered section back, not a single row")
+	}
+	if rec.Header().Get("HX-Retarget") != "#transactions-month-section" {
+		t.Errorf("expected htmx to be retargeted at the section, got %q", rec.Header().Get("HX-Retarget"))
+	}
+	if strings.Contains(body, "Bought a notebook") {
+		t.Error("expected a row that does not match the filter to stay out of the list")
+	}
+	if !strings.Contains(body, "Morning coffee") {
+		t.Error("expected the filter to still be applied to the rebuilt list")
+	}
+	if want := "/transactions?month=" + time.Now().Format("2006-01") + "&q=coffee"; rec.Header().Get("HX-Push-Url") != want {
+		t.Errorf("expected the pushed URL to keep the filter, got %q", rec.Header().Get("HX-Push-Url"))
+	}
+}
+
+// Deleting a row refreshes the count chip from the originating page's URL,
+// filters included -- otherwise the chip would jump to the whole month's
+// figure the moment anything was deleted.
+func TestDeletingWhileFilteredLeavesAFilteredCount(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-delete@example.com")
+
+	id := idOfTransaction(t, deps, f.userID, "Bus ticket")
+	req := httptest.NewRequest(http.MethodDelete, "/transactions/"+strconv.FormatInt(id, 10), nil)
+	req.Header.Set("HX-Request", "true")
+	req.Header.Set("HX-Current-URL", "http://example.test/transactions?q=coffee")
+	req.AddCookie(f.cookie)
+	withCSRF(req, csrfTokenFor(t, router))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "2 transactions") {
+		t.Error("expected the count to stay with the 2 rows the filter matched")
+	}
+	if strings.Contains(body, "3 transactions") {
+		t.Error("expected the count to ignore rows the filter excludes")
 	}
 }
