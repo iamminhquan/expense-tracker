@@ -217,10 +217,10 @@ hashing/verification. Sessions last 7 days.
 - Pull request titles are in English. PR bodies are in Vietnamese and should
   briefly summarize what the PR does.
 - Branching: small, low-risk changes (a typo, a one-line style tweak, a
-  doc-only edit) may be committed straight to `master`. Anything larger or
+  doc-only edit) may be committed straight to `main`. Anything larger or
   riskier — new features, multi-file refactors, behavior changes — goes on
   a `<type>/<short-description>` branch (e.g. `feat/mobile-ux-polish`) and
-  gets merged into `master` (`git merge --no-ff`) once done, rather than
+  gets merged into `main` (`git merge --no-ff`) once done, rather than
   committed directly.
 - Commit messages and PR descriptions must not include a "🤖 Generated with
   Claude Code" footer or a Claude Code session link.

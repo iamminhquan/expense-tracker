@@ -17,14 +17,14 @@ services:
     # Singapore is Render's closest region to Vietnam. Create the Neon project
     # in the same region so a query doesn't cross an ocean on every request.
     region: singapore
-    branch: master
+    branch: main
     # Templates and static assets are embedded in the binary, but the
     # migrations are still read from a path relative to the working
     # directory, so the binary is built into -- and started from -- the repo
     # root, which is where Render runs both commands.
     buildCommand: go build -o server ./cmd/server
     startCommand: ./server
-    # Every push to master rebuilds and redeploys. The server applies pending
+    # Every push to main rebuilds and redeploys. The server applies pending
     # migrations at startup (see runMigrations in cmd/server/main.go), so a
     # schema change ships with the same push -- there is no separate migrate
     # step to run against production by hand.
