@@ -182,3 +182,28 @@ func TestTheExportLinkOptsOutOfHxBoostSoTheBrowserDownloadsIt(t *testing.T) {
 		t.Errorf("export link is %s, want it to carry the active filters", link)
 	}
 }
+
+// Below md the sticky page header already carries a title, a month picker
+// and an add button, so the export goes under the list instead -- a fourth
+// control in that row is what overflows a 375px screen. Both copies render
+// from one "export_link" block, so this checks the mobile one is really
+// there and really hidden from desktop, not that the markup was pasted
+// twice and drifted.
+func TestTheExportLinkIsReachableOnMobileWithoutCrowdingTheStickyHeader(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "export-mobile@example.com")
+
+	body := getTransactions(t, router, f.cookie, "")
+
+	wrapper := regexp.MustCompile(`(?s)<div data-export-mobile class="([^"]*)">(.*?)</div>`).FindStringSubmatch(body)
+	if wrapper == nil {
+		t.Fatal("no element carrying data-export-mobile: the export is desktop-only")
+	}
+	if !strings.Contains(wrapper[1], "md:hidden") {
+		t.Errorf("mobile export wrapper classes are %q, want md:hidden so it does not double up on desktop", wrapper[1])
+	}
+	if !strings.Contains(wrapper[2], `href="/transactions/export?`) || !strings.Contains(wrapper[2], `hx-boost="false"`) {
+		t.Errorf("mobile export wrapper holds %q, want the boost-opted-out export link", wrapper[2])
+	}
+}
