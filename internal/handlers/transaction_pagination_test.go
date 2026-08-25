@@ -86,11 +86,11 @@ func TestTransactionsFirstPageShowsOnlyItsOwnRows(t *testing.T) {
 	if !strings.Contains(body, "Txn 30") {
 		t.Error("expected the newest transaction on page 1")
 	}
-	if !strings.Contains(body, "Txn 06") {
-		t.Error("expected the 25th newest transaction to still be on page 1")
+	if !strings.Contains(body, "Txn 21") {
+		t.Error("expected the 10th newest transaction to still be on page 1")
 	}
-	if strings.Contains(body, "Txn 05") {
-		t.Error("expected the 26th newest transaction to be held back for page 2")
+	if strings.Contains(body, "Txn 20") {
+		t.Error("expected the 11th newest transaction to be held back for page 2")
 	}
 }
 
@@ -101,14 +101,17 @@ func TestTransactionsSecondPageShowsTheRemainingRows(t *testing.T) {
 
 	body := getTransactions(t, router, cookie, "?page=2")
 
-	if !strings.Contains(body, "Txn 05") {
-		t.Error("expected the 26th newest transaction on page 2")
+	if !strings.Contains(body, "Txn 20") {
+		t.Error("expected the 11th newest transaction on page 2")
 	}
-	if !strings.Contains(body, "Txn 01") {
-		t.Error("expected the oldest transaction on page 2")
+	if !strings.Contains(body, "Txn 11") {
+		t.Error("expected the 20th newest transaction on page 2")
 	}
-	if strings.Contains(body, "Txn 06") {
+	if strings.Contains(body, "Txn 21") {
 		t.Error("expected page 1's rows to be gone from page 2")
+	}
+	if strings.Contains(body, "Txn 01") {
+		t.Error("expected the oldest transaction to be held back for the last page")
 	}
 }
 
@@ -130,7 +133,7 @@ func TestTransactionsPagerLabelsTheCurrentPageAndItsNeighbours(t *testing.T) {
 	cookie := pagingUser(t, deps, router, "paging-labels@example.com", 30)
 
 	first := getTransactions(t, router, cookie, "")
-	if !strings.Contains(first, "Page 1 of 2") {
+	if !strings.Contains(first, "Page 1 of 3") {
 		t.Error("expected page 1 to say which page of how many it is")
 	}
 	if !strings.Contains(first, "page=2") {
@@ -140,15 +143,15 @@ func TestTransactionsPagerLabelsTheCurrentPageAndItsNeighbours(t *testing.T) {
 		t.Error("expected page 1 to offer no previous page")
 	}
 
-	second := getTransactions(t, router, cookie, "?page=2")
-	if !strings.Contains(second, "Page 2 of 2") {
-		t.Error("expected page 2 to say which page of how many it is")
+	last := getTransactions(t, router, cookie, "?page=3")
+	if !strings.Contains(last, "Page 3 of 3") {
+		t.Error("expected the last page to say which page of how many it is")
 	}
-	if !strings.Contains(second, "page=1") {
-		t.Error("expected page 2 to offer a link back to page 1")
+	if !strings.Contains(last, "page=2") {
+		t.Error("expected the last page to offer a link back to page 2")
 	}
-	if strings.Contains(second, "page=3") {
-		t.Error("expected page 2 to offer no next page")
+	if strings.Contains(last, "page=4") {
+		t.Error("expected the last page to offer no next page")
 	}
 }
 
@@ -235,7 +238,7 @@ func TestCreatingFromALaterPageReturnsTheFirstPage(t *testing.T) {
 	if !strings.Contains(body, "Txn 30") {
 		t.Error("expected page 1's rows in the response, not page 2's")
 	}
-	if strings.Contains(body, "Txn 05") {
+	if strings.Contains(body, "Txn 20") {
 		t.Error("expected page 2's rows to be gone from the response")
 	}
 	// The section swap replaces the list, not the nav, so the balance widget

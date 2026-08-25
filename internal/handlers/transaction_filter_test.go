@@ -344,7 +344,7 @@ func TestThePagerCarriesTheFiltersAlong(t *testing.T) {
 
 	body := getTransactions(t, router, cookie, "?q=Txn")
 
-	if !strings.Contains(body, "Page 1 of 2") {
+	if !strings.Contains(body, "Page 1 of 3") {
 		t.Fatal("expected 30 matching rows to still be paged")
 	}
 	// Only the pager's own markup counts here: the month pickers elsewhere on
