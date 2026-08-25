@@ -76,18 +76,48 @@ func (q *Queries) CountTransactionsForCategory(ctx context.Context, arg CountTra
 }
 
 const countTransactionsForMonth = `-- name: CountTransactionsForMonth :one
-SELECT COUNT(*)::bigint AS count FROM transactions
-WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3
+SELECT COUNT(*)::bigint AS count
+FROM transactions t
+JOIN categories c ON c.id = t.category_id
+WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
+  AND ($4::text IS NULL
+       OR t.description ILIKE '%' || $4::text || '%'
+       OR (c.slug IS NULL AND c.name ILIKE '%' || $4::text || '%')
+       OR c.slug = ANY($5::text[]))
+  AND ($6::text IS NULL OR t.type = $6::text)
+  AND ($7::bigint IS NULL OR t.category_id = $7::bigint)
+  AND ($8::bigint IS NULL OR t.amount >= $8::bigint)
+  AND ($9::bigint IS NULL OR t.amount <= $9::bigint)
 `
 
 type CountTransactionsForMonthParams struct {
 	UserID       int64       `json:"user_id"`
 	OccurredOn   pgtype.Date `json:"occurred_on"`
 	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
+	Search       pgtype.Text `json:"search"`
+	SearchSlugs  []string    `json:"search_slugs"`
+	Type         pgtype.Text `json:"type"`
+	CategoryID   pgtype.Int8 `json:"category_id"`
+	MinAmount    pgtype.Int8 `json:"min_amount"`
+	MaxAmount    pgtype.Int8 `json:"max_amount"`
 }
 
+// CountTransactionsForMonth answers how many rows the list above would have,
+// and so carries exactly the same filter predicates. Keep the two WHERE
+// clauses identical: everything that reads a page -- the pager's page count,
+// the count chip, the empty state -- trusts that they agree.
 func (q *Queries) CountTransactionsForMonth(ctx context.Context, arg CountTransactionsForMonthParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTransactionsForMonth, arg.UserID, arg.OccurredOn, arg.OccurredOn_2)
+	row := q.db.QueryRow(ctx, countTransactionsForMonth,
+		arg.UserID,
+		arg.OccurredOn,
+		arg.OccurredOn_2,
+		arg.Search,
+		arg.SearchSlugs,
+		arg.Type,
+		arg.CategoryID,
+		arg.MinAmount,
+		arg.MaxAmount,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -254,16 +284,30 @@ SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurr
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
+  AND ($4::text IS NULL
+       OR t.description ILIKE '%' || $4::text || '%'
+       OR (c.slug IS NULL AND c.name ILIKE '%' || $4::text || '%')
+       OR c.slug = ANY($5::text[]))
+  AND ($6::text IS NULL OR t.type = $6::text)
+  AND ($7::bigint IS NULL OR t.category_id = $7::bigint)
+  AND ($8::bigint IS NULL OR t.amount >= $8::bigint)
+  AND ($9::bigint IS NULL OR t.amount <= $9::bigint)
 ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT $4 OFFSET $5
+LIMIT $11 OFFSET $10
 `
 
 type ListTransactionsForMonthParams struct {
 	UserID       int64       `json:"user_id"`
 	OccurredOn   pgtype.Date `json:"occurred_on"`
 	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
-	Limit        int32       `json:"limit"`
+	Search       pgtype.Text `json:"search"`
+	SearchSlugs  []string    `json:"search_slugs"`
+	Type         pgtype.Text `json:"type"`
+	CategoryID   pgtype.Int8 `json:"category_id"`
+	MinAmount    pgtype.Int8 `json:"min_amount"`
+	MaxAmount    pgtype.Int8 `json:"max_amount"`
 	Offset       int32       `json:"offset"`
+	Limit        int32       `json:"limit"`
 }
 
 type ListTransactionsForMonthRow struct {
@@ -281,18 +325,51 @@ type ListTransactionsForMonthRow struct {
 	CategoryColor string             `json:"category_color"`
 }
 
-// ListTransactionsForMonth returns one page of the month's transactions. The
+// ListTransactionsForMonth returns one page of the month's transactions,
+// narrowed by whatever the search box and filter panel are asking for. The
 // list page is paginated (see pageSize in internal/handlers/paging.go), so
 // every caller wants a window rather than the whole month; a caller that only
 // needs how many there are should use CountTransactionsForMonth instead of
 // reading rows it will throw away.
+//
+// The five filter parameters are all nullable, and a NULL switches its own
+// predicate off -- which is why the filters live here rather than in a second
+// query: the unfiltered list is just this one with five NULLs, so there is
+// only ever one code path to keep in step with CountTransactionsForMonth.
+// That matters because the count is what the pager and the count chip are
+// built from; a count that did not know about the filters would promise
+// pages the list cannot fill.
+//
+// The search is a case-insensitive substring match, and it covers the category
+// as well as the note, because both are on screen in every row: someone who
+// can see "Transport" in the list will type it into the search box.
+//
+// Which is why the category arrives as two predicates rather than one. A
+// category the user created shows the name they typed, so the name column is
+// what to match -- but only for those, which is what the NULL slug tests. A
+// default category shows a label that lives in internal/i18n, keyed by slug,
+// and its name column is only ever a fallback; matching it would search
+// whatever a migration left there instead of what the row displays. So the
+// handler translates the term into the slugs whose labels contain it and
+// passes those down, keeping the match on the one thing that identifies a
+// default category.
+//
+// None of this can use an index and none of it needs to: the month window in
+// front of it is already covered by idx_transactions_user_id_occurred_on, and
+// one person's month is not a large scan.
 func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransactionsForMonthParams) ([]ListTransactionsForMonthRow, error) {
 	rows, err := q.db.Query(ctx, listTransactionsForMonth,
 		arg.UserID,
 		arg.OccurredOn,
 		arg.OccurredOn_2,
-		arg.Limit,
+		arg.Search,
+		arg.SearchSlugs,
+		arg.Type,
+		arg.CategoryID,
+		arg.MinAmount,
+		arg.MaxAmount,
 		arg.Offset,
+		arg.Limit,
 	)
 	if err != nil {
 		return nil, err

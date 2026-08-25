@@ -1,0 +1,87 @@
+{{/* The search box and filter panel above the transactions list.
+
+     It renders inside transactions_month_section -- so that on mobile it
+     lands under the sticky page header rather than above it -- but carries
+     hx-preserve, which hands htmx the existing node instead of the one the
+     server just rendered. That matters for one control in particular: the
+     search box fires as the user types, and a swap that replaced it would
+     take the caret and any in-flight Vietnamese IME composition with it.
+     Being preserved is also why the badge below is counted in app.js rather
+     than here -- the server's copy of this element is discarded on every
+     swap, so only the first render of the badge is ever the server's.
+
+     The month is deliberately not one of these inputs. It would go stale the
+     moment the picker switched months, since this element survives that swap;
+     it lives in #current-month-input inside the swapped section instead, and
+     the controls here include both. */}}
+
+{{define "transaction_filters"}}
+<form id="transaction-filters" hx-preserve="true" onsubmit="return false"
+  class="flex flex-col gap-3">
+  <div class="flex items-center gap-2">
+    <input type="search" name="q" value="{{.Filters.Search}}" placeholder="Search notes" aria-label="Search notes"
+      hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
+      hx-target="#transactions-month-section" hx-swap="outerHTML"
+      hx-trigger="input changed delay:500ms, search"
+      class="flex-1 min-w-0 h-9 px-3 rounded-lg border border-border-input bg-surface text-[14px] text-ink placeholder:text-placeholder">
+    <button type="button" data-filter-panel-toggle aria-label="Filters"
+      class="h-9 px-3 shrink-0 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-[6px]">
+      Filters
+      <span id="filter-badge" class="{{if not .FilterCount}}hidden {{end}}min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-on-solid text-[11px] font-semibold flex items-center justify-center">{{.FilterCount}}</span>
+    </button>
+  </div>
+
+  <div data-filter-panel class="{{if not .Filtering}}hidden {{end}}flex flex-col md:flex-row md:items-end gap-3">
+    <div class="flex flex-col gap-[6px] md:w-[150px] shrink-0">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Type</label>
+      <select name="type" hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
+        hx-target="#transactions-month-section" hx-swap="outerHTML" hx-trigger="change"
+        class="h-9 px-2 rounded-lg border border-border-input bg-surface text-[13px] text-ink w-full">
+        <option value="">All types</option>
+        <option value="expense" {{if eq .Filters.Type "expense"}}selected{{end}}>Expense</option>
+        <option value="income" {{if eq .Filters.Type "income"}}selected{{end}}>Income</option>
+      </select>
+    </div>
+
+    <div class="flex flex-col gap-[6px] md:w-[190px] shrink-0">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Category</label>
+      <select name="category" hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
+        hx-target="#transactions-month-section" hx-swap="outerHTML" hx-trigger="change"
+        class="h-9 px-2 rounded-lg border border-border-input bg-surface text-[13px] text-ink w-full">
+        <option value="">All categories</option>
+        {{$selected := .Filters.Category}}
+        {{range .AllCategories}}<option value="{{.ID}}" {{if eq .ID $selected}}selected{{end}}>{{catName .Slug .Name}}</option>{{end}}
+      </select>
+    </div>
+
+    {{/* Both ends of the range fire on change rather than on every
+         keystroke: a partly-typed amount ("5" on the way to "50000") is a
+         filter nobody meant to run. */}}
+    <div class="flex flex-col gap-[6px] flex-1 min-w-0">
+      <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Amount (₫)</label>
+      <div class="flex items-center gap-2">
+        <input name="min" type="text" inputmode="numeric" value="{{if .Filters.MinAmount}}{{.Filters.MinAmount}}{{end}}" placeholder="From" aria-label="Minimum amount"
+          hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
+          hx-target="#transactions-month-section" hx-swap="outerHTML" hx-trigger="change"
+          class="flex-1 min-w-0 h-9 px-3 rounded-lg border border-border-input bg-surface font-mono text-[13px] text-ink placeholder:text-placeholder">
+        <span class="text-[13px] text-ink-faint shrink-0">–</span>
+        <input name="max" type="text" inputmode="numeric" value="{{if .Filters.MaxAmount}}{{.Filters.MaxAmount}}{{end}}" placeholder="To" aria-label="Maximum amount"
+          hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
+          hx-target="#transactions-month-section" hx-swap="outerHTML" hx-trigger="change"
+          class="flex-1 min-w-0 h-9 px-3 rounded-lg border border-border-input bg-surface font-mono text-[13px] text-ink placeholder:text-placeholder">
+      </div>
+    </div>
+
+    {{template "clear_filters_link" .}}
+  </div>
+</form>
+{{end}}
+
+{{/* Clearing goes through a real navigation rather than an htmx swap, and
+     hx-boost="false" is what makes it one: this form is preserved across
+     every swap on the page, boosted ones included, so nothing short of a
+     fresh document would put the controls back to empty. */}}
+{{define "clear_filters_link"}}
+<a href="/transactions?month={{.MonthValue}}" hx-boost="false"
+  class="h-9 px-3 shrink-0 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink-faint flex items-center justify-center">Clear filters</a>
+{{end}}

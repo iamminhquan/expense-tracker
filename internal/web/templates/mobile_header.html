@@ -36,9 +36,9 @@
         <button type="button" hx-get="/dashboard?month={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
         {{end}}
         {{else}}
-        <button type="button" hx-get="/transactions?month={{.CurrentMonthValue}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
+        <button type="button" hx-get="/transactions?month={{.CurrentMonthValue}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
         {{range .AvailableMonths}}
-        <button type="button" hx-get="/transactions?month={{.Value}}" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
+        <button type="button" hx-get="/transactions?month={{.Value}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
         {{end}}
         {{end}}
       </div>

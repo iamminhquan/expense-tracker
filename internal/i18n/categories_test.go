@@ -64,3 +64,46 @@ func TestEverySeededSlugHasATranslation(t *testing.T) {
 		}
 	}
 }
+
+// The transactions search box matches category names as well as notes, and
+// what it has to match is the name the row displays -- which for a default
+// category is the label here, not the name column.
+func TestSlugsMatchingFindsDefaultsByTheirDisplayedName(t *testing.T) {
+	got := SlugsMatching("transport")
+	if len(got) != 1 || got[0] != "transport" {
+		t.Errorf(`expected ["transport"], got %v`, got)
+	}
+}
+
+func TestSlugsMatchingIsCaseInsensitiveAndPartial(t *testing.T) {
+	if got := SlugsMatching("DRINK"); len(got) != 1 || got[0] != "food_drink" {
+		t.Errorf(`expected ["food_drink"] for a partial, case-folded term, got %v`, got)
+	}
+}
+
+// "Other" labels two defaults -- one on each side of the ledger -- and a
+// search for it should reach both.
+func TestSlugsMatchingReturnsEverySlugTheTermLabels(t *testing.T) {
+	got := SlugsMatching("other")
+	found := map[string]bool{}
+	for _, s := range got {
+		found[s] = true
+	}
+	if !found["other"] || !found["other_income"] {
+		t.Errorf(`expected both "other" and "other_income", got %v`, got)
+	}
+}
+
+func TestSlugsMatchingReturnsNothingForATermNoLabelContains(t *testing.T) {
+	if got := SlugsMatching("zzz"); len(got) != 0 {
+		t.Errorf("expected no slugs, got %v", got)
+	}
+}
+
+// An empty term is not "matches everything": it means the search box is
+// empty, and every label would otherwise contain it.
+func TestSlugsMatchingReturnsNothingForAnEmptyTerm(t *testing.T) {
+	if got := SlugsMatching("  "); len(got) != 0 {
+		t.Errorf("expected an empty term to match no slugs, got %v", got)
+	}
+}

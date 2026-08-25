@@ -61,9 +61,11 @@ func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64
 		http.Error(w, "could not load totals", http.StatusInternalServerError)
 		return nil, false
 	}
-	count, err := deps.Queries.CountTransactionsForMonth(r.Context(), sqlcgen.CountTransactionsForMonthParams{
-		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-	})
+	// The count is scoped to the filters the originating page had on as well
+	// as to its month: it feeds the chip above the list and the pager below
+	// it, both of which describe the rows actually on screen.
+	filters := filtersFromHXCurrentURL(r)
+	count, err := deps.Queries.CountTransactionsForMonth(r.Context(), filters.countParams(userID, from, to))
 	if err != nil {
 		http.Error(w, "could not load transactions", http.StatusInternalServerError)
 		return nil, false
@@ -86,13 +88,22 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		data, err := buildTransactionsPageData(r, deps, userID, r.URL.Query().Get("month"), pageParam(r.URL.Query().Get("page")), "", "")
+		query := r.URL.Query()
+		filters := filtersFromQuery(query)
+		data, err := buildTransactionsPageData(r, deps, userID, query.Get("month"), pageParam(query.Get("page")), filters, "", "")
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
 			return
 		}
 
 		if isFragmentRequest(r) {
+			// The filter controls reach the server by serialising their whole
+			// form, so the request URL they build carries an empty parameter
+			// for every control left blank. Pushing a canonical URL from here
+			// instead keeps the address bar to what is actually being
+			// filtered -- and makes it the same URL a bookmark or a reload
+			// would produce.
+			w.Header().Set("HX-Push-Url", transactionsURL(data["MonthValue"].(string), data["Pager"].(pager).Page, filters))
 			renderNamed(w, r, deps, "transactions", "transactions_month_section", "transactions", data)
 			return
 		}
@@ -104,23 +115,19 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 // full page and the transactions_month_section fragment the month dropdown
 // swaps in) needs: the selected month's transactions/totals, the dropdown's
 // list of other months with data, and the quick-add form's own state.
-func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam string, page int, quickAddError, selectedType string) (map[string]any, error) {
+func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam string, page int, filters txnFilters, quickAddError, selectedType string) (map[string]any, error) {
 	from, to := monthRangeFor(monthParam)
 
 	// The count comes first: which page exists at all depends on it, and the
-	// chip above the list reports the whole month rather than the page.
-	count, err := deps.Queries.CountTransactionsForMonth(r.Context(), sqlcgen.CountTransactionsForMonthParams{
-		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-	})
+	// chip above the list reports every row the filters matched rather than
+	// just the page's worth.
+	count, err := deps.Queries.CountTransactionsForMonth(r.Context(), filters.countParams(userID, from, to))
 	if err != nil {
 		return nil, err
 	}
 	pgr := newPager(page, count, monthValueOf(from))
 
-	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), sqlcgen.ListTransactionsForMonthParams{
-		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-		Limit: pageSize, Offset: pgr.Offset(),
-	})
+	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), filters.listParams(userID, from, to, pgr.Offset()))
 	if err != nil {
 		return nil, err
 	}
@@ -154,6 +161,11 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		"Transactions":      transactions,
 		"TotalCount":        count,
 		"Pager":             pgr,
+		"Filters":           filters,
+		"FilterCount":       filters.ActiveCount(),
+		"Filtering":         filters.Any(),
+		"AllCategories":     allCategories,
+		"MonthValue":        monthValueOf(from),
 		"MonthLabel":        monthLabel(from.Time),
 		"MonthLabelLower":   monthLabelLower(from.Time),
 		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
@@ -231,17 +243,23 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 
 	w.Header().Set("HX-Trigger", "transaction-created")
 
-	// A transaction added while browsing page 2 or later belongs at the top of
-	// page 1, not wherever the user happened to be looking -- prepending it
-	// into the page they are on would file it under the wrong window entirely.
-	// So instead of the usual single row, re-render the whole month section at
-	// page 1 and point htmx at it. The month comes back out of the resolved
-	// bounds rather than the raw param, so the pushed URL is always a
-	// well-formed "YYYY-MM".
-	if pageFromRequest(r) > 1 {
+	// Two situations where the new row does not belong where the user is
+	// looking, and both are answered the same way: re-render the whole month
+	// section at page 1 and point htmx at it, instead of the usual single row.
+	//
+	// Past the first page, a new transaction belongs at the top of page 1, not
+	// in whichever window the user happened to be browsing. With a filter on,
+	// it may not belong in the list at all -- prepending it would show a row
+	// that does not match what the list claims to be showing.
+	//
+	// The month comes back out of the resolved bounds rather than the raw
+	// param, so the pushed URL is always a well-formed "YYYY-MM", and it keeps
+	// the filters so a reload lands on the same view.
+	filters := filtersFromHXCurrentURL(r)
+	if pageFromRequest(r) > 1 || filters.Any() {
 		from, _ := monthRangeFromRequest(r)
 		month := monthValueOf(from)
-		data, err := buildTransactionsPageData(r, deps, userID, month, 1, "", "")
+		data, err := buildTransactionsPageData(r, deps, userID, month, 1, filters, "", "")
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
 			return
@@ -257,7 +275,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		data["HeaderBalance"] = header
 		w.Header().Set("HX-Retarget", "#transactions-month-section")
 		w.Header().Set("HX-Reswap", "outerHTML")
-		w.Header().Set("HX-Push-Url", "/transactions?month="+month)
+		w.Header().Set("HX-Push-Url", transactionsURL(month, 1, filters))
 		renderNamed(w, r, deps, "transactions", "transactions_first_page_response", "transactions", data)
 		return
 	}
