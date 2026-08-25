@@ -19,7 +19,7 @@
 <form id="transaction-filters" hx-preserve="true" onsubmit="return false"
   class="flex flex-col gap-3">
   <div class="flex items-center gap-2">
-    <input type="search" name="q" value="{{.Filters.Search}}" placeholder="Search notes" aria-label="Search notes"
+    <input type="search" name="q" value="{{.Filters.Search}}" placeholder="Search" aria-label="Search"
       hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
       hx-target="#transactions-month-section" hx-swap="outerHTML"
       hx-trigger="input changed delay:500ms, search"
