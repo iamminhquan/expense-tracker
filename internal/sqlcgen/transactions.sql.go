@@ -306,8 +306,8 @@ type ListTransactionsForMonthParams struct {
 	CategoryID   pgtype.Int8 `json:"category_id"`
 	MinAmount    pgtype.Int8 `json:"min_amount"`
 	MaxAmount    pgtype.Int8 `json:"max_amount"`
-	Offset       int32       `json:"offset"`
-	Limit        int32       `json:"limit"`
+	Offset       pgtype.Int4 `json:"offset"`
+	Limit        pgtype.Int4 `json:"limit"`
 }
 
 type ListTransactionsForMonthRow struct {

@@ -37,6 +37,7 @@
       </div>
       <span id="transaction-count" class="text-[12px] text-ink-faint">{{countOf .TotalCount "transaction"}}</span>
     </div>
+    {{template "export_link" .}}
   </div>
 
   <div class="bg-surface border border-border-card rounded-xl overflow-hidden">
@@ -65,7 +66,27 @@
     </div>
     <div id="transactions-pager">{{template "transactions_pager" .Pager}}</div>
   </div>
+  {{/* The same link again for mobile. It sits under the list rather than in
+       mobile_page_header, which below md already carries the title, the
+       month picker and the add button -- a fourth control in that row is
+       what runs a 375px screen off its right edge. */}}
+  <div data-export-mobile class="md:hidden flex justify-center">{{template "export_link" .}}</div>
 </div>
+{{end}}
+
+{{/* The Export link, rendered once for each breakpoint's layout.
+
+     hx-boost="false" is load-bearing: <body> boosts every link, and a
+     boosted click would fetch the CSV over XHR and swap it into the page
+     instead of handing it to the download manager.
+
+     Both copies live inside transactions_month_section rather than beside
+     the Filters button, because that form is hx-preserve'd -- its
+     server-rendered copy is discarded on every swap, so a link there would
+     still name the month and filters from the first page load. */}}
+{{define "export_link"}}
+<a href="{{.ExportURL}}" hx-boost="false" download
+  class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-[6px]">Export CSV</a>
 {{end}}
 
 {{/* What a create issued from page 2 or later answers with: the whole month

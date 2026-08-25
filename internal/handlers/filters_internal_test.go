@@ -94,3 +94,14 @@ func TestFiltersCanonicalURLEscapesTheSearchTerm(t *testing.T) {
 		t.Errorf("unexpected canonical URL: %s", got)
 	}
 }
+
+// The Export link's address. It carries the same month and the same filters
+// as the list, so the CSV matches what is on screen -- but never a page,
+// since the export is not paginated and "page 2 of the download" is not a
+// thing a user asked for.
+func TestExportURLCarriesTheMonthAndFiltersButNeverThePage(t *testing.T) {
+	got := exportURL("2026-08", 3, txnFilters{Search: "coffee", Type: "expense"})
+	if got != "/transactions/export?month=2026-08&q=coffee&type=expense" {
+		t.Errorf("unexpected export URL: %s", got)
+	}
+}
