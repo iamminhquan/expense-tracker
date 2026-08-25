@@ -442,3 +442,111 @@ func TestDeletingWhileFilteredLeavesAFilteredCount(t *testing.T) {
 		t.Error("expected the count to ignore rows the filter excludes")
 	}
 }
+
+// categoryBySlug picks a shared default category out of the user's list.
+// Tests name one by slug rather than by position or by displayed name, the
+// same rule the rest of the app follows.
+func categoryBySlug(t *testing.T, categories []sqlcgen.Category, slug string) sqlcgen.Category {
+	t.Helper()
+	for _, c := range categories {
+		if c.Slug.Valid && c.Slug.String == slug {
+			return c
+		}
+	}
+	t.Fatalf("expected a default category with slug %q", slug)
+	return sqlcgen.Category{}
+}
+
+func categoriesOf(t *testing.T, deps handlers.Deps, userID int64) []sqlcgen.Category {
+	t.Helper()
+	categories, err := deps.Queries.ListCategoriesForUser(context.Background(), pgtype.Int8{Int64: userID, Valid: true})
+	if err != nil {
+		t.Fatalf("list categories: %v", err)
+	}
+	return categories
+}
+
+// The category is on screen in every row, so a search for one is a search a
+// user will reasonably try -- and it used to come back empty, because the
+// term was only ever matched against the note.
+func TestSearchMatchesADefaultCategoryByItsDisplayedName(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-catsearch@example.com")
+
+	transport := categoryBySlug(t, categoriesOf(t, deps, f.userID), "transport")
+	if _, err := deps.Queries.CreateTransaction(context.Background(), sqlcgen.CreateTransactionParams{
+		UserID: f.userID, CategoryID: transport.ID, Amount: 35000, Type: "expense",
+		Description: "Grab home", OccurredOn: f.firstOfMonth,
+	}); err != nil {
+		t.Fatalf("seed transport transaction: %v", err)
+	}
+
+	body := getTransactions(t, router, f.cookie, "?q=Transport")
+
+	assertRows(t, body, []string{"Grab home"}, []string{"Morning coffee", "August payslip"})
+}
+
+// A category the user named themselves has no slug and shows the words they
+// typed, so that is what the search has to match.
+func TestSearchMatchesAPersonalCategoryByItsOwnName(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-personalsearch@example.com")
+
+	mine, err := deps.Queries.CreateCategory(context.Background(), sqlcgen.CreateCategoryParams{
+		UserID: pgtype.Int8{Int64: f.userID, Valid: true},
+		Name:   "Cà phê sáng", Type: "expense", Color: "#D97757",
+	})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	t.Cleanup(func() {
+		deps.DB.Exec(context.Background(), "DELETE FROM transactions WHERE category_id = $1", mine.ID)
+		deps.DB.Exec(context.Background(), "DELETE FROM categories WHERE id = $1", mine.ID)
+	})
+	if _, err := deps.Queries.CreateTransaction(context.Background(), sqlcgen.CreateTransactionParams{
+		UserID: f.userID, CategoryID: mine.ID, Amount: 25000, Type: "expense",
+		Description: "Thursday", OccurredOn: f.firstOfMonth,
+	}); err != nil {
+		t.Fatalf("seed transaction: %v", err)
+	}
+
+	body := getTransactions(t, router, f.cookie, "?q=c%C3%A0+ph%C3%AA")
+
+	assertRows(t, body, []string{"Thursday"}, []string{"Morning coffee", "Bus ticket"})
+}
+
+// Matching the category must not quietly widen the search: a term that only
+// looks like a category to the naked eye still has to match something real.
+func TestSearchStillMatchesNothingForATermNobodyUses(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-nomatch@example.com")
+
+	body := getTransactions(t, router, f.cookie, "?q=Groceries")
+
+	assertRows(t, body, nil, []string{"Morning coffee", "Bus ticket", "August payslip"})
+}
+
+// The count chip and the pager are built from the count query, so it has to
+// match the category the same way the list does or the two disagree.
+func TestTheCountChipCountsCategoryMatchesToo(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedFilterFixture(t, deps, router, "filter-catcount@example.com")
+
+	transport := categoryBySlug(t, categoriesOf(t, deps, f.userID), "transport")
+	if _, err := deps.Queries.CreateTransaction(context.Background(), sqlcgen.CreateTransactionParams{
+		UserID: f.userID, CategoryID: transport.ID, Amount: 35000, Type: "expense",
+		Description: "Grab home", OccurredOn: f.firstOfMonth,
+	}); err != nil {
+		t.Fatalf("seed transport transaction: %v", err)
+	}
+
+	body := getTransactions(t, router, f.cookie, "?q=Transport")
+
+	if !strings.Contains(body, "1 transaction") {
+		t.Error("expected the chip to count the row the category matched")
+	}
+}

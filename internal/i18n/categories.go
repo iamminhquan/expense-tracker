@@ -9,7 +9,12 @@
 // key that is independent of what is displayed.
 package i18n
 
-import "github.com/jackc/pgx/v5/pgtype"
+import (
+	"sort"
+	"strings"
+
+	"github.com/jackc/pgx/v5/pgtype"
+)
 
 // categoryNames maps the slug of each shared default category to its
 // English label. Categories a user creates have no slug and are never in
@@ -48,4 +53,33 @@ func CategoryName(slug pgtype.Text, name string) string {
 		}
 	}
 	return name
+}
+
+// SlugsMatching returns the slugs of every default category whose displayed
+// label contains term, case-insensitively.
+//
+// The transactions search box needs this because a default category's label
+// lives here rather than in the database: searching the name column would
+// match whatever a migration happened to leave there, not what the row on
+// screen actually says. Translating the term into slugs keeps the match on
+// the one thing that identifies a default category.
+//
+// An empty term matches nothing rather than everything -- it means the search
+// box is empty, and every label trivially contains "".
+func SlugsMatching(term string) []string {
+	term = strings.TrimSpace(term)
+	if term == "" {
+		return nil
+	}
+	folded := strings.ToLower(term)
+	var slugs []string
+	for slug, label := range categoryNames {
+		if strings.Contains(strings.ToLower(label), folded) {
+			slugs = append(slugs, slug)
+		}
+	}
+	// Map iteration order is random; sorting keeps the query parameter (and
+	// anything that logs it) stable from one request to the next.
+	sort.Strings(slugs)
+	return slugs
 }

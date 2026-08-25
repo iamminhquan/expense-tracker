@@ -76,13 +76,18 @@ func (q *Queries) CountTransactionsForCategory(ctx context.Context, arg CountTra
 }
 
 const countTransactionsForMonth = `-- name: CountTransactionsForMonth :one
-SELECT COUNT(*)::bigint AS count FROM transactions t
+SELECT COUNT(*)::bigint AS count
+FROM transactions t
+JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
-  AND ($4::text IS NULL OR t.description ILIKE '%' || $4::text || '%')
-  AND ($5::text IS NULL OR t.type = $5::text)
-  AND ($6::bigint IS NULL OR t.category_id = $6::bigint)
-  AND ($7::bigint IS NULL OR t.amount >= $7::bigint)
-  AND ($8::bigint IS NULL OR t.amount <= $8::bigint)
+  AND ($4::text IS NULL
+       OR t.description ILIKE '%' || $4::text || '%'
+       OR (c.slug IS NULL AND c.name ILIKE '%' || $4::text || '%')
+       OR c.slug = ANY($5::text[]))
+  AND ($6::text IS NULL OR t.type = $6::text)
+  AND ($7::bigint IS NULL OR t.category_id = $7::bigint)
+  AND ($8::bigint IS NULL OR t.amount >= $8::bigint)
+  AND ($9::bigint IS NULL OR t.amount <= $9::bigint)
 `
 
 type CountTransactionsForMonthParams struct {
@@ -90,6 +95,7 @@ type CountTransactionsForMonthParams struct {
 	OccurredOn   pgtype.Date `json:"occurred_on"`
 	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
 	Search       pgtype.Text `json:"search"`
+	SearchSlugs  []string    `json:"search_slugs"`
 	Type         pgtype.Text `json:"type"`
 	CategoryID   pgtype.Int8 `json:"category_id"`
 	MinAmount    pgtype.Int8 `json:"min_amount"`
@@ -106,6 +112,7 @@ func (q *Queries) CountTransactionsForMonth(ctx context.Context, arg CountTransa
 		arg.OccurredOn,
 		arg.OccurredOn_2,
 		arg.Search,
+		arg.SearchSlugs,
 		arg.Type,
 		arg.CategoryID,
 		arg.MinAmount,
@@ -277,13 +284,16 @@ SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurr
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
-  AND ($4::text IS NULL OR t.description ILIKE '%' || $4::text || '%')
-  AND ($5::text IS NULL OR t.type = $5::text)
-  AND ($6::bigint IS NULL OR t.category_id = $6::bigint)
-  AND ($7::bigint IS NULL OR t.amount >= $7::bigint)
-  AND ($8::bigint IS NULL OR t.amount <= $8::bigint)
+  AND ($4::text IS NULL
+       OR t.description ILIKE '%' || $4::text || '%'
+       OR (c.slug IS NULL AND c.name ILIKE '%' || $4::text || '%')
+       OR c.slug = ANY($5::text[]))
+  AND ($6::text IS NULL OR t.type = $6::text)
+  AND ($7::bigint IS NULL OR t.category_id = $7::bigint)
+  AND ($8::bigint IS NULL OR t.amount >= $8::bigint)
+  AND ($9::bigint IS NULL OR t.amount <= $9::bigint)
 ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT $10 OFFSET $9
+LIMIT $11 OFFSET $10
 `
 
 type ListTransactionsForMonthParams struct {
@@ -291,6 +301,7 @@ type ListTransactionsForMonthParams struct {
 	OccurredOn   pgtype.Date `json:"occurred_on"`
 	OccurredOn_2 pgtype.Date `json:"occurred_on_2"`
 	Search       pgtype.Text `json:"search"`
+	SearchSlugs  []string    `json:"search_slugs"`
 	Type         pgtype.Text `json:"type"`
 	CategoryID   pgtype.Int8 `json:"category_id"`
 	MinAmount    pgtype.Int8 `json:"min_amount"`
@@ -329,16 +340,30 @@ type ListTransactionsForMonthRow struct {
 // built from; a count that did not know about the filters would promise
 // pages the list cannot fill.
 //
-// The search is a case-insensitive substring match on the note. It cannot use
-// an index and does not need to: the month window in front of it is already
-// covered by idx_transactions_user_id_occurred_on, and one person's month is
-// not a large scan.
+// The search is a case-insensitive substring match, and it covers the category
+// as well as the note, because both are on screen in every row: someone who
+// can see "Transport" in the list will type it into the search box.
+//
+// Which is why the category arrives as two predicates rather than one. A
+// category the user created shows the name they typed, so the name column is
+// what to match -- but only for those, which is what the NULL slug tests. A
+// default category shows a label that lives in internal/i18n, keyed by slug,
+// and its name column is only ever a fallback; matching it would search
+// whatever a migration left there instead of what the row displays. So the
+// handler translates the term into the slugs whose labels contain it and
+// passes those down, keeping the match on the one thing that identifies a
+// default category.
+//
+// None of this can use an index and none of it needs to: the month window in
+// front of it is already covered by idx_transactions_user_id_occurred_on, and
+// one person's month is not a large scan.
 func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransactionsForMonthParams) ([]ListTransactionsForMonthRow, error) {
 	rows, err := q.db.Query(ctx, listTransactionsForMonth,
 		arg.UserID,
 		arg.OccurredOn,
 		arg.OccurredOn_2,
 		arg.Search,
+		arg.SearchSlugs,
 		arg.Type,
 		arg.CategoryID,
 		arg.MinAmount,

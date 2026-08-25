@@ -13,16 +13,32 @@
 -- built from; a count that did not know about the filters would promise
 -- pages the list cannot fill.
 --
--- The search is a case-insensitive substring match on the note. It cannot use
--- an index and does not need to: the month window in front of it is already
--- covered by idx_transactions_user_id_occurred_on, and one person's month is
--- not a large scan.
+-- The search is a case-insensitive substring match, and it covers the category
+-- as well as the note, because both are on screen in every row: someone who
+-- can see "Transport" in the list will type it into the search box.
+--
+-- Which is why the category arrives as two predicates rather than one. A
+-- category the user created shows the name they typed, so the name column is
+-- what to match -- but only for those, which is what the NULL slug tests. A
+-- default category shows a label that lives in internal/i18n, keyed by slug,
+-- and its name column is only ever a fallback; matching it would search
+-- whatever a migration left there instead of what the row displays. So the
+-- handler translates the term into the slugs whose labels contain it and
+-- passes those down, keeping the match on the one thing that identifies a
+-- default category.
+--
+-- None of this can use an index and none of it needs to: the month window in
+-- front of it is already covered by idx_transactions_user_id_occurred_on, and
+-- one person's month is not a large scan.
 -- name: ListTransactionsForMonth :many
 SELECT t.*, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
-  AND (sqlc.narg('search')::text IS NULL OR t.description ILIKE '%' || sqlc.narg('search')::text || '%')
+  AND (sqlc.narg('search')::text IS NULL
+       OR t.description ILIKE '%' || sqlc.narg('search')::text || '%'
+       OR (c.slug IS NULL AND c.name ILIKE '%' || sqlc.narg('search')::text || '%')
+       OR c.slug = ANY(sqlc.narg('search_slugs')::text[]))
   AND (sqlc.narg('type')::text IS NULL OR t.type = sqlc.narg('type')::text)
   AND (sqlc.narg('category_id')::bigint IS NULL OR t.category_id = sqlc.narg('category_id')::bigint)
   AND (sqlc.narg('min_amount')::bigint IS NULL OR t.amount >= sqlc.narg('min_amount')::bigint)
@@ -35,9 +51,14 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 -- clauses identical: everything that reads a page -- the pager's page count,
 -- the count chip, the empty state -- trusts that they agree.
 -- name: CountTransactionsForMonth :one
-SELECT COUNT(*)::bigint AS count FROM transactions t
+SELECT COUNT(*)::bigint AS count
+FROM transactions t
+JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
-  AND (sqlc.narg('search')::text IS NULL OR t.description ILIKE '%' || sqlc.narg('search')::text || '%')
+  AND (sqlc.narg('search')::text IS NULL
+       OR t.description ILIKE '%' || sqlc.narg('search')::text || '%'
+       OR (c.slug IS NULL AND c.name ILIKE '%' || sqlc.narg('search')::text || '%')
+       OR c.slug = ANY(sqlc.narg('search_slugs')::text[]))
   AND (sqlc.narg('type')::text IS NULL OR t.type = sqlc.narg('type')::text)
   AND (sqlc.narg('category_id')::bigint IS NULL OR t.category_id = sqlc.narg('category_id')::bigint)
   AND (sqlc.narg('min_amount')::bigint IS NULL OR t.amount >= sqlc.narg('min_amount')::bigint)

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"expensetracker/internal/i18n"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -115,6 +116,23 @@ func (f txnFilters) searchParam() pgtype.Text {
 	return pgtype.Text{String: f.Search, Valid: true}
 }
 
+// searchSlugs is the other half of the search: the default categories whose
+// displayed label contains the term. Their labels live in internal/i18n
+// rather than in the database, so the term is resolved into slugs here and
+// the query matches on those -- a row showing "Transport" is found by
+// searching for it, without the SQL having to know what any slug is called.
+//
+// It always returns a non-nil slice so the parameter reaches Postgres as an
+// empty array rather than NULL, which keeps the predicate plain true-or-false
+// instead of dragging three-valued logic through the OR chain around it.
+func (f txnFilters) searchSlugs() []string {
+	slugs := i18n.SlugsMatching(f.Search)
+	if slugs == nil {
+		return []string{}
+	}
+	return slugs
+}
+
 func (f txnFilters) typeParam() pgtype.Text {
 	if f.Type == "" {
 		return pgtype.Text{}
@@ -164,7 +182,7 @@ func transactionsURL(month string, page int, f txnFilters) string {
 func (f txnFilters) listParams(userID int64, from, to pgtype.Date, offset int32) sqlcgen.ListTransactionsForMonthParams {
 	return sqlcgen.ListTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-		Search: f.searchParam(), Type: f.typeParam(),
+		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
 		Limit: pageSize, Offset: offset,
@@ -174,7 +192,7 @@ func (f txnFilters) listParams(userID int64, from, to pgtype.Date, offset int32)
 func (f txnFilters) countParams(userID int64, from, to pgtype.Date) sqlcgen.CountTransactionsForMonthParams {
 	return sqlcgen.CountTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-		Search: f.searchParam(), Type: f.typeParam(),
+		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
 	}
