@@ -396,7 +396,11 @@ not ours to use).
 - Split commits atomically: one logical change per commit, don't bundle
   multiple unrelated features/fixes into a single commit.
 - Commit messages are in English. Subject line must be between 72 and 100
-  characters.
+  characters, counting the prefix.
+- Every subject starts with a `<type>: ` prefix, drawn from the same vocabulary
+  the branch names use: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`,
+  `test`. No scope in parentheses. A recent stretch of the history carries no
+  prefix at all; that is drift, not a second convention to match.
 - Pull request titles are in English. PR bodies are in Vietnamese and should
   briefly summarize what the PR does.
 - Branching: small, low-risk changes (a typo, a one-line style tweak, a
