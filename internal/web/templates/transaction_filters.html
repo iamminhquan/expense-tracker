@@ -17,7 +17,7 @@
 
 {{define "transaction_filters"}}
 <form id="transaction-filters" hx-preserve="true" onsubmit="return false"
-  class="bg-surface border border-border-card rounded-xl px-[14px] py-3 md:px-4 flex flex-col gap-3">
+  class="flex flex-col gap-3">
   <div class="flex items-center gap-2">
     <input type="search" name="q" value="{{.Filters.Search}}" placeholder="Search notes" aria-label="Search notes"
       hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
@@ -31,7 +31,7 @@
     </button>
   </div>
 
-  <div data-filter-panel class="{{if not .Filtering}}hidden {{end}}flex flex-col md:flex-row md:items-end gap-3 pt-1 border-t border-border-list">
+  <div data-filter-panel class="{{if not .Filtering}}hidden {{end}}flex flex-col md:flex-row md:items-end gap-3">
     <div class="flex flex-col gap-[6px] md:w-[150px] shrink-0">
       <label class="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-faint">Type</label>
       <select name="type" hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
