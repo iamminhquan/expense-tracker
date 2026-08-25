@@ -8,7 +8,7 @@ import (
 
 // pageSize is how many transactions one page of the list holds. Change it
 // here and the query window, the pager and the page count all follow.
-const pageSize = 25
+const pageSize = 10
 
 // pager is everything the transactions_pager fragment needs to draw itself.
 // It is built by newPager rather than assembled in the handler, so the two
