@@ -185,7 +185,7 @@ func (f txnFilters) listParams(userID int64, from, to pgtype.Date, offset int32)
 		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
-		Limit: pageSize, Offset: offset,
+		Limit: pgtype.Int4{Int32: pageSize, Valid: true}, Offset: pgtype.Int4{Int32: offset, Valid: true},
 	}
 }
 

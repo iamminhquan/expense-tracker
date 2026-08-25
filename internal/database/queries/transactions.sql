@@ -44,7 +44,7 @@ WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
   AND (sqlc.narg('min_amount')::bigint IS NULL OR t.amount >= sqlc.narg('min_amount')::bigint)
   AND (sqlc.narg('max_amount')::bigint IS NULL OR t.amount <= sqlc.narg('max_amount')::bigint)
 ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+LIMIT sqlc.narg('limit') OFFSET sqlc.narg('offset');
 
 -- CountTransactionsForMonth answers how many rows the list above would have,
 -- and so carries exactly the same filter predicates. Keep the two WHERE
