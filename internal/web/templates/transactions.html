@@ -37,6 +37,15 @@
       </div>
       <span id="transaction-count" class="text-[12px] text-ink-faint">{{countOf .TotalCount "transaction"}}</span>
     </div>
+    {{/* hx-boost="false" is load-bearing: <body> boosts every link, and a
+         boosted click would fetch the CSV over XHR and swap it into the page
+         instead of handing it to the download manager. The href is rendered
+         here, inside the swapped section, rather than beside the Filters
+         button, because that form is hx-preserve'd -- its server-rendered
+         copy is discarded, so a link there would still name the month and
+         filters from the first page load. */}}
+    <a href="{{.ExportURL}}" hx-boost="false" download
+      class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-[6px]">Export CSV</a>
   </div>
 
   <div class="bg-surface border border-border-card rounded-xl overflow-hidden">

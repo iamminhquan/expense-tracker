@@ -165,6 +165,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		"FilterCount":       filters.ActiveCount(),
 		"Filtering":         filters.Any(),
 		"AllCategories":     allCategories,
+		"ExportURL":         exportURL(monthValueOf(from), pgr.Page, filters),
 		"MonthValue":        monthValueOf(from),
 		"MonthLabel":        monthLabel(from.Time),
 		"MonthLabelLower":   monthLabelLower(from.Time),

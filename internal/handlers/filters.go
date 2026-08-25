@@ -157,10 +157,31 @@ func nullableInt(v int64) pgtype.Int8 {
 // produces. Its output is also what the pager and the month picker are read
 // back out of on the next request.
 func transactionsURL(month string, page int, f txnFilters) string {
-	q := url.Values{"month": {month}}
+	q := filterQuery(month, f)
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page))
 	}
+	return "/transactions?" + q.Encode()
+}
+
+// exportURL renders the address the Export link points at: the same month
+// and the same filters, so the CSV is what is on screen. The page is
+// deliberately dropped -- the export is not paginated, and a link that
+// carried "page=3" would quietly hand back a third of the month.
+//
+// It takes the page anyway, so that every caller can pass the view it is
+// rendering without having to remember which parts of that view the export
+// ignores.
+func exportURL(month string, page int, f txnFilters) string {
+	return "/transactions/export?" + filterQuery(month, f).Encode()
+}
+
+// filterQuery is the part both addresses agree on: the month, plus only
+// those filters that are actually set. Leaving the unset ones out is what
+// keeps the address bar free of the "q=&type=&category=" that serialising
+// the whole filter form would produce.
+func filterQuery(month string, f txnFilters) url.Values {
+	q := url.Values{"month": {month}}
 	if f.Search != "" {
 		q.Set("q", f.Search)
 	}
@@ -172,21 +193,34 @@ func transactionsURL(month string, page int, f txnFilters) string {
 			q.Set(name, strconv.FormatInt(v, 10))
 		}
 	}
-	return "/transactions?" + q.Encode()
+	return q
 }
 
-// listParams and countParams build the two query parameter sets from one
-// filter value, so the five nullable predicates are spelled out once rather
-// than at every call site. The queries' WHERE clauses are identical by
-// design, and these keep the Go side of that promise.
-func (f txnFilters) listParams(userID int64, from, to pgtype.Date, offset int32) sqlcgen.ListTransactionsForMonthParams {
+// exportParams, listParams and countParams build the query parameter sets
+// from one filter value, so the five nullable predicates are spelled out
+// once rather than at every call site. The queries' WHERE clauses are
+// identical by design, and these keep the Go side of that promise.
+
+// exportParams selects every row the filters match, with no page window:
+// leaving Limit and Offset unset sends both as SQL NULL, which Postgres
+// reads as LIMIT ALL OFFSET 0. The CSV export therefore runs the same query
+// as the list it was launched from rather than a second one that could
+// drift from it.
+func (f txnFilters) exportParams(userID int64, from, to pgtype.Date) sqlcgen.ListTransactionsForMonthParams {
 	return sqlcgen.ListTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
 		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
-		Limit: pgtype.Int4{Int32: pageSize, Valid: true}, Offset: pgtype.Int4{Int32: offset, Valid: true},
 	}
+}
+
+// listParams narrows exportParams to the one page the list is showing.
+func (f txnFilters) listParams(userID int64, from, to pgtype.Date, offset int32) sqlcgen.ListTransactionsForMonthParams {
+	params := f.exportParams(userID, from, to)
+	params.Limit = pgtype.Int4{Int32: pageSize, Valid: true}
+	params.Offset = pgtype.Int4{Int32: offset, Valid: true}
+	return params
 }
 
 func (f txnFilters) countParams(userID int64, from, to pgtype.Date) sqlcgen.CountTransactionsForMonthParams {
