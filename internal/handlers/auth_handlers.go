@@ -39,6 +39,11 @@ func renderAuthFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps,
 	render(w, r, deps, "auth", "", data)
 }
 
+// badCredentials is the answer to every sign-in that fails for a reason the
+// visitor is not entitled to know the shape of -- a wrong password, an
+// address with no account behind it.
+const badCredentials = "Incorrect email or password."
+
 func loginPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
@@ -83,11 +88,6 @@ func loginPage(deps Deps) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 	}
 }
-
-// badCredentials is the answer to every sign-in that fails for a reason the
-// visitor is not entitled to know the shape of -- a wrong password, an
-// address with no account behind it.
-const badCredentials = "Incorrect email or password."
 
 // recordFailedAttempt counts one wrong password against user and returns the
 // message the sign-in form should show for it.
