@@ -1,4 +1,5 @@
-{{/* The search box and filter panel above the transactions list.
+{{/* The search box, the overflow menu and the filter panel above the
+     transactions list.
 
      It renders inside transactions_month_section -- so that on mobile it
      lands under the sticky page header rather than above it -- but carries
@@ -19,16 +20,18 @@
 <form id="transaction-filters" hx-preserve="true" onsubmit="return false"
   class="flex flex-col gap-3">
   <div class="flex items-center gap-2">
-    <input type="search" name="q" value="{{.Filters.Search}}" placeholder="Search" aria-label="Search"
-      hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
-      hx-target="#transactions-month-section" hx-swap="outerHTML"
-      hx-trigger="input changed delay:500ms, search"
-      class="flex-1 min-w-0 h-9 px-3 rounded-lg border border-border-input bg-surface text-[14px] text-ink placeholder:text-placeholder">
-    <button type="button" data-filter-panel-toggle aria-label="Filters"
-      class="h-9 px-3 shrink-0 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-[6px]">
-      Filters
-      <span id="filter-badge" class="{{if not .FilterCount}}hidden {{end}}min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-on-solid text-[11px] font-semibold flex items-center justify-center">{{.FilterCount}}</span>
-    </button>
+    {{/* The magnifier is decorative: the input keeps its own aria-label, and
+         pointer-events-none lets a click that lands on the icon fall through
+         to the field behind it. */}}
+    <div class="relative flex-1 min-w-0">
+      <svg aria-hidden="true" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-placeholder pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.35-4.35"/></svg>
+      <input type="search" name="q" value="{{.Filters.Search}}" placeholder="Search" aria-label="Search"
+        hx-get="/transactions" hx-include="#transaction-filters, #current-month-input"
+        hx-target="#transactions-month-section" hx-swap="outerHTML"
+        hx-trigger="input changed delay:500ms, search"
+        class="w-full h-9 pl-9 pr-3 rounded-lg border border-border-input bg-surface text-[14px] text-ink placeholder:text-placeholder">
+    </div>
+    {{template "txn_overflow_menu" .}}
   </div>
 
   <div data-filter-panel class="{{if not .Filtering}}hidden {{end}}flex flex-col md:flex-row md:items-end gap-3">
@@ -84,4 +87,28 @@
 {{define "clear_filters_link"}}
 <a href="/transactions?month={{.MonthValue}}" hx-boost="false"
   class="h-9 px-3 shrink-0 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink-faint flex items-center justify-center">Clear filters</a>
+{{end}}
+
+{{/* The overflow menu beside the search box: the Filters button, moved off
+     the row and behind a trigger, so that the row is a search box and one
+     control rather than two things competing for a 375px screen.
+
+     The badge rides the trigger rather than a "Filters" label, because with
+     the panel collapsed behind a menu it is the only thing left saying the
+     list is filtered at all. */}}
+{{define "txn_overflow_menu"}}
+<details class="relative shrink-0" data-txn-menu>
+  <summary aria-label="More actions"
+    class="w-9 h-9 rounded-lg border border-border-input bg-surface text-ink-muted flex items-center justify-center cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+    <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg>
+    <span id="filter-badge" class="{{if not .FilterCount}}hidden {{end}}absolute -top-[6px] -right-[6px] min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-on-solid text-[11px] font-semibold flex items-center justify-center">{{.FilterCount}}</span>
+  </summary>
+  <div class="absolute right-0 top-full mt-1 w-[180px] p-[6px] rounded-[14px] border border-border-card shadow-lg bg-surface z-50">
+    <button type="button" data-filter-panel-toggle
+      class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
+      <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.25h18M6.75 12h10.5M10.5 18.75h3"/></svg>
+      Filters
+    </button>
+  </div>
+</details>
 {{end}}

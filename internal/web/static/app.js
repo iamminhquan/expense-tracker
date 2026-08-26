@@ -183,12 +183,20 @@ document.addEventListener('htmx:afterSettle', function () { formatAmountInputsIn
   });
 })();
 
-// Close the user menu (<details data-user-menu>) or the header balance
-// popover (<details data-balance-popover>) when clicking outside it.
+// Close the user menu (<details data-user-menu>), the header balance popover
+// (<details data-balance-popover>) or the transactions overflow menu
+// (<details data-txn-menu>) when clicking outside it.
 document.addEventListener('click', function (evt) {
-  document.querySelectorAll('details[data-user-menu][open], details[data-balance-popover][open]').forEach(function (el) {
+  document.querySelectorAll('details[data-user-menu][open], details[data-balance-popover][open], details[data-txn-menu][open]').forEach(function (el) {
     if (!el.contains(evt.target)) el.removeAttribute('open');
   });
+});
+
+// Choosing an item closes the menu: the panel it toggles is elsewhere on the
+// page, so nothing else would.
+document.addEventListener('click', function (evt) {
+  var item = evt.target.closest && evt.target.closest('[data-txn-menu] a, [data-txn-menu] button');
+  if (item) item.closest('details[data-txn-menu]').removeAttribute('open');
 });
 
 // Category color-picker popovers (data-color-picker-toggle / -panel pairs in
