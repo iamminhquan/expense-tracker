@@ -25,14 +25,12 @@ type Config struct {
 	// absolute links (the password-reset email) that make sense read
 	// outside the browser session that requested them.
 	BaseURL string
-	// SMTP* configure the relay password-reset email is sent through. All
-	// optional: an empty SMTPHost just means mailer.Mailer.Send fails
-	// (logged, not fatal) rather than the app refusing to start.
-	SMTPHost     string
-	SMTPPort     string
-	SMTPUsername string
-	SMTPPassword string
-	SMTPFrom     string
+	// BrevoAPIKey and MailFrom configure the Brevo account password-reset
+	// email is sent through (see internal/mailer). Both optional: an empty
+	// BrevoAPIKey just means mailer.Mailer.Send fails (logged, not fatal)
+	// rather than the app refusing to start.
+	BrevoAPIKey string
+	MailFrom    string
 }
 
 // Load reads the configuration from the environment. Everything but the
@@ -52,11 +50,8 @@ func Load() (Config, error) {
 		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "session_id"),
 		SecureCookies:     getEnvBool("SECURE_COOKIES", false),
 		BaseURL:           getEnv("APP_BASE_URL", "http://localhost:"+port),
-		SMTPHost:          getEnv("SMTP_HOST", ""),
-		SMTPPort:          getEnv("SMTP_PORT", "587"),
-		SMTPUsername:      getEnv("SMTP_USERNAME", ""),
-		SMTPPassword:      getEnv("SMTP_PASSWORD", ""),
-		SMTPFrom:          getEnv("SMTP_FROM", ""),
+		BrevoAPIKey:       getEnv("BREVO_API_KEY", ""),
+		MailFrom:          getEnv("MAIL_FROM", ""),
 	}, nil
 }
 
