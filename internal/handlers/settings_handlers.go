@@ -34,9 +34,22 @@ func settingsPage(deps Deps) http.HandlerFunc {
 // or a back button from re-submitting the form, and this is what stops the
 // page it lands on from looking like nothing happened.
 var savedMessages = map[string]string{
-	"profile":  "Profile updated.",
-	"email":    "Email updated.",
-	"password": "Password updated.",
+	"profile":          "Profile updated.",
+	"email":            "Email updated.",
+	"password":         "Password updated.",
+	"session-revoked":  "Signed out of that session.",
+	"sessions-revoked": "Signed out of every other session.",
+}
+
+// sessionView is what the settings template shows for one row of the
+// active-sessions list: a device label instead of the raw User-Agent, a
+// local-time stamp instead of the raw timestamp, and whether this is the
+// session the page is being viewed from.
+type sessionView struct {
+	ID        string
+	Device    string
+	CreatedAt string
+	IsCurrent bool
 }
 
 // settingsData loads the current values the three forms are pre-filled with.
@@ -46,10 +59,30 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	currentToken := ""
+	if cookie, err := r.Cookie(deps.CookieName); err == nil {
+		currentToken = cookie.Value
+	}
+	sessions, err := deps.Queries.ListSessionsForUser(r.Context(), userID)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]sessionView, 0, len(sessions))
+	for _, s := range sessions {
+		views = append(views, sessionView{
+			ID:        s.ID,
+			Device:    deviceLabel(s.UserAgent.String),
+			CreatedAt: sessionTimestamp(s.CreatedAt),
+			IsCurrent: s.ID == currentToken,
+		})
+	}
+
 	return map[string]any{
 		"ProfileName":     user.Name,
 		"ProfileUsername": user.Username,
 		"ProfileEmail":    user.Email,
+		"Sessions":        views,
 		"Saved":           savedMessages[r.URL.Query().Get("saved")],
 	}, nil
 }
@@ -213,5 +246,49 @@ func updateEmailHandler(deps Deps) http.HandlerFunc {
 		}
 
 		http.Redirect(w, r, "/settings?saved=email", http.StatusSeeOther)
+	}
+}
+
+// revokeSessionHandler signs one listed device out. DeleteSessionForUser is
+// scoped to the caller's own user_id, so a session_id copied or guessed from
+// another account can never delete a row it doesn't own.
+func revokeSessionHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+		sessionID := r.FormValue("session_id")
+
+		if err := deps.Queries.DeleteSessionForUser(r.Context(), sqlcgen.DeleteSessionForUserParams{
+			ID: sessionID, UserID: userID,
+		}); err != nil {
+			log.Printf("revoke session: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/settings?saved=session-revoked", http.StatusSeeOther)
+	}
+}
+
+// revokeOtherSessionsHandler is the "log out everywhere else" button. It
+// calls the same query updatePasswordHandler uses as a side effect, but here
+// as a deliberate action the person asked for.
+func revokeOtherSessionsHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+
+		cookie, err := r.Cookie(deps.CookieName)
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		if err := deps.Queries.DeleteOtherSessionsForUser(r.Context(), sqlcgen.DeleteOtherSessionsForUserParams{
+			UserID: userID, ID: cookie.Value,
+		}); err != nil {
+			log.Printf("revoke other sessions: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/settings?saved=sessions-revoked", http.StatusSeeOther)
 	}
 }
