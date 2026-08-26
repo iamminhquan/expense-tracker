@@ -43,11 +43,13 @@ type Transaction struct {
 }
 
 type User struct {
-	ID           int64              `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	Name         string             `json:"name"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	Theme        string             `json:"theme"`
-	Username     string             `json:"username"`
+	ID                  int64              `json:"id"`
+	Email               string             `json:"email"`
+	PasswordHash        string             `json:"password_hash"`
+	Name                string             `json:"name"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	Theme               string             `json:"theme"`
+	Username            string             `json:"username"`
+	FailedLoginAttempts int32              `json:"failed_login_attempts"`
+	LockedUntil         pgtype.Timestamptz `json:"locked_until"`
 }
