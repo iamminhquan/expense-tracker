@@ -1,6 +1,6 @@
 -- name: CreateSession :one
-INSERT INTO sessions (id, user_id, expires_at)
-VALUES ($1, $2, $3)
+INSERT INTO sessions (id, user_id, expires_at, user_agent)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetSession :one
@@ -8,6 +8,15 @@ SELECT * FROM sessions WHERE id = $1;
 
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = $1;
+
+-- name: ListSessionsForUser :many
+SELECT * FROM sessions WHERE user_id = $1 ORDER BY created_at DESC;
+
+-- DeleteSessionForUser is the scoped counterpart to DeleteSession: it takes
+-- a user_id as well as an id so that a session id typed into a form field
+-- can only ever delete a session owned by the caller.
+-- name: DeleteSessionForUser :exec
+DELETE FROM sessions WHERE id = $1 AND user_id = $2;
 
 -- DeleteOtherSessionsForUser drops every session of a user except the one
 -- making the request, so changing a password signs out the other devices

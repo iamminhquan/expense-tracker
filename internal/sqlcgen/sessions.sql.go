@@ -12,21 +12,33 @@ import (
 )
 
 const createSession = `-- name: CreateSession :one
-INSERT INTO sessions (id, user_id, expires_at)
-VALUES ($1, $2, $3)
-RETURNING id, user_id, expires_at
+INSERT INTO sessions (id, user_id, expires_at, user_agent)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, expires_at, created_at, user_agent
 `
 
 type CreateSessionParams struct {
 	ID        string             `json:"id"`
 	UserID    int64              `json:"user_id"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	UserAgent pgtype.Text        `json:"user_agent"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
-	row := q.db.QueryRow(ctx, createSession, arg.ID, arg.UserID, arg.ExpiresAt)
+	row := q.db.QueryRow(ctx, createSession,
+		arg.ID,
+		arg.UserID,
+		arg.ExpiresAt,
+		arg.UserAgent,
+	)
 	var i Session
-	err := row.Scan(&i.ID, &i.UserID, &i.ExpiresAt)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UserAgent,
+	)
 	return i, err
 }
 
@@ -56,6 +68,23 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteSessionForUser = `-- name: DeleteSessionForUser :exec
+DELETE FROM sessions WHERE id = $1 AND user_id = $2
+`
+
+type DeleteSessionForUserParams struct {
+	ID     string `json:"id"`
+	UserID int64  `json:"user_id"`
+}
+
+// DeleteSessionForUser is the scoped counterpart to DeleteSession: it takes
+// a user_id as well as an id so that a session id typed into a form field
+// can only ever delete a session owned by the caller.
+func (q *Queries) DeleteSessionForUser(ctx context.Context, arg DeleteSessionForUserParams) error {
+	_, err := q.db.Exec(ctx, deleteSessionForUser, arg.ID, arg.UserID)
+	return err
+}
+
 const deleteSessionsForUser = `-- name: DeleteSessionsForUser :exec
 DELETE FROM sessions WHERE user_id = $1
 `
@@ -70,12 +99,48 @@ func (q *Queries) DeleteSessionsForUser(ctx context.Context, userID int64) error
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, user_id, expires_at FROM sessions WHERE id = $1
+SELECT id, user_id, expires_at, created_at, user_agent FROM sessions WHERE id = $1
 `
 
 func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 	row := q.db.QueryRow(ctx, getSession, id)
 	var i Session
-	err := row.Scan(&i.ID, &i.UserID, &i.ExpiresAt)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UserAgent,
+	)
 	return i, err
+}
+
+const listSessionsForUser = `-- name: ListSessionsForUser :many
+SELECT id, user_id, expires_at, created_at, user_agent FROM sessions WHERE user_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) ListSessionsForUser(ctx context.Context, userID int64) ([]Session, error) {
+	rows, err := q.db.Query(ctx, listSessionsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UserAgent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
