@@ -23,7 +23,7 @@ func NewManager(q *sqlcgen.Queries) *Manager {
 	return &Manager{queries: q}
 }
 
-func (m *Manager) CreateSession(ctx context.Context, userID int64) (string, time.Time, error) {
+func (m *Manager) CreateSession(ctx context.Context, userID int64, userAgent string) (string, time.Time, error) {
 	token, err := generateToken()
 	if err != nil {
 		return "", time.Time{}, err
@@ -34,6 +34,7 @@ func (m *Manager) CreateSession(ctx context.Context, userID int64) (string, time
 		ID:        token,
 		UserID:    userID,
 		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		UserAgent: pgtype.Text{String: userAgent, Valid: userAgent != ""},
 	})
 	if err != nil {
 		return "", time.Time{}, err

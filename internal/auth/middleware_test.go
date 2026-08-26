@@ -71,7 +71,7 @@ func TestRequireAuthAcceptsValidSession(t *testing.T) {
 	userID := setupTestUser(t, q)
 	mgr := auth.NewManager(q)
 	ctx := context.Background()
-	token, _, err := mgr.CreateSession(ctx, userID)
+	token, _, err := mgr.CreateSession(ctx, userID, "test-agent/1.0")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}

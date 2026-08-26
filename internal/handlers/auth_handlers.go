@@ -237,7 +237,7 @@ func logoutHandler(deps Deps) http.HandlerFunc {
 }
 
 func startSession(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
-	token, expiresAt, err := deps.Sessions.CreateSession(r.Context(), userID)
+	token, expiresAt, err := deps.Sessions.CreateSession(r.Context(), userID, r.UserAgent())
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return

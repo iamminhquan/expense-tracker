@@ -52,7 +52,7 @@ func TestSessionLifecycle(t *testing.T) {
 	mgr := auth.NewManager(q)
 	ctx := context.Background()
 
-	token, expiresAt, err := mgr.CreateSession(ctx, userID)
+	token, expiresAt, err := mgr.CreateSession(ctx, userID, "test-agent/1.0")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -61,6 +61,14 @@ func TestSessionLifecycle(t *testing.T) {
 	}
 	if !expiresAt.After(time.Now()) {
 		t.Fatal("expected expiry to be in the future")
+	}
+
+	session, err := q.GetSession(ctx, token)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if !session.UserAgent.Valid || session.UserAgent.String != "test-agent/1.0" {
+		t.Fatalf("CreateSession(...) stored user agent = %+v, want %q", session.UserAgent, "test-agent/1.0")
 	}
 
 	gotUserID, err := mgr.ValidateSession(ctx, token)
