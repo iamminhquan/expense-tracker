@@ -61,18 +61,12 @@ services:
       # blueprint-write time and isn't a secret either way.
       - key: APP_BASE_URL
         sync: false
-      # SMTP_HOST/PORT are fixed for whichever relay is in use (Gmail here)
-      # and aren't secret, so they're pinned directly rather than set by hand.
-      - key: SMTP_HOST
-        value: smtp.gmail.com
-      - key: SMTP_PORT
-        value: "587"
-      # Set by hand in the Render dashboard: an app password (not the Gmail
-      # account password -- see myaccount.google.com/apppasswords), plus the
-      # sending address it was issued for.
-      - key: SMTP_USERNAME
+      # Set by hand in the Render dashboard: a Brevo API key (Settings ->
+      # SMTP & API -> API Keys), plus the sender address it was verified
+      # for. Sent over Brevo's HTTP API rather than SMTP because Render's
+      # free tier blocks outbound traffic to every SMTP port (25, 465, 587)
+      # but never to 443 -- see internal/mailer.
+      - key: BREVO_API_KEY
         sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: SMTP_FROM
+      - key: MAIL_FROM
         sync: false
