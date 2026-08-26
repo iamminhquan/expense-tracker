@@ -27,14 +27,8 @@
   <input type="hidden" id="current-month-input" name="month" value="{{.MonthValue}}">
   {{template "transaction_filters" .}}
   <div class="hidden md:flex items-center justify-between">
-    <div class="flex items-center gap-2 relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-3 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute left-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
-        <button type="button" hx-get="/transactions?month={{.CurrentMonthValue}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
-        {{range .AvailableMonths}}
-        <button type="button" hx-get="/transactions?month={{.Value}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
-        {{end}}
-      </div>
+    <div class="flex items-center gap-2">
+      {{template "month_picker" .}}
       <span id="transaction-count" class="text-[12px] text-ink-faint">{{countOf .TotalCount "transaction"}}</span>
     </div>
     {{template "export_link" .}}

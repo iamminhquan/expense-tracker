@@ -13,44 +13,34 @@
 </header>
 {{end}}
 
-{{/* The sticky second tier of the mobile header: page title, the month
-     picker (dashboard/transactions only), and an add button (transactions/
-     categories only). Driven entirely by .ActiveNav and the MonthLabel/
-     CurrentMonthValue/AvailableMonths each of those pages' own data already
-     carries -- no page-specific params needed. Callers render it as the
-     first child of their existing swappable month/list section (not from
-     here in the layout) so an htmx month switch still refreshes it; top-
-     [34px] is nav_mobile_header's own rendered height (6px + 26px avatar +
-     2px), so the two tiers sit flush once both are stuck. */}}
+{{/* The sticky second tier of the mobile header: the page title, the shared
+     month_picker (dashboard/transactions only), and an add button
+     (transactions/categories only). Driven entirely by .ActiveNav and the
+     MonthLabel/CurrentMonthValue/AvailableMonths each of those
+     pages' own data already carries -- no page-specific params needed.
+     Callers render it as the first child of their existing swappable
+     month/list section (not from here in the layout) so an htmx month switch
+     still refreshes it; top-[34px] is nav_mobile_header's own rendered
+     height (6px + 26px avatar + 2px), so the two tiers sit flush once both
+     are stuck. */}}
 {{define "mobile_page_header"}}
-<div class="md:hidden flex items-center justify-between gap-[10px] pt-2 px-[18px] pb-3 sticky top-[34px] z-30">
-  <h1 class="text-[19px] font-semibold text-ink" style="letter-spacing:-0.01em">{{if eq .ActiveNav "dashboard"}}{{.MonthLabel}}{{else if eq .ActiveNav "transactions"}}Transactions{{else if eq .ActiveNav "categories"}}Categories{{else if eq .ActiveNav "settings"}}Settings{{end}}</h1>
-  <div class="flex items-center gap-[10px]">
+<div class="md:hidden flex items-center justify-between gap-[10px] pt-4 px-[18px] pb-3 sticky top-[34px] z-30">
+  <h1 class="text-[24px] font-semibold text-ink min-w-0 truncate" style="letter-spacing:-0.02em">{{if eq .ActiveNav "dashboard"}}{{.MonthLabel}}{{else if eq .ActiveNav "transactions"}}Transactions{{else if eq .ActiveNav "categories"}}Categories{{else if eq .ActiveNav "settings"}}Settings{{end}}</h1>
+  {{/* 3px, where the row is drawn to 8px: the add button's 44x44 tap target
+       is 5px wider than the circle inside it on every side, so a literal 8px
+       gap would read as 13px and would stand the circle 5px inside the row's
+       own right padding. The negative margin pays that second 5px back. */}}
+  <div class="flex items-center gap-[3px] shrink-0">
     {{if or (eq .ActiveNav "dashboard") (eq .ActiveNav "transactions")}}
-    <div class="relative">
-      <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="h-8 px-[10px] rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink flex items-center gap-1">{{.MonthLabel}} <span class="text-placeholder">▾</span></button>
-      <div class="hidden absolute right-0 top-9 z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm">
-        {{if eq .ActiveNav "dashboard"}}
-        <button type="button" hx-get="/dashboard?month={{.CurrentMonthValue}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
-        {{range .AvailableMonths}}
-        <button type="button" hx-get="/dashboard?month={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
-        {{end}}
-        {{else}}
-        <button type="button" hx-get="/transactions?month={{.CurrentMonthValue}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
-        {{range .AvailableMonths}}
-        <button type="button" hx-get="/transactions?month={{.Value}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
-        {{end}}
-        {{end}}
-      </div>
-    </div>
+    {{template "month_picker" .}}
     {{end}}
     {{if eq .ActiveNav "transactions"}}
-    <button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()" aria-label="Add transaction" class="w-11 h-11 shrink-0 flex items-center justify-center">
-      <span class="w-[34px] h-[34px] rounded-full bg-accent text-on-solid text-[20px] font-medium flex items-center justify-center shadow-[0_1px_3px_rgb(var(--c-ink)/0.12)]" style="line-height:1">+</span>
+    <button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()" aria-label="Add transaction" class="w-11 h-11 -mr-[5px] shrink-0 flex items-center justify-center">
+      <span class="w-[34px] h-[34px] rounded-full bg-accent text-on-solid text-[20px] flex items-center justify-center shadow-[0_2px_6px_-2px_rgb(var(--c-accent)/0.5)]" style="line-height:1">+</span>
     </button>
     {{else if eq .ActiveNav "categories"}}
-    <button type="button" onclick="openAddCategorySheet()" aria-label="Add category" class="w-11 h-11 shrink-0 flex items-center justify-center">
-      <span class="w-[34px] h-[34px] rounded-full bg-accent text-on-solid text-[20px] font-medium flex items-center justify-center shadow-[0_1px_3px_rgb(var(--c-ink)/0.12)]" style="line-height:1">+</span>
+    <button type="button" onclick="openAddCategorySheet()" aria-label="Add category" class="w-11 h-11 -mr-[5px] shrink-0 flex items-center justify-center">
+      <span class="w-[34px] h-[34px] rounded-full bg-accent text-on-solid text-[20px] flex items-center justify-center shadow-[0_2px_6px_-2px_rgb(var(--c-accent)/0.5)]" style="line-height:1">+</span>
     </button>
     {{end}}
   </div>

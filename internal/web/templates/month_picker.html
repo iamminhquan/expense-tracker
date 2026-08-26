@@ -1,0 +1,39 @@
+{{/* The month picker: the single control every month-scoped page browses
+     with.
+
+     It is shared rather than copied per page and per breakpoint -- four
+     near-identical copies of this dropdown existed before, and they had
+     already drifted to two different heights. Like mobile_page_header it
+     takes no page-specific params: .ActiveNav decides which endpoint and
+     swap target the items address, so any page whose data already carries
+     MonthLabel/CurrentMonthValue/AvailableMonths can render it as-is.
+
+     shrink-0 on the wrapper is what stops a long page title (the dashboard's
+     greeting, above all) from squeezing the trigger until the month wraps.
+
+     The panel's alignment is the one thing that is not uniform: it hangs
+     from the right everywhere except the transactions desktop row, where the
+     trigger sits at the left edge of its row and a right-hung panel would
+     reach back out past it. That difference is a breakpoint's, not a page's,
+     so it is spelled as a media query rather than as a second copy of the
+     markup. */}}
+
+{{define "month_picker"}}
+<div class="relative shrink-0">
+  <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+    class="h-[34px] md:h-[38px] px-3 md:px-[13px] rounded-[9px] border border-border-input bg-surface text-[14px] font-medium text-ink flex items-center gap-2">{{.MonthLabel}} <span class="text-[10px] text-placeholder">▾</span></button>
+  <div class="hidden absolute top-[38px] md:top-[42px] z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm {{if eq .ActiveNav "transactions"}}right-0 md:right-auto md:left-0{{else}}right-0{{end}}">
+    {{if eq .ActiveNav "transactions"}}
+    <button type="button" hx-get="/transactions?month={{.CurrentMonthValue}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
+    {{range .AvailableMonths}}
+    <button type="button" hx-get="/transactions?month={{.Value}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
+    {{end}}
+    {{else}}
+    <button type="button" hx-get="/dashboard?month={{.CurrentMonthValue}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
+    {{range .AvailableMonths}}
+    <button type="button" hx-get="/dashboard?month={{.Value}}" hx-target="#dashboard-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
+    {{end}}
+    {{end}}
+  </div>
+</div>
+{{end}}

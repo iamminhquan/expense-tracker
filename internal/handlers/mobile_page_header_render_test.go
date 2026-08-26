@@ -18,7 +18,7 @@ func renderMobilePageHeader(t *testing.T, data map[string]any) string {
 	t.Helper()
 	tmpl := template.Must(template.New("mobile_header.html").
 		Funcs(handlers.TemplateFuncs()).
-		ParseFiles("../web/templates/mobile_header.html"))
+		ParseFiles("../web/templates/mobile_header.html", "../web/templates/month_picker.html"))
 	var sb strings.Builder
 	if err := tmpl.ExecuteTemplate(&sb, "mobile_page_header", data); err != nil {
 		t.Fatalf("execute mobile_page_header: %v", err)
