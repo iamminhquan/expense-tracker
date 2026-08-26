@@ -186,3 +186,55 @@ func TestLoginLockExpiresOnItsOwn(t *testing.T) {
 		t.Fatalf("expected sign-in to work once the lock lapsed, got HX-Redirect %q: %s", got, ok.Body.String())
 	}
 }
+
+// TestResetPasswordUnlocksAccount is the way out of a lock that doesn't
+// involve waiting: someone who genuinely forgot their password locks
+// themselves out first, and the reset they then complete has to leave them
+// signed in rather than facing the lock again.
+func TestResetPasswordUnlocksAccount(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "lockout-reset@example.com"
+	registerLockoutUser(t, deps, router, email, "lockout_reset")
+
+	for i := 0; i < auth.MaxLoginAttempts; i++ {
+		postLogin(t, router, email, "wrong-password")
+	}
+	if !strings.Contains(postLogin(t, router, email, lockoutPassword).Body.String(), "Too many failed attempts") {
+		t.Fatal("expected the account to be locked before the reset")
+	}
+
+	tok := csrfTokenFor(t, router)
+	forgotForm := url.Values{"email": {email}}
+	forgotReq := httptest.NewRequest(http.MethodPost, "/forgot-password", strings.NewReader(forgotForm.Encode()))
+	forgotReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(forgotReq, tok)
+	router.ServeHTTP(httptest.NewRecorder(), forgotReq)
+
+	newPassword := "brand-new-pass"
+	resetForm := url.Values{
+		"token": {resetTokenFor(t, deps, email)}, "password": {newPassword}, "password_confirm": {newPassword},
+	}
+	resetReq := httptest.NewRequest(http.MethodPost, "/reset-password", strings.NewReader(resetForm.Encode()))
+	resetReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(resetReq, tok)
+	resetRec := httptest.NewRecorder()
+	router.ServeHTTP(resetRec, resetReq)
+	if resetRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /reset-password, got %d: %s", resetRec.Code, resetRec.Body.String())
+	}
+
+	user, err := deps.Queries.GetUserByEmail(context.Background(), email)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if user.FailedLoginAttempts != 0 || user.LockedUntil.Valid {
+		t.Errorf("after a reset: FailedLoginAttempts = %d, LockedUntil.Valid = %v, want 0 and false",
+			user.FailedLoginAttempts, user.LockedUntil.Valid)
+	}
+
+	ok := postLogin(t, router, email, newPassword)
+	if got := ok.Header().Get("HX-Redirect"); got != "/transactions" {
+		t.Fatalf("expected the new password to sign in, got HX-Redirect %q: %s", got, ok.Body.String())
+	}
+}

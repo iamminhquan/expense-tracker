@@ -147,6 +147,12 @@ func resetPasswordPage(deps Deps) http.HandlerFunc {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
+		// The reset is the way out of a login lock that doesn't involve
+		// waiting the window out -- someone who forgot their password is
+		// exactly the person who locked themselves out reaching for it.
+		if err := deps.Queries.ClearFailedLogins(r.Context(), userID); err != nil {
+			log.Printf("reset password: clear failed attempts: %v", err)
+		}
 		if err := deps.PasswordResets.ConsumeResetToken(r.Context(), token); err != nil {
 			log.Printf("reset password: consume token: %v", err)
 		}
