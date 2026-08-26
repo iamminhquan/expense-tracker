@@ -84,3 +84,79 @@ func TestBuildBarSeriesZeroPadsMissingMonths(t *testing.T) {
 		t.Fatalf("expected a month with no data to zero-pad, got expense=%d income=%d", expense[0], income[0])
 	}
 }
+
+// The reported prod bug: a month whose expenses span the real "Other"
+// default plus enough categories to push one past the top-N cut drew two
+// slices that were both labelled "Other" and both the reserved gray,
+// because the row and the synthetic aggregate never met each other. The
+// tail's money belongs in the same bucket the real category already is.
+func TestBuildPieDataFoldsTheOtherCategoryIntoTheAggregate(t *testing.T) {
+	otherSlug := pgtype.Text{String: "other", Valid: true}
+	breakdown := []sqlcgen.CategoryBreakdownRow{
+		{CategoryName: "Travel", CategoryColor: "#D97AA0", Total: 1008000},
+		{CategorySlug: pgtype.Text{String: "food_drink", Valid: true}, CategoryName: "Food & Drink", CategoryColor: "#D97757", Total: 770000},
+		{CategorySlug: pgtype.Text{String: "shopping", Valid: true}, CategoryName: "Shopping", CategoryColor: "#8B7BD8", Total: 490000},
+		{CategorySlug: pgtype.Text{String: "entertainment", Valid: true}, CategoryName: "Entertainment", CategoryColor: "#E0A82E", Total: 407000},
+		{CategorySlug: pgtype.Text{String: "transport", Valid: true}, CategoryName: "Transport", CategoryColor: "#5B8DEF", Total: 340000},
+		{CategorySlug: otherSlug, CategoryName: "Other", CategoryColor: "#A1A1AA", Total: 275000},
+		{CategorySlug: pgtype.Text{String: "bills", Valid: true}, CategoryName: "Bills", CategoryColor: "#6BA292", Total: 137200},
+	}
+	labels, values, _, legend := buildPieData(breakdown, 3427200)
+
+	otherCount := 0
+	for _, label := range labels {
+		if label == i18n.NameForSlug("other") {
+			otherCount++
+		}
+	}
+	if otherCount != 1 {
+		t.Fatalf("buildPieData(7 rows incl. the other category) drew %d %q slices, want 1: %v", otherCount, i18n.NameForSlug("other"), labels)
+	}
+	// Pulling the other-category row out of the ranking frees the slot the
+	// tail was being hidden in, so every real category keeps its own slice.
+	if len(labels) != 7 {
+		t.Fatalf("buildPieData(7 rows) = %d slices, want 7: %v", len(labels), labels)
+	}
+	for _, want := range []string{"Travel", "Bills"} {
+		found := false
+		for _, label := range labels {
+			if label == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("buildPieData(7 rows) lost the %q slice: %v", want, labels)
+		}
+	}
+	if got, want := values[6], int64(275000); got != want {
+		t.Errorf("buildPieData(7 rows) other slice = %d, want %d", got, want)
+	}
+	if got, want := legend[6].Amount, vnd(275000); got != want {
+		t.Errorf("buildPieData(7 rows) other legend amount = %q, want %q", got, want)
+	}
+}
+
+// With more categories than slices, the tail joins the real other-category
+// row in the one bucket rather than doubling it.
+func TestBuildPieDataSumsTailIntoTheOtherCategory(t *testing.T) {
+	breakdown := []sqlcgen.CategoryBreakdownRow{
+		{CategorySlug: pgtype.Text{String: "other", Valid: true}, CategoryName: "Other", CategoryColor: "#A1A1AA", Total: 500},
+	}
+	for i := 0; i < 8; i++ {
+		breakdown = append(breakdown, sqlcgen.CategoryBreakdownRow{
+			CategoryName: "Cat", CategoryColor: "#D97757", Total: int64(100 - i),
+		})
+	}
+	labels, values, colors, _ := buildPieData(breakdown, 1272)
+
+	if len(labels) != 7 {
+		t.Fatalf("buildPieData(9 rows) = %d slices, want 7: %v", len(labels), labels)
+	}
+	if labels[6] != i18n.NameForSlug("other") || colors[6] != "#A1A1AA" {
+		t.Fatalf("buildPieData(9 rows) last slice = %q/%q, want the reserved-gray other bucket", labels[6], colors[6])
+	}
+	// 500 from the real category + the two rows past the cut (94 + 93).
+	if got, want := values[6], int64(687); got != want {
+		t.Errorf("buildPieData(9 rows) other slice = %d, want %d", got, want)
+	}
+}

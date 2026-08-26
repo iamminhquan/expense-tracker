@@ -16,6 +16,10 @@ import (
 const pieTopN = 6
 const barMonths = 4
 
+// otherSlug identifies the catch-all default category. Matched on the slug
+// rather than the displayed name, which a translation would move.
+const otherSlug = "other"
+
 type pieLegendEntry struct {
 	Name    string
 	Color   string
@@ -118,15 +122,30 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 }
 
 // buildPieData turns CategoryBreakdown's already-total-desc-ordered rows
-// into the top pieTopN slices plus a synthetic "Other" aggregate for
-// everything past that, so the doughnut never grows an unreadable tail of
-// one-percent slivers.
+// into the top pieTopN slices plus an "Other" aggregate for everything past
+// that, so the doughnut never grows an unreadable tail of one-percent
+// slivers.
+//
+// The real "other" default category never competes for one of those slices:
+// it is the same bucket the aggregate describes, so it is lifted out of the
+// ranking and the two are summed. Left in, a month holding both drew two
+// slices that were identically named and identically gray -- the reserved
+// #A1A1AA is that category's own color -- and, because the row occupied a
+// slot, hid a real category behind the aggregate's label as well.
 func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) (labels []string, values []int64, colors []string, legend []pieLegendEntry) {
-	shown := breakdown
+	var ranked []sqlcgen.CategoryBreakdownRow
 	var otherSum int64
-	if len(breakdown) > pieTopN {
-		shown = breakdown[:pieTopN]
-		for _, row := range breakdown[pieTopN:] {
+	for _, row := range breakdown {
+		if row.CategorySlug.Valid && row.CategorySlug.String == otherSlug {
+			otherSum += row.Total
+			continue
+		}
+		ranked = append(ranked, row)
+	}
+	shown := ranked
+	if len(ranked) > pieTopN {
+		shown = ranked[:pieTopN]
+		for _, row := range ranked[pieTopN:] {
 			otherSum += row.Total
 		}
 	}
@@ -146,7 +165,7 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 	if otherSum > 0 {
 		// The same label the real "other" category uses, so the aggregate
 		// slice and that category never read as two different things.
-		otherName := i18n.NameForSlug("other")
+		otherName := i18n.NameForSlug(otherSlug)
 		labels = append(labels, otherName)
 		values = append(values, otherSum)
 		colors = append(colors, "#A1A1AA")
