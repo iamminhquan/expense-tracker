@@ -289,6 +289,21 @@ guesses. The lock is checked *before* the password, so guessing at a locked
 account can't extend the window; a completed password reset clears it, which
 is the only way out that doesn't involve waiting.
 
+The `/settings` "Active sessions" card is what makes `sessions` rows visible
+to the account they belong to, rather than something only a password change
+ever touched. `created_at` and `user_agent` (migration 000012) exist only for
+this list -- `user_agent` is nullable because a session created before that
+migration has none. `deviceLabel` (`internal/handlers/sessions.go`) turns the
+raw UA into a name like "Chrome on Windows" by matching a handful of common
+browser/OS substrings, falling back to the raw string rather than guessing
+wrong. Signing out one listed device goes through `DeleteSessionForUser`,
+scoped to `user_id` as well as `id` so a `session_id` typed into the form can
+never reach a row it doesn't own; "Log out everywhere else" calls the same
+`DeleteOtherSessionsForUser` a password change uses internally, here as a
+deliberate action instead of a side effect. The current session never gets
+its own revoke button, so a click can't log the viewer out of the page they
+are on.
+
 **Deployment** (`render.yaml`): a free Render web service on Render's native
 Go runtime (no Dockerfile), with Postgres on Neon rather than Render's own
 free tier, which is deleted after 30 days. `autoDeploy` on `main` — a schema
