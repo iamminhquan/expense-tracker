@@ -18,6 +18,12 @@ type Category struct {
 	Slug      pgtype.Text        `json:"slug"`
 }
 
+type PasswordResetToken struct {
+	Token     string             `json:"token"`
+	UserID    int64              `json:"user_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Session struct {
 	ID        string             `json:"id"`
 	UserID    int64              `json:"user_id"`

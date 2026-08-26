@@ -44,6 +44,11 @@ dashboard's category breakdown chart.
    Set `SECURE_COOKIES=true` only once the app is served over HTTPS —
    otherwise browsers will reject the session cookie and nobody can log in.
 
+   `APP_BASE_URL` and the `SMTP_*` variables configure the password-reset
+   email (see `.env.example`). All are optional — leave them blank and
+   "Forgot password?" still works end to end except the actual send, which
+   is logged instead of delivered.
+
 2. Make sure the target Postgres database exists and is reachable at
    `DATABASE_URL`.
 

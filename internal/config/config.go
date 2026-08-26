@@ -21,6 +21,18 @@ type Config struct {
 	// production once the app is served over HTTPS, otherwise browsers
 	// will silently refuse to store the cookie.
 	SecureCookies bool
+	// BaseURL is the scheme+host the app is reachable at, used to build
+	// absolute links (the password-reset email) that make sense read
+	// outside the browser session that requested them.
+	BaseURL string
+	// SMTP* configure the relay password-reset email is sent through. All
+	// optional: an empty SMTPHost just means mailer.Mailer.Send fails
+	// (logged, not fatal) rather than the app refusing to start.
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
 }
 
 // Load reads the configuration from the environment. Everything but the
@@ -32,11 +44,19 @@ func Load() (Config, error) {
 		return Config{}, ErrMissingDatabaseURL
 	}
 
+	port := getEnv("PORT", "8080")
+
 	return Config{
 		DatabaseURL:       databaseURL,
-		Port:              getEnv("PORT", "8080"),
+		Port:              port,
 		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "session_id"),
 		SecureCookies:     getEnvBool("SECURE_COOKIES", false),
+		BaseURL:           getEnv("APP_BASE_URL", "http://localhost:"+port),
+		SMTPHost:          getEnv("SMTP_HOST", ""),
+		SMTPPort:          getEnv("SMTP_PORT", "587"),
+		SMTPUsername:      getEnv("SMTP_USERNAME", ""),
+		SMTPPassword:      getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:          getEnv("SMTP_FROM", ""),
 	}, nil
 }
 

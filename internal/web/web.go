@@ -51,11 +51,13 @@ var sharedTemplates = []string{
 // everything, because several pages define blocks under the same name
 // ("content" above all) and a single set would let the last one parsed win.
 var pageTemplates = map[string][]string{
-	"auth":         {"auth.html", "auth_card_body.html"},
-	"categories":   {"categories.html", "category_row.html"},
-	"transactions": {"transactions.html", "transaction_form.html", "transaction_row.html", "transaction_filters.html"},
-	"dashboard":    {"dashboard.html"},
-	"settings":     {"settings.html"},
+	"auth":            {"auth.html", "auth_card_body.html"},
+	"forgot_password": {"forgot_password.html"},
+	"reset_password":  {"reset_password.html"},
+	"categories":      {"categories.html", "category_row.html"},
+	"transactions":    {"transactions.html", "transaction_form.html", "transaction_row.html", "transaction_filters.html"},
+	"dashboard":       {"dashboard.html"},
+	"settings":        {"settings.html"},
 }
 
 // Templates parses every page set from the embedded templates directory.

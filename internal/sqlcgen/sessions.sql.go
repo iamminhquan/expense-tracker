@@ -56,6 +56,19 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteSessionsForUser = `-- name: DeleteSessionsForUser :exec
+DELETE FROM sessions WHERE user_id = $1
+`
+
+// DeleteSessionsForUser drops every session of a user, including the one
+// making the request. A password reset has no current session to spare --
+// the visitor arrived signed out -- so every device gets logged out and the
+// freshly reset password is what signs them back in.
+func (q *Queries) DeleteSessionsForUser(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteSessionsForUser, userID)
+	return err
+}
+
 const getSession = `-- name: GetSession :one
 SELECT id, user_id, expires_at FROM sessions WHERE id = $1
 `

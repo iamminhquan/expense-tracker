@@ -13,6 +13,7 @@ import (
 	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
+	"expensetracker/internal/mailer"
 	"expensetracker/internal/sqlcgen"
 	"expensetracker/internal/web"
 )
@@ -38,12 +39,15 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 
 	return handlers.Deps{
-		DB:            pool,
-		Queries:       sqlcgen.New(pool),
-		Sessions:      auth.NewManager(sqlcgen.New(pool)),
-		Templates:     templates,
-		CookieName:    "session_id",
-		SecureCookies: false,
+		DB:             pool,
+		Queries:        sqlcgen.New(pool),
+		Sessions:       auth.NewManager(sqlcgen.New(pool)),
+		PasswordResets: auth.NewPasswordResetManager(sqlcgen.New(pool)),
+		Mailer:         mailer.New(mailer.Config{}),
+		Templates:      templates,
+		CookieName:     "session_id",
+		SecureCookies:  false,
+		BaseURL:        "http://localhost:8080",
 	}
 }
 
