@@ -26,6 +26,31 @@ func categoriesOfType(categories []sqlcgen.Category, typ string) []sqlcgen.Categ
 	return matching
 }
 
+// txnRow is one row of the list as the template sees it: the query's own row
+// plus the one thing that depends on the view rather than on the transaction
+// -- whether the date has to name its year. transactions.html hands each row
+// to the row template on its own, so a page-level flag would not be visible
+// from inside it; embedding leaves every existing field reference working and
+// adds the one that was missing.
+type txnRow struct {
+	sqlcgen.ListTransactionsForMonthRow
+	showYear bool
+}
+
+// Date is what the row prints in its date column.
+func (r txnRow) Date() string { return rowDate(r.OccurredOn, r.showYear) }
+
+// rowDate is the single rule for that column, kept out of the template
+// because which format applies is the view's business, not the markup's.
+// The three handlers that answer with one row rather than a list build a map
+// instead of a txnRow, and call this directly.
+func rowDate(d pgtype.Date, showYear bool) string {
+	if showYear {
+		return dateLong(d)
+	}
+	return dateShort(d)
+}
+
 // totalsOOBData assembles the payload for the "totals_oob" fragment that
 // every create/update/delete returns alongside its row: the refreshed nav
 // header balance, plus the transaction count, the month name the list's
@@ -36,11 +61,12 @@ func categoriesOfType(categories []sqlcgen.Category, typ string) []sqlcgen.Categ
 // browsing an older one, because that is what the widget in the layout
 // reports -- which is why it arrives as its own argument rather than being
 // derived from anything scoped to the browsed month.
-func totalsOOBData(header balanceSummary, count int64, from pgtype.Date, p pager) map[string]any {
+func totalsOOBData(header balanceSummary, count int64, scope txnScope, p pager) map[string]any {
 	return map[string]any{
 		"HeaderBalance":   header,
 		"Count":           count,
-		"MonthLabelLower": monthLabelLower(from.Time),
+		"MonthLabelLower": scope.LabelLower(),
+		"AllMonths":       scope.All,
 		"Pager":           p,
 	}
 }
@@ -55,7 +81,8 @@ func totalsOOBData(header balanceSummary, count int64, from pgtype.Date, p pager
 // which is why the window comes from HX-Current-URL rather than from today.
 // On failure it writes the 500 itself and reports false.
 func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) (map[string]any, bool) {
-	from, to := monthRangeFromRequest(r)
+	scope := scopeFromRequest(r)
+	from, to := scope.Bounds()
 	header, err := currentHeaderBalance(r, deps, userID)
 	if err != nil {
 		http.Error(w, "could not load totals", http.StatusInternalServerError)
@@ -70,7 +97,7 @@ func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64
 		http.Error(w, "could not load transactions", http.StatusInternalServerError)
 		return nil, false
 	}
-	return totalsOOBData(header, count, from, newPager(pageFromRequest(r), count, monthValueOf(from))), true
+	return totalsOOBData(header, count, scope, newPager(pageFromRequest(r), count, scope.Value)), true
 }
 
 // monthValueOf renders a resolved month bound back into the "YYYY-MM" the
@@ -116,7 +143,8 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 // swaps in) needs: the selected month's transactions/totals, the dropdown's
 // list of other months with data, and the quick-add form's own state.
 func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam string, page int, filters txnFilters, quickAddError, selectedType string) (map[string]any, error) {
-	from, to := monthRangeFor(monthParam)
+	scope := newTxnScope(monthParam)
+	from, to := scope.Bounds()
 
 	// The count comes first: which page exists at all depends on it, and the
 	// chip above the list reports every row the filters matched rather than
@@ -125,11 +153,15 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 	if err != nil {
 		return nil, err
 	}
-	pgr := newPager(page, count, monthValueOf(from))
+	pgr := newPager(page, count, scope.Value)
 
 	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), filters.listParams(userID, from, to, pgr.Offset()))
 	if err != nil {
 		return nil, err
+	}
+	rows := make([]txnRow, len(transactions))
+	for i, t := range transactions {
+		rows[i] = txnRow{ListTransactionsForMonthRow: t, showYear: scope.All}
 	}
 
 	months, err := deps.Queries.ListDistinctTransactionMonths(r.Context(), userID)
@@ -158,17 +190,18 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 	}
 
 	return map[string]any{
-		"Transactions":      transactions,
+		"Transactions":      rows,
 		"TotalCount":        count,
 		"Pager":             pgr,
 		"Filters":           filters,
 		"FilterCount":       filters.ActiveCount(),
 		"Filtering":         filters.Any(),
 		"AllCategories":     allCategories,
-		"ExportURL":         exportURL(monthValueOf(from), pgr.Page, filters),
-		"MonthValue":        monthValueOf(from),
-		"MonthLabel":        monthLabel(from.Time),
-		"MonthLabelLower":   monthLabelLower(from.Time),
+		"ExportURL":         exportURL(scope.Value, pgr.Page, filters),
+		"MonthValue":        scope.Value,
+		"MonthLabel":        scope.Label,
+		"MonthLabelLower":   scope.LabelLower(),
+		"AllMonths":         scope.All,
 		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
 		"AvailableMonths":   available,
 		"Categories":        categoriesOfType(allCategories, formType),
@@ -260,8 +293,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	// the filters so a reload lands on the same view.
 	filters := filtersFromHXCurrentURL(r)
 	if pageFromRequest(r) > 1 || filters.Any() || filters.Sorted() {
-		from, _ := monthRangeFromRequest(r)
-		month := monthValueOf(from)
+		month := scopeFromRequest(r).Value
 		data, err := buildTransactionsPageData(r, deps, userID, month, 1, filters, "", "")
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
@@ -293,6 +325,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 			"ID": created.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 			"Description": created.Description, "OccurredOn": created.OccurredOn,
 			"Amount": created.Amount, "Type": created.Type,
+			"Date": rowDate(created.OccurredOn, scopeFromRequest(r).All),
 		},
 		"Totals": totals,
 	})
@@ -391,6 +424,7 @@ func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 		renderNamed(w, r, deps, "transactions", "transaction_row", "", map[string]any{
 			"ID": txn.ID, "CategorySlug": txn.CategorySlug, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
 			"Description": txn.Description, "OccurredOn": txn.OccurredOn, "Amount": txn.Amount, "Type": txn.Type,
+			"Date": rowDate(txn.OccurredOn, scopeFromRequest(r).All),
 		})
 	}
 }
@@ -489,6 +523,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 				"ID": updated.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
 				"Amount": updated.Amount, "Type": updated.Type,
+				"Date": rowDate(updated.OccurredOn, scopeFromRequest(r).All),
 			},
 			"Totals": totals,
 		})

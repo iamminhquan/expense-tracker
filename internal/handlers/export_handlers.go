@@ -34,7 +34,8 @@ const utf8BOM = "\ufeff"
 func exportTransactionsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
-		from, to := monthRangeFor(r.URL.Query().Get("month"))
+		scope := newTxnScope(r.URL.Query().Get("month"))
+		from, to := scope.Bounds()
 		filters := filtersFromRequest(r)
 
 		// Read everything before writing a byte: once the first row is on the
@@ -48,7 +49,9 @@ func exportTransactionsHandler(deps Deps) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", `attachment; filename="spend-`+monthValueOf(from)+`.csv"`)
+		// The filename names the scope rather than a month, so an all-months
+		// download does not land in the folder claiming to be one August.
+		w.Header().Set("Content-Disposition", `attachment; filename="spend-`+scope.Value+`.csv"`)
 
 		if _, err := io.WriteString(w, utf8BOM); err != nil {
 			log.Printf("export transactions: write bom: %v", err)

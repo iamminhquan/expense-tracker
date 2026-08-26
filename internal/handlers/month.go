@@ -93,3 +93,70 @@ func currentMonthRange() (from, to pgtype.Date) {
 	toTime := fromTime.AddDate(0, 1, 0)
 	return pgDate(fromTime), pgDate(toTime)
 }
+
+// allMonths is what ?month= carries when the transactions page is showing a
+// whole history rather than one calendar month. It is spelled out here
+// because three places have to agree on it: the picker item that sends it,
+// newTxnScope that reads it, and the Value every link on the page renders it
+// back into.
+const allMonths = "all"
+
+// The bounds the all-time scope reports. They are deliberately absurd rather
+// than derived from the user's earliest transaction: the point is a window
+// wide enough that "occurred_on >= from AND occurred_on < to" stops selecting
+// anything out, which lets the list, the count and the export keep running
+// the one query they already run instead of growing a second, month-less
+// variant of each.
+var (
+	allTimeFrom = pgDate(time.Date(1, 1, 1, 0, 0, 0, 0, vietnamLocation))
+	allTimeTo   = pgDate(time.Date(9999, 12, 31, 0, 0, 0, 0, vietnamLocation))
+)
+
+// txnScope is which slice of time the transactions page is showing: one
+// calendar month, or every month there has ever been.
+//
+// It exists because the page cannot simply format its lower bound back into
+// a "YYYY-MM" the way it used to. Every link the page builds -- the pager,
+// the export, the URL pushed via HX-Push-Url, the month the filter controls
+// file under -- has to name the scope it belongs to, and an all-time window
+// formatted as a month reads "0001-01". So the scope carries the spelling it
+// arrived as, and the bounds hang off it rather than the other way round.
+//
+// The dashboard is deliberately not a consumer: its charts are built month by
+// month and mean nothing over a whole history, so it keeps calling
+// monthRangeFor, which has never heard of allMonths and treats it as
+// malformed like any other unparseable value.
+type txnScope struct {
+	Value string // "2026-08" or "all" -- what every link's ?month= carries
+	Label string // "August 2026" or "All months" -- what the picker shows
+	All   bool
+
+	from, to pgtype.Date
+}
+
+// newTxnScope reads the scope out of a raw ?month= value. Anything it cannot
+// use falls back to the current month rather than to every month: a stale
+// bookmark or a hand-edited URL should leave the list where it was, and
+// widening it to a whole history is the one fallback that would surprise.
+func newTxnScope(param string) txnScope {
+	if param == allMonths {
+		return txnScope{Value: allMonths, Label: "All months", All: true, from: allTimeFrom, to: allTimeTo}
+	}
+	from, to := monthRangeFor(param)
+	return txnScope{Value: from.Time.Format("2006-01"), Label: monthLabel(from.Time), from: from, to: to}
+}
+
+// scopeFromRequest reads the scope the page that issued this request was
+// showing, for the mutation handlers -- the same reason monthRangeFromRequest
+// exists, and read out of the same HX-Current-URL header.
+func scopeFromRequest(r *http.Request) txnScope {
+	return newTxnScope(monthParamFromRequest(r))
+}
+
+// Bounds is the half-open [from, to) window the queries take.
+func (s txnScope) Bounds() (from, to pgtype.Date) { return s.from, s.to }
+
+// LabelLower is the bare month name the month-scoped empty states read
+// ("No transactions in august"). It is meaningless for the all-time scope,
+// which those templates branch away from before reaching it.
+func (s txnScope) LabelLower() string { return monthLabelLower(s.from.Time) }

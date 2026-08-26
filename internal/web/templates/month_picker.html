@@ -24,7 +24,14 @@
     class="h-[34px] md:h-[38px] px-3 md:px-[13px] rounded-[9px] border border-border-input bg-surface text-[14px] font-medium text-ink flex items-center gap-2">{{.MonthLabel}} <span class="text-[10px] text-placeholder">▾</span></button>
   <div class="hidden absolute top-[38px] md:top-[42px] z-20 bg-surface border border-border-card rounded-lg py-1 w-[160px] shadow-sm {{if eq .ActiveNav "transactions"}}right-0 md:right-auto md:left-0{{else}}right-0{{end}}">
     {{if eq .ActiveNav "transactions"}}
+    {{/* Only the transactions list offers this. The dashboard's cards and
+         charts are all built month against month -- a comparison line and a
+         four-month bar series have nothing to say about a whole history --
+         and monthRangeFor, which every one of them calls, has never heard of
+         the value, so a hand-typed ?month=all lands on the current month
+         there rather than on something half-rendered. */}}
     <button type="button" hx-get="/transactions?month={{.CurrentMonthValue}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">This month</button>
+    <button type="button" hx-get="/transactions?month=all" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">All months</button>
     {{range .AvailableMonths}}
     <button type="button" hx-get="/transactions?month={{.Value}}" hx-include="#transaction-filters" hx-target="#transactions-month-section" hx-swap="outerHTML" hx-push-url="true" class="block w-full text-left px-3 py-2 text-[13px] hover:bg-track">{{.Label}}</button>
     {{end}}

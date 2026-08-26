@@ -82,6 +82,15 @@ func dateShort(d pgtype.Date) string {
 	return d.Time.Format("02 Jan")
 }
 
+// dateLong formats a DATE column as "11 Aug 2026", for the all-months list,
+// where the year dateShort leaves implied is not implied by anything.
+func dateLong(d pgtype.Date) string {
+	if !d.Valid {
+		return ""
+	}
+	return d.Time.Format("02 Jan 2006")
+}
+
 // countOf renders a count with its noun in agreement: "1 transaction",
 // "2 transactions". English needs this and Vietnamese does not, so the
 // templates carried a bare plural noun until the UI was translated.
