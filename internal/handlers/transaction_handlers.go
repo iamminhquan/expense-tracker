@@ -244,20 +244,22 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 
 	w.Header().Set("HX-Trigger", "transaction-created")
 
-	// Two situations where the new row does not belong where the user is
-	// looking, and both are answered the same way: re-render the whole month
+	// Three situations where the new row does not belong where the user is
+	// looking, and all are answered the same way: re-render the whole month
 	// section at page 1 and point htmx at it, instead of the usual single row.
 	//
 	// Past the first page, a new transaction belongs at the top of page 1, not
 	// in whichever window the user happened to be browsing. With a filter on,
 	// it may not belong in the list at all -- prepending it would show a row
-	// that does not match what the list claims to be showing.
+	// that does not match what the list claims to be showing. And in any order
+	// other than the default newest-first, the top is simply not its place:
+	// where it goes depends on the amount that was just typed.
 	//
 	// The month comes back out of the resolved bounds rather than the raw
 	// param, so the pushed URL is always a well-formed "YYYY-MM", and it keeps
 	// the filters so a reload lands on the same view.
 	filters := filtersFromHXCurrentURL(r)
-	if pageFromRequest(r) > 1 || filters.Any() {
+	if pageFromRequest(r) > 1 || filters.Any() || filters.Sorted() {
 		from, _ := monthRangeFromRequest(r)
 		month := monthValueOf(from)
 		data, err := buildTransactionsPageData(r, deps, userID, month, 1, filters, "", "")

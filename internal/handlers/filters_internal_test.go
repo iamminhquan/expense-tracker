@@ -105,3 +105,62 @@ func TestExportURLCarriesTheMonthAndFiltersButNeverThePage(t *testing.T) {
 		t.Errorf("unexpected export URL: %s", got)
 	}
 }
+
+func TestFiltersFromQueryReadsTheSortOrder(t *testing.T) {
+	for _, want := range []string{"amount_desc", "amount_asc"} {
+		if got := filtersFromQuery(url.Values{"sort": {want}}).Sort; got != want {
+			t.Errorf("filtersFromQuery(sort=%q).Sort = %q, want %q", want, got, want)
+		}
+	}
+}
+
+// An unknown order falls back to the default rather than reaching the query,
+// for the same reason a malformed amount is dropped: the ORDER BY is built
+// from this value, and only the orders the control offers may reach it.
+func TestFiltersFromQueryDropsAnUnknownSortOrder(t *testing.T) {
+	for _, raw := range []string{"amount", "occurred_on DESC", "", "  "} {
+		if got := filtersFromQuery(url.Values{"sort": {raw}}).Sort; got != "" {
+			t.Errorf("filtersFromQuery(sort=%q).Sort = %q, want %q", raw, got, "")
+		}
+	}
+}
+
+// Sorting hides no rows, so it is not one of the things the badge counts or
+// the "no transactions match these filters" empty state is about.
+func TestSortIsNotCountedAsAFilter(t *testing.T) {
+	f := txnFilters{Sort: "amount_desc"}
+	if f.Any() {
+		t.Error("expected a sort order alone to leave the list unfiltered")
+	}
+	if n := f.ActiveCount(); n != 0 {
+		t.Errorf("txnFilters{Sort: \"amount_desc\"}.ActiveCount() = %d, want 0", n)
+	}
+}
+
+// Sorted is what tells handleCreateTransaction that a new row cannot simply
+// be prepended: outside the default date order its place depends on the
+// amount that was just typed.
+func TestSortedReportsOnlyANonDefaultOrder(t *testing.T) {
+	if (txnFilters{}).Sorted() {
+		t.Error("expected the default order to report as unsorted")
+	}
+	if !(txnFilters{Sort: "amount_asc"}).Sorted() {
+		t.Error("expected an amount order to report as sorted")
+	}
+}
+
+// The order is part of the view, so it rides along in every address the view
+// is rebuilt from: the pushed URL, the pager's links and the export.
+func TestFiltersCanonicalURLCarriesTheSortOrder(t *testing.T) {
+	got := transactionsURL("2026-08", 1, txnFilters{Sort: "amount_desc"})
+	if got != "/transactions?month=2026-08&sort=amount_desc" {
+		t.Errorf("unexpected canonical URL: %s", got)
+	}
+}
+
+func TestExportURLCarriesTheSortOrder(t *testing.T) {
+	got := exportURL("2026-08", 1, txnFilters{Sort: "amount_asc"})
+	if got != "/transactions/export?month=2026-08&sort=amount_asc" {
+		t.Errorf("unexpected export URL: %s", got)
+	}
+}

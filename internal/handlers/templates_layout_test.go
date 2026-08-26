@@ -144,3 +144,30 @@ func TestNoTailwindUtilityIsStrandedOutsideAClassAttribute(t *testing.T) {
 		}
 	}
 }
+
+// The Export link's href is rendered once and then rebuilt in JS, because the
+// filter form carries hx-preserve and the server's copy of it is discarded on
+// every swap after the first. That leaves two lists of control names that
+// have to agree -- filterQuery in Go and the array in app.js -- and a control
+// added to the form but not to the array simply drops out of the CSV, which
+// is the kind of gap nothing else on the page would show.
+func TestTheExportLinkRebuildCoversEveryFilterControl(t *testing.T) {
+	form, err := os.ReadFile("../web/templates/transaction_filters.html")
+	if err != nil {
+		t.Fatalf("read transaction_filters.html: %v", err)
+	}
+	script, err := os.ReadFile("../web/static/app.js")
+	if err != nil {
+		t.Fatalf("read app.js: %v", err)
+	}
+
+	rebuild := regexp.MustCompile(`\[([^\]]*)\]\.forEach\(function \(name\)`).FindSubmatch(script)
+	if rebuild == nil {
+		t.Fatal("app.js no longer rebuilds the export link from a list of control names")
+	}
+	for _, name := range regexp.MustCompile(`name="(\w+)"`).FindAllSubmatch(form, -1) {
+		if !strings.Contains(string(rebuild[1]), "'"+string(name[1])+"'") {
+			t.Errorf("the filter form has a %q control the export link's rebuild leaves out, so the CSV ignores it", name[1])
+		}
+	}
+}

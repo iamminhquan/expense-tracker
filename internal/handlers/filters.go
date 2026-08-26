@@ -23,13 +23,26 @@ import (
 // numbers -- no category has id 0, and a transaction's amount is validated
 // as strictly positive on the way in, so neither sentinel can collide with a
 // value a user could actually pick.
+//
+// Sort is the one member that narrows nothing: it rides here rather than in a
+// value object of its own because it sits in the same panel and travels the
+// same road as the rest -- the pushed URL, the pager's links, the export, and
+// the mutation handlers' HX-Current-URL. Everything that counts what is being
+// filtered leaves it out; see Any and ActiveCount.
 type txnFilters struct {
 	Search    string // matched against a transaction's note, case-insensitively
 	Type      string // "expense", "income", or "" for both
 	Category  int64
 	MinAmount int64
 	MaxAmount int64
+	Sort      string // "amount_desc", "amount_asc", or "" for newest first
 }
+
+// sortOrders is every order the list offers, spelled as the query parameter
+// spells them. The set is closed: an order that is not in it is dropped on
+// the way in, so a hand-edited "?sort=" cannot follow the view around by way
+// of the canonical URL and the export link.
+var sortOrders = map[string]bool{"amount_desc": true, "amount_asc": true}
 
 // filtersFromQuery reads the filters out of a parsed query string. Anything
 // unusable -- a non-numeric amount, a type that is neither of the two, a
@@ -45,6 +58,9 @@ func filtersFromQuery(q url.Values) txnFilters {
 	f.Category = positiveInt(q.Get("category"))
 	f.MinAmount = positiveInt(q.Get("min"))
 	f.MaxAmount = positiveInt(q.Get("max"))
+	if s := q.Get("sort"); sortOrders[s] {
+		f.Sort = s
+	}
 	return f
 }
 
@@ -92,6 +108,13 @@ func (f txnFilters) Any() bool {
 	return f.Search != "" || f.Type != "" || f.Category != 0 || f.MinAmount != 0 || f.MaxAmount != 0
 }
 
+// Sorted reports whether the list is in an order other than the default
+// newest-first. handleCreateTransaction needs it alongside Any: a new row
+// belongs at the top of a list in date order, but in one ordered by amount
+// its place depends on the amount that was just typed, so prepending it would
+// put it somewhere the order says it does not go.
+func (f txnFilters) Sorted() bool { return f.Sort != "" }
+
 // ActiveCount is the number the "Filters" button's badge shows. The amount
 // range counts once however many of its two ends are filled in, because the
 // badge counts controls the user sees and the panel shows the range as a
@@ -138,6 +161,15 @@ func (f txnFilters) typeParam() pgtype.Text {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: f.Type, Valid: true}
+}
+
+// sortParam renders the order for the query's ORDER BY. An unset one is SQL
+// NULL, which matches neither CASE and so leaves the list newest-first.
+func (f txnFilters) sortParam() pgtype.Text {
+	if f.Sort == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: f.Sort, Valid: true}
 }
 
 // nullableInt turns a 0 sentinel into SQL NULL and anything else into a set
@@ -193,6 +225,11 @@ func filterQuery(month string, f txnFilters) url.Values {
 			q.Set(name, strconv.FormatInt(v, 10))
 		}
 	}
+	// The order is not a filter, but it is part of the view: without it here a
+	// reload, a page turn or an export would silently drop back to newest-first.
+	if f.Sort != "" {
+		q.Set("sort", f.Sort)
+	}
 	return q
 }
 
@@ -212,6 +249,7 @@ func (f txnFilters) exportParams(userID int64, from, to pgtype.Date) sqlcgen.Lis
 		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
+		Sort: f.sortParam(),
 	}
 }
 
