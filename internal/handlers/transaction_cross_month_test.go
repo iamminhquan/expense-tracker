@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -129,6 +131,29 @@ func TestSortingByAmountReachesAcrossEveryMonth(t *testing.T) {
 	})
 }
 
+// dateShort renders "02 Aug" because, as its own comment says, the year is
+// implied by the month filter. Across a whole history nothing implies it, so
+// the row has to name it -- and only then, or every row of a single month
+// would repeat the same year for no one's benefit.
+func TestTheDateNamesItsYearOnlyWhenMonthsAreMixed(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedCrossMonthFixture(t, deps, router, "cross-year@example.com")
+
+	year := monthsBack(1).Format("2006")
+	twoAgo := monthsBack(2).Format("02 Jan 2006")
+
+	everyMonth := getTransactions(t, router, f.cookie, "?month=all")
+	if !strings.Contains(everyMonth, monthsBack(2).AddDate(0, 0, 19).Format("02 Jan 2006")) {
+		t.Errorf("expected an all-months row to carry its year, e.g. %q", twoAgo)
+	}
+
+	thisMonth := getTransactions(t, router, f.cookie, "")
+	if strings.Contains(thisMonth, monthsBack(0).AddDate(0, 0, 4).Format("02 Jan 2006")) {
+		t.Errorf("expected a single month's rows to leave the year %q implied", year)
+	}
+}
+
 // The picker is the one control that decides scope, so this is where the new
 // mode has to be reachable from.
 func TestTheMonthPickerOffersEveryMonthAtOnce(t *testing.T) {
@@ -217,5 +242,76 @@ func TestAnAllMonthsFragmentPushesTheScopeIntoTheURL(t *testing.T) {
 
 	if got := rec.Header().Get("HX-Push-Url"); got != "/transactions?month=all&q=coffee" {
 		t.Errorf("pushed URL = %q, want %q", got, "/transactions?month=all&q=coffee")
+	}
+}
+
+// categoryOfTransaction reads a seeded row's category, for the update and
+// create forms below, which have to name one the user actually owns.
+func categoryOfTransaction(t *testing.T, deps handlers.Deps, id int64) int64 {
+	t.Helper()
+	var categoryID int64
+	if err := deps.DB.QueryRow(context.Background(),
+		"SELECT category_id FROM transactions WHERE id = $1", id).Scan(&categoryID); err != nil {
+		t.Fatalf("category of transaction %d: %v", id, err)
+	}
+	return categoryID
+}
+
+// The row's date is a map key on three of the four paths that render a row,
+// and a template that reads a key a map does not carry prints nothing at all
+// rather than failing -- so a path that forgot to supply it would ship rows
+// with an empty date column, and every assertion about the rest of that row
+// would still pass. This walks all four and insists each one dated its row.
+func TestEveryPathThatRendersARowFillsInItsDate(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedCrossMonthFixture(t, deps, router, "cross-rowdate@example.com")
+	id := idOfTransaction(t, deps, f.userID, "Coffee this month")
+	categoryID := strconv.FormatInt(categoryOfTransaction(t, deps, id), 10)
+	csrf := csrfTokenFor(t, router)
+
+	// Every path is told, through HX-Current-URL, that the page it is
+	// answering is showing all months -- so every row it renders owes its year.
+	day := monthsBack(0).AddDate(0, 0, 4)
+	want := day.Format("02 Jan 2006")
+
+	send := func(name, method, target string, form url.Values) string {
+		t.Helper()
+		var req *http.Request
+		if form == nil {
+			req = httptest.NewRequest(method, target, nil)
+		} else {
+			req = httptest.NewRequest(method, target, strings.NewReader(form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+		req.Header.Set("HX-Request", "true")
+		req.Header.Set("HX-Current-URL", "http://example.test/transactions?month=all")
+		req.AddCookie(f.cookie)
+		withCSRF(req, csrf)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d", name, rec.Code)
+		}
+		return rec.Body.String()
+	}
+
+	rowID := strconv.FormatInt(id, 10)
+	paths := map[string]string{
+		"the list": getTransactions(t, router, f.cookie, "?month=all"),
+		"a view":   send("view", http.MethodGet, "/transactions/"+rowID+"/view", nil),
+		"an update": send("update", http.MethodPatch, "/transactions/"+rowID, url.Values{
+			"category_id": {categoryID}, "amount": {"46000"},
+			"description": {"Coffee this month"}, "occurred_on": {day.Format("2006-01-02")},
+		}),
+		"a create": send("create", http.MethodPost, "/transactions", url.Values{
+			"category_id": {categoryID}, "amount": {"9000"}, "type": {"expense"},
+			"description": {"Fresh row"}, "occurred_on": {day.Format("2006-01-02")},
+		}),
+	}
+	for name, body := range paths {
+		if !strings.Contains(body, want) {
+			t.Errorf("%s rendered a row with no date on it, expected %q", name, want)
+		}
 	}
 }

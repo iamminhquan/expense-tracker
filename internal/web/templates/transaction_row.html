@@ -1,7 +1,7 @@
 {{define "transaction_row"}}
 <div id="transaction-row-{{.ID}}" class="group flex items-center gap-3 md:gap-4 px-4 py-3 md:py-[13px] border-b border-border-list last:border-b-0 hover:bg-surface-alt">
   <span class="w-2 h-2 rounded-full shrink-0 md:hidden" style="background-color: {{.CategoryColor}}"></span>
-  <span class="hidden md:inline w-[46px] shrink-0 font-mono text-[12px] text-ink-faintest">{{dateShort .OccurredOn}}</span>
+  <span class="hidden md:inline min-w-[46px] shrink-0 whitespace-nowrap font-mono text-[12px] text-ink-faintest">{{.Date}}</span>
   <span class="hidden md:flex w-[150px] shrink-0 items-center gap-2 text-[13px] font-medium text-ink">
     <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.CategoryColor}}"></span>
     <span class="truncate">{{catName .CategorySlug .CategoryName}}</span>
@@ -9,7 +9,7 @@
   <span class="flex-1 min-w-0 hidden md:block text-[13px] text-ink-faint truncate">{{.Description}}</span>
   <span data-longpress-target="mobile-actions-{{.ID}}" class="flex-1 min-w-0 md:hidden flex flex-col">
     <span class="text-[14px] font-medium text-ink truncate">{{catName .CategorySlug .CategoryName}}</span>
-    <span class="text-[12px] text-ink-faintest truncate">{{dateShort .OccurredOn}}{{if .Description}} · {{.Description}}{{end}}</span>
+    <span class="text-[12px] text-ink-faintest truncate">{{.Date}}{{if .Description}} · {{.Description}}{{end}}</span>
   </span>
   <span class="hidden md:flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
     <button type="button" hx-get="/transactions/{{.ID}}/edit" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-border-card rounded-md px-[7px] py-[3px]">Edit</button>

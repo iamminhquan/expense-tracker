@@ -171,3 +171,30 @@ func TestTheExportLinkRebuildCoversEveryFilterControl(t *testing.T) {
 		}
 	}
 }
+
+// The row's date cell renders two different formats now -- "02 Aug" inside a
+// month, "02 Aug 2026" across all of them -- so a fixed width can only ever
+// fit one of them, and the wider one wraps onto a second line under the
+// first. It has to size itself to whichever it is given, with the old fixed
+// width surviving only as the floor that keeps the column aligned.
+func TestTheRowDateCellSizesItselfToWhicheverDateFormatItGets(t *testing.T) {
+	body, err := os.ReadFile("../web/templates/transaction_row.html")
+	if err != nil {
+		t.Fatalf("read transaction_row.html: %v", err)
+	}
+
+	cell := regexp.MustCompile(`<span class="([^"]*font-mono[^"]*text-ink-faintest[^"]*)">\{\{\.Date\}\}`).FindSubmatch(body)
+	if cell == nil {
+		t.Fatal("no date cell rendering {{.Date}} in transaction_row.html")
+	}
+	classes := string(cell[1])
+	if regexp.MustCompile(`(^|\s)w-\[`).MatchString(classes) {
+		t.Errorf("the date cell is pinned to a fixed width, so the format carrying a year wraps: %q", classes)
+	}
+	if !strings.Contains(classes, "min-w-[") {
+		t.Errorf("the date cell has no width floor, so the column stops lining up: %q", classes)
+	}
+	if !strings.Contains(classes, "whitespace-nowrap") {
+		t.Errorf("the date cell can still break between the month and the year: %q", classes)
+	}
+}
