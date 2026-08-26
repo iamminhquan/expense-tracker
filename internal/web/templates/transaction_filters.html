@@ -9,7 +9,9 @@
      take the caret and any in-flight Vietnamese IME composition with it.
      Being preserved is also why the badge below is counted in app.js rather
      than here -- the server's copy of this element is discarded on every
-     swap, so only the first render of the badge is ever the server's.
+     swap, so only the first render of the badge is ever the server's. The
+     export link in the menu is kept fresh the same way, and for the same
+     reason.
 
      The month is deliberately not one of these inputs. It would go stale the
      moment the picker switched months, since this element survives that swap;
@@ -89,9 +91,20 @@
   class="h-9 px-3 shrink-0 rounded-lg border border-border-input bg-surface text-[13px] font-medium text-ink-faint flex items-center justify-center">Clear filters</a>
 {{end}}
 
-{{/* The overflow menu beside the search box: the Filters button, moved off
-     the row and behind a trigger, so that the row is a search box and one
-     control rather than two things competing for a 375px screen.
+{{/* The overflow menu beside the search box: the one control the Filters
+     button, the desktop Export button and the mobile Export link under the
+     list collapsed into.
+
+     The export link opts out of hx-boost. <body> carries hx-boost="true", so
+     without it htmx intercepts the click, fetches the CSV over XHR and tries
+     to swap it into the page -- the file never reaches the download manager
+     and the user sees raw CSV where their transactions were.
+
+     Its href is the month and filters as they stood when the server last
+     rendered this form, which is the first page load and no swap since:
+     hx-preserve keeps the node the browser already has. app.js rebuilds the
+     href from the live controls whenever the menu opens, the way it recounts
+     the badge, so the CSV is always the list on screen.
 
      The badge rides the trigger rather than a "Filters" label, because with
      the panel collapsed behind a menu it is the only thing left saying the
@@ -109,6 +122,11 @@
       <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.25h18M6.75 12h10.5M10.5 18.75h3"/></svg>
       Filters
     </button>
+    <a href="{{.ExportURL}}" data-export-link hx-boost="false" download
+      class="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-[13px] text-ink-muted hover:bg-track">
+      <svg class="w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4.5 17.25v1.5A2.25 2.25 0 006.75 21h10.5a2.25 2.25 0 002.25-2.25v-1.5"/></svg>
+      Export CSV
+    </a>
   </div>
 </details>
 {{end}}

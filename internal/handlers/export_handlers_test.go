@@ -183,27 +183,35 @@ func TestTheExportLinkOptsOutOfHxBoostSoTheBrowserDownloadsIt(t *testing.T) {
 	}
 }
 
-// Below md the sticky page header already carries a title, a month picker
-// and an add button, so the export goes under the list instead -- a fourth
-// control in that row is what overflows a 375px screen. Both copies render
-// from one "export_link" block, so this checks the mobile one is really
-// there and really hidden from desktop, not that the markup was pasted
-// twice and drifted.
-func TestTheExportLinkIsReachableOnMobileWithoutCrowdingTheStickyHeader(t *testing.T) {
+// The export is not a control of its own any more: the transactions header
+// carried a Filters button, an Export button on desktop and a second Export
+// under the list on mobile, and all three collapsed into the one overflow
+// menu beside the search box. This checks the link renders exactly once, in
+// that menu, with no breakpoint hiding it -- one copy serving both is the
+// whole point of moving it there.
+func TestTheExportLinkLivesInTheOverflowMenuAtEveryBreakpoint(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
-	f := seedFilterFixture(t, deps, router, "export-mobile@example.com")
+	f := seedFilterFixture(t, deps, router, "export-menu@example.com")
 
 	body := getTransactions(t, router, f.cookie, "")
 
-	wrapper := regexp.MustCompile(`(?s)<div data-export-mobile class="([^"]*)">(.*?)</div>`).FindStringSubmatch(body)
-	if wrapper == nil {
-		t.Fatal("no element carrying data-export-mobile: the export is desktop-only")
+	links := regexp.MustCompile(`<a[^>]*href="/transactions/export\?[^"]*"[^>]*>`).FindAllString(body, -1)
+	if len(links) != 1 {
+		t.Fatalf("found %d links to /transactions/export, want exactly 1 (the overflow menu's)", len(links))
 	}
-	if !strings.Contains(wrapper[1], "md:hidden") {
-		t.Errorf("mobile export wrapper classes are %q, want md:hidden so it does not double up on desktop", wrapper[1])
+	if strings.Contains(links[0], "md:hidden") || strings.Contains(links[0], "hidden md:") {
+		t.Errorf("export link is %s, want it visible at every breakpoint", links[0])
 	}
-	if !strings.Contains(wrapper[2], `href="/transactions/export?`) || !strings.Contains(wrapper[2], `hx-boost="false"`) {
-		t.Errorf("mobile export wrapper holds %q, want the boost-opted-out export link", wrapper[2])
+
+	menu := regexp.MustCompile(`(?s)<details[^>]*data-txn-menu.*?</details>`).FindString(body)
+	if menu == "" {
+		t.Fatal("no <details data-txn-menu> overflow menu on the transactions page")
+	}
+	if !strings.Contains(menu, links[0]) {
+		t.Errorf("the export link sits outside the overflow menu; menu holds %q", menu)
+	}
+	if !strings.Contains(menu, "data-filter-panel-toggle") {
+		t.Errorf("overflow menu holds %q, want the Filters toggle in it too", menu)
 	}
 }

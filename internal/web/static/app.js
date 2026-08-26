@@ -192,8 +192,37 @@ document.addEventListener('click', function (evt) {
   });
 });
 
-// Choosing an item closes the menu: the panel it toggles is elsewhere on the
-// page, so nothing else would.
+// The transactions overflow menu (transaction_filters.html): its export link
+// is rebuilt from the live controls every time the menu opens.
+//
+// The form around it carries hx-preserve, so the href the server rendered is
+// the one from the first page load and no swap since -- a month switch or a
+// filter later, it would hand back a CSV of something else. The controls
+// themselves are the copy the browser kept, so the address is rebuilt from
+// them plus #current-month-input; their names match the query parameters
+// filterQuery builds in Go one for one, and an empty one is left out for the
+// same reason it is there.
+//
+// A toggle event does not bubble, hence the capture phase.
+document.addEventListener('toggle', function (evt) {
+  var menu = evt.target;
+  if (!menu.matches || !menu.matches('details[data-txn-menu][open]')) return;
+  var link = menu.querySelector('[data-export-link]');
+  var form = menu.closest('form');
+  if (!link || !form) return;
+
+  var params = new URLSearchParams();
+  var month = document.getElementById('current-month-input');
+  if (month && month.value) params.set('month', month.value);
+  ['q', 'type', 'category', 'min', 'max'].forEach(function (name) {
+    var el = form.querySelector('[name="' + name + '"]');
+    if (el && el.value.trim() !== '') params.set(name, el.value.trim());
+  });
+  link.href = '/transactions/export?' + params.toString();
+}, true);
+
+// Choosing either item closes the menu. The export is a download rather than
+// a navigation, so nothing else would.
 document.addEventListener('click', function (evt) {
   var item = evt.target.closest && evt.target.closest('[data-txn-menu] a, [data-txn-menu] button');
   if (item) item.closest('details[data-txn-menu]').removeAttribute('open');
