@@ -18,7 +18,7 @@ func renderMobilePageHeader(t *testing.T, data map[string]any) string {
 	t.Helper()
 	tmpl := template.Must(template.New("mobile_header.html").
 		Funcs(handlers.TemplateFuncs()).
-		ParseFiles("../web/templates/mobile_header.html"))
+		ParseFiles("../web/templates/mobile_header.html", "../web/templates/month_picker.html"))
 	var sb strings.Builder
 	if err := tmpl.ExecuteTemplate(&sb, "mobile_page_header", data); err != nil {
 		t.Fatalf("execute mobile_page_header: %v", err)
@@ -29,6 +29,7 @@ func renderMobilePageHeader(t *testing.T, data map[string]any) string {
 func headerData(activeNav string) map[string]any {
 	return map[string]any{
 		"ActiveNav":         activeNav,
+		"Greeting":          "Good evening, immq",
 		"MonthLabel":        "August 2026",
 		"CurrentMonthValue": "2026-08",
 		"AvailableMonths": []map[string]any{
@@ -79,14 +80,24 @@ func TestMobilePageHeaderCategoriesHasAddButtonNoMonthPicker(t *testing.T) {
 
 func TestMobilePageHeaderDashboardHasMonthPickerNoAddButton(t *testing.T) {
 	out := renderMobilePageHeader(t, headerData("dashboard"))
-	if !strings.Contains(out, "August 2026") {
-		t.Error("header does not show the month as its title")
-	}
 	if !strings.Contains(out, `hx-target="#dashboard-month-section"`) {
 		t.Error("month picker does not target the dashboard month section, so a month switch would not refresh it")
 	}
 	if strings.Contains(out, `aria-label="Add`) {
 		t.Error("dashboard header should not render an add button")
+	}
+}
+
+// The dashboard heading used to be the month, which the picker beside it
+// already said. The greeting replaced it, so the month must survive in
+// exactly one place: the picker trigger.
+func TestMobilePageHeaderDashboardGreetsInsteadOfRepeatingTheMonth(t *testing.T) {
+	out := renderMobilePageHeader(t, headerData("dashboard"))
+	if !strings.Contains(out, "Good evening, immq") {
+		t.Error("dashboard header does not show the greeting as its title")
+	}
+	if got := strings.Count(out, "August 2026"); got != 1 {
+		t.Errorf("dashboard header renders the month %d times, want 1 (the picker trigger only)", got)
 	}
 }
 

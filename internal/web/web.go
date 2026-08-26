@@ -30,14 +30,15 @@ var templatesFS embed.FS
 var staticFS embed.FS
 
 // sharedTemplates are parsed into every page's set: the page shell, the two
-// nav bars, the mobile header, and the two widgets they both render. A page
-// that forgot one of these would fail at execute time with "no such
+// nav bars, the mobile header, and the widgets and controls they render. A
+// page that forgot one of these would fail at execute time with "no such
 // template", not at startup, so they are listed once here rather than
 // repeated per page.
 var sharedTemplates = []string{
 	"layout.html",
 	"nav.html",
 	"mobile_header.html",
+	"month_picker.html",
 	"user_menu.html",
 	"header_balance.html",
 }

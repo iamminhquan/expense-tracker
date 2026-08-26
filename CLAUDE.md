@@ -92,8 +92,10 @@ own files, so that only one `{{define "content"}}` is ever in scope.
 
 The shared partials, parsed into every page set: `layout.html` (the shell),
 `nav.html` (desktop bar + mobile bottom bar + wordmark), `mobile_header.html`
-(the two sticky mobile tiers), `user_menu.html`, `header_balance.html`. Add a
-page-specific file to `pageTemplates` in `internal/web/web.go`.
+(the two sticky mobile tiers), `month_picker.html` (the one month control,
+rendered by both breakpoints on both month-scoped pages), `user_menu.html`,
+`header_balance.html`. Add a page-specific file to `pageTemplates` in
+`internal/web/web.go`.
 
 CSS and JS live in `internal/web/static/` and are served at `/static/` by
 `web.StaticHandler()` (public route, ETag'd and `Cache-Control: no-cache` —
