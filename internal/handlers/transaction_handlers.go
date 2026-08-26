@@ -36,11 +36,12 @@ func categoriesOfType(categories []sqlcgen.Category, typ string) []sqlcgen.Categ
 // browsing an older one, because that is what the widget in the layout
 // reports -- which is why it arrives as its own argument rather than being
 // derived from anything scoped to the browsed month.
-func totalsOOBData(header balanceSummary, count int64, from pgtype.Date, p pager) map[string]any {
+func totalsOOBData(header balanceSummary, count int64, scope txnScope, p pager) map[string]any {
 	return map[string]any{
 		"HeaderBalance":   header,
 		"Count":           count,
-		"MonthLabelLower": monthLabelLower(from.Time),
+		"MonthLabelLower": scope.LabelLower(),
+		"AllMonths":       scope.All,
 		"Pager":           p,
 	}
 }
@@ -55,7 +56,8 @@ func totalsOOBData(header balanceSummary, count int64, from pgtype.Date, p pager
 // which is why the window comes from HX-Current-URL rather than from today.
 // On failure it writes the 500 itself and reports false.
 func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) (map[string]any, bool) {
-	from, to := monthRangeFromRequest(r)
+	scope := scopeFromRequest(r)
+	from, to := scope.Bounds()
 	header, err := currentHeaderBalance(r, deps, userID)
 	if err != nil {
 		http.Error(w, "could not load totals", http.StatusInternalServerError)
@@ -70,7 +72,7 @@ func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64
 		http.Error(w, "could not load transactions", http.StatusInternalServerError)
 		return nil, false
 	}
-	return totalsOOBData(header, count, from, newPager(pageFromRequest(r), count, monthValueOf(from))), true
+	return totalsOOBData(header, count, scope, newPager(pageFromRequest(r), count, scope.Value)), true
 }
 
 // monthValueOf renders a resolved month bound back into the "YYYY-MM" the
@@ -116,7 +118,8 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 // swaps in) needs: the selected month's transactions/totals, the dropdown's
 // list of other months with data, and the quick-add form's own state.
 func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam string, page int, filters txnFilters, quickAddError, selectedType string) (map[string]any, error) {
-	from, to := monthRangeFor(monthParam)
+	scope := newTxnScope(monthParam)
+	from, to := scope.Bounds()
 
 	// The count comes first: which page exists at all depends on it, and the
 	// chip above the list reports every row the filters matched rather than
@@ -125,7 +128,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 	if err != nil {
 		return nil, err
 	}
-	pgr := newPager(page, count, monthValueOf(from))
+	pgr := newPager(page, count, scope.Value)
 
 	transactions, err := deps.Queries.ListTransactionsForMonth(r.Context(), filters.listParams(userID, from, to, pgr.Offset()))
 	if err != nil {
@@ -165,10 +168,11 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		"FilterCount":       filters.ActiveCount(),
 		"Filtering":         filters.Any(),
 		"AllCategories":     allCategories,
-		"ExportURL":         exportURL(monthValueOf(from), pgr.Page, filters),
-		"MonthValue":        monthValueOf(from),
-		"MonthLabel":        monthLabel(from.Time),
-		"MonthLabelLower":   monthLabelLower(from.Time),
+		"ExportURL":         exportURL(scope.Value, pgr.Page, filters),
+		"MonthValue":        scope.Value,
+		"MonthLabel":        scope.Label,
+		"MonthLabelLower":   scope.LabelLower(),
+		"AllMonths":         scope.All,
 		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
 		"AvailableMonths":   available,
 		"Categories":        categoriesOfType(allCategories, formType),
@@ -260,8 +264,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	// the filters so a reload lands on the same view.
 	filters := filtersFromHXCurrentURL(r)
 	if pageFromRequest(r) > 1 || filters.Any() || filters.Sorted() {
-		from, _ := monthRangeFromRequest(r)
-		month := monthValueOf(from)
+		month := scopeFromRequest(r).Value
 		data, err := buildTransactionsPageData(r, deps, userID, month, 1, filters, "", "")
 		if err != nil {
 			http.Error(w, "could not load transactions", http.StatusInternalServerError)
