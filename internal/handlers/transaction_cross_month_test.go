@@ -212,6 +212,36 @@ func TestTheDashboardStaysMonthlyEvenWhenAskedForAllMonths(t *testing.T) {
 	}
 }
 
+// Both empty states are month-scoped sentences ("No transactions in august",
+// "Nothing in august fits what you asked for"). Neither is true of a whole
+// history, so each needs its own wording rather than a month name that isn't
+// there.
+func TestTheEmptyStatesStopTalkingAboutAMonthWhenShowingEveryMonth(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	f := seedCrossMonthFixture(t, deps, router, "cross-empty@example.com")
+
+	filtered := getTransactions(t, router, f.cookie, "?month=all&q=nothingmatchesthis")
+	if !strings.Contains(filtered, "No transactions match") {
+		t.Error("expected the filtered empty state to still blame the filters")
+	}
+	if strings.Contains(filtered, "Nothing in "+monthsBack(0).Format("January")) {
+		t.Error("expected the filtered empty state to stop naming a month")
+	}
+
+	// A history with nothing in it at all is the other empty state.
+	if _, err := deps.DB.Exec(context.Background(), "DELETE FROM transactions WHERE user_id = $1", f.userID); err != nil {
+		t.Fatalf("clear transactions: %v", err)
+	}
+	bare := getTransactions(t, router, f.cookie, "?month=all")
+	if strings.Contains(bare, "No transactions in "+monthsBack(0).Format("January")) {
+		t.Error("expected the month's own empty state to stay out of an all-months list")
+	}
+	if !strings.Contains(bare, "No transactions yet") {
+		t.Error("expected an empty history to say so")
+	}
+}
+
 // The export follows the list, scope included -- and its filename has to
 // stop claiming a month it no longer covers.
 func TestTheExportFollowsTheAllMonthsScope(t *testing.T) {

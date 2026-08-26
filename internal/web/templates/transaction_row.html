@@ -35,8 +35,13 @@
 <div id="transactions-empty" hx-swap-oob="true">
   {{if eq .Count 0}}
   <div class="text-center py-11 px-7">
+    {{if .AllMonths}}
+    <p class="text-[15px] font-semibold text-ink">No transactions yet</p>
+    <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Add your first one with the form above and it will show up here.</p>
+    {{else}}
     <p class="text-[15px] font-semibold text-ink">No transactions in {{.MonthLabelLower}}</p>
     <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Add your first one with the form above, or pick another month to look back.</p>
+    {{end}}
     <button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()" class="md:hidden mt-5 h-11 px-7 rounded-xl bg-accent text-on-solid text-[14px] font-semibold">Add transaction</button>
   </div>
   {{end}}

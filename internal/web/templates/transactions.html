@@ -43,13 +43,18 @@
       {{if .Filtering}}
       <div class="text-center py-11 px-7">
         <p class="text-[15px] font-semibold text-ink">No transactions match these filters</p>
-        <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Nothing in {{.MonthLabelLower}} fits what you asked for. Try a looser search, or clear the filters to see the whole month.</p>
+        <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">{{if .AllMonths}}Nothing in your whole history fits what you asked for. Try a looser search, or clear the filters.{{else}}Nothing in {{.MonthLabelLower}} fits what you asked for. Try a looser search, or clear the filters to see the whole month.{{end}}</p>
         <div class="mt-5 flex justify-center">{{template "clear_filters_link" .}}</div>
       </div>
       {{else}}
       <div class="text-center py-11 px-7">
+        {{if .AllMonths}}
+        <p class="text-[15px] font-semibold text-ink">No transactions yet</p>
+        <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Add your first one with the form above and it will show up here.</p>
+        {{else}}
         <p class="text-[15px] font-semibold text-ink">No transactions in {{.MonthLabelLower}}</p>
         <p class="text-[13px] text-ink-faint mt-1 max-w-[300px] mx-auto">Add your first one with the form above, or pick another month to look back.</p>
+        {{end}}
         <button type="button" onclick="document.getElementById('mobile-add-sheet').showModal()" class="md:hidden mt-5 h-11 px-7 rounded-xl bg-accent text-on-solid text-[14px] font-semibold">Add transaction</button>
       </div>
       {{end}}
