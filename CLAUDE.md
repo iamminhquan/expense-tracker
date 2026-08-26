@@ -145,7 +145,13 @@ string of its own).
 - `filters.go` — `txnFilters` (search, type, category, min/max amount), the
   0 sentinel that means "not filtering", the nullable sqlc params both the
   list and the count query take, and `transactionsURL`, the canonical
-  address pushed via `HX-Push-Url`.
+  address pushed via `HX-Push-Url`. `Sort` rides in the same value object
+  but is not a filter: it narrows nothing, so `Any`, `ActiveCount` and the
+  badge all leave it out, and `Sorted` is the separate predicate the create
+  handler asks. Its two orders live in `sortOrders`, and the ORDER BY
+  switches on the bound value through a pair of `CASE`s rather than
+  interpolating a column name — an unknown order matches neither and falls
+  back to the `occurred_on DESC, id DESC` the list has always had.
 - `paging.go` — `pageSize` (10) and `pager`, which clamps any requested page
   into one that exists.
 
