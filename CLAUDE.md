@@ -123,9 +123,16 @@ dashboard charts on a month switch.
 click a fragment instead of the page shell.
 
 Money/date formatting helpers (`vnd`, `vndSigned`, `vndBalance`,
-`dateShort`, `countOf`, `swatches`) live in `internal/handlers/format.go`
+`dateShort`, `dateLong`, `countOf`, `swatches`) live in `internal/handlers/format.go`
 and are registered as template funcs via `handlers.TemplateFuncs()`,
-alongside `catName` (`i18n.CategoryName`). The rules are commas for
+alongside `catName` (`i18n.CategoryName`). A transaction row does not call
+either date helper itself: the list wraps its rows in `txnRow`, whose `Date`
+method picks the format, and the three handlers that answer with a single row
+call `rowDate` to make the same choice. That indirection exists because
+`{{range .Transactions}}` hands the row template one row at a time, so a
+page-level "these rows need their year" flag is not visible from inside it —
+and because a template reading a key its map lacks prints nothing at all, so
+a path that skipped the date would ship a silently empty column. The rules are commas for
 thousands, a trailing ₫, and a spelled-out month (`11 Aug 2026`); the app was
 originally specified in the Vietnamese convention (dots for thousands,
 `dd/mm/yyyy`), which is why the helpers exist at all rather than the
@@ -141,7 +148,20 @@ string of its own).
   `monthLabel`, `pgDate`, and `vietnamLocation`. Every month window is a
   half-open `[from, to)` anchored to `Asia/Ho_Chi_Minh`, not server UTC, so
   "this month" lines up with what a Vietnamese user expects (with a fixed
-  UTC+7 fallback if the tzdata isn't in the runtime image).
+  UTC+7 fallback if the tzdata isn't in the runtime image). The same file
+  holds `txnScope`, which is the transactions list's answer to "one month or
+  all of them": `?month=all` resolves to bounds wide enough
+  (`allTimeFrom`/`allTimeTo`) that the month predicate stops narrowing, so
+  the list, the count and the export keep running the one query each already
+  ran. A scope carries the spelling it arrived as, because every link the
+  page builds has to name it and an all-time window formatted as a month
+  reads `0001-01`. **The dashboard is deliberately not a consumer** — its
+  cards and charts are month-against-month and mean nothing over a whole
+  history, so it keeps calling `monthRangeFor`, which has never heard of
+  `all` and treats it as malformed. That is what makes a hand-typed
+  `/dashboard?month=all` land on the current month rather than on something
+  half-rendered, and it is why the picker only offers the entry under
+  `ActiveNav == "transactions"`.
 - `filters.go` — `txnFilters` (search, type, category, min/max amount), the
   0 sentinel that means "not filtering", the nullable sqlc params both the
   list and the count query take, and `transactionsURL`, the canonical
