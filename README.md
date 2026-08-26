@@ -44,8 +44,10 @@ dashboard's category breakdown chart.
    Set `SECURE_COOKIES=true` only once the app is served over HTTPS —
    otherwise browsers will reject the session cookie and nobody can log in.
 
-   `APP_BASE_URL` and the `SMTP_*` variables configure the password-reset
-   email (see `.env.example`). All are optional — leave them blank and
+   `APP_BASE_URL`, `BREVO_API_KEY`, and `MAIL_FROM` configure the
+   password-reset email (see `.env.example`); it's sent through Brevo's HTTP
+   API rather than SMTP because Render's free tier blocks outbound SMTP
+   ports entirely. All are optional — leave them blank and
    "Forgot password?" still works end to end except the actual send, which
    is logged instead of delivered.
 

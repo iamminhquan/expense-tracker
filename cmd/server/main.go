@@ -99,11 +99,8 @@ func main() {
 		Sessions:       auth.NewManager(queries),
 		PasswordResets: auth.NewPasswordResetManager(queries),
 		Mailer: mailer.New(mailer.Config{
-			Host:     cfg.SMTPHost,
-			Port:     cfg.SMTPPort,
-			Username: cfg.SMTPUsername,
-			Password: cfg.SMTPPassword,
-			From:     cfg.SMTPFrom,
+			APIKey: cfg.BrevoAPIKey,
+			From:   cfg.MailFrom,
 		}),
 		Templates:     templates,
 		CookieName:    cfg.SessionCookieName,

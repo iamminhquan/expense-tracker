@@ -1,14 +1,20 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/sqlcgen"
 )
+
+// sendTimeout bounds how long a single background reset-email send may run,
+// so a slow or unreachable mail provider can never leak a goroutine.
+const sendTimeout = 10 * time.Second
 
 // renderForgotPasswordFragmentOrPage mirrors renderAuthFragmentOrPage: an
 // htmx submit gets back just the card body to swap into #forgot-password-card,
@@ -36,26 +42,30 @@ func forgotPasswordPage(deps Deps) http.HandlerFunc {
 		email := strings.TrimSpace(r.FormValue("email"))
 
 		if user, err := deps.Queries.GetUserByEmail(r.Context(), email); err == nil {
-			sendResetEmail(r, deps, user)
+			queueResetEmail(r.Context(), deps, user)
 		}
 
 		renderForgotPasswordFragmentOrPage(w, r, deps, map[string]any{"Email": email, "Sent": true})
 	}
 }
 
-// sendResetEmail issues a reset token for user and mails the link it
-// authorizes. Failures are logged rather than surfaced to the caller: the
-// forgot-password response never reveals whether this step even ran, let
-// alone whether it succeeded.
-func sendResetEmail(r *http.Request, deps Deps, user sqlcgen.User) {
-	token, expiresAt, err := deps.PasswordResets.CreateResetToken(r.Context(), user.ID)
+// queueResetEmail issues a reset token for user -- a fast local write, done
+// synchronously while r's context is still valid -- and then hands the
+// actual mail send to a background goroutine of its own. The response
+// never depends on whether that send even ran, let alone succeeded, so
+// nothing should make the visitor's request wait on a network call to a
+// mail provider that might be slow or unreachable; using r.Context() for
+// that call would cancel it anyway; the request context is closed the
+// moment the handler returns.
+func queueResetEmail(ctx context.Context, deps Deps, user sqlcgen.User) {
+	token, expiresAt, err := deps.PasswordResets.CreateResetToken(ctx, user.ID)
 	if err != nil {
 		log.Printf("forgot password: create token: %v", err)
 		return
 	}
 
 	if !deps.Mailer.Configured() {
-		log.Printf("forgot password: SMTP not configured, skipping send to %s", user.Email)
+		log.Printf("forgot password: mailer not configured, skipping send to %s", user.Email)
 		return
 	}
 
@@ -67,9 +77,13 @@ func sendResetEmail(r *http.Request, deps Deps, user sqlcgen.User) {
 			"This link expires at %s. If you didn't request this, you can ignore this email.",
 		link, expiry)
 
-	if err := deps.Mailer.Send(user.Email, "Reset your $pend password", body); err != nil {
-		log.Printf("forgot password: send email: %v", err)
-	}
+	go func() {
+		sendCtx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+		defer cancel()
+		if err := deps.Mailer.Send(sendCtx, user.Email, "Reset your $pend password", body); err != nil {
+			log.Printf("forgot password: send email: %v", err)
+		}
+	}()
 }
 
 // renderResetPasswordFragmentOrPage mirrors renderForgotPasswordFragmentOrPage

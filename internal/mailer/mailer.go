@@ -1,55 +1,99 @@
 // Package mailer sends the transactional email the app needs (currently
-// just the password-reset link) over plain SMTP, with no dependency beyond
-// the standard library.
+// just the password-reset link) through Brevo's transactional email HTTP
+// API. HTTPS rather than SMTP is deliberate: Render's free tier (where this
+// app is deployed) blocks outbound traffic to every SMTP port (25, 465,
+// 587), so SMTP -- to Brevo's relay or anyone else's -- cannot work there,
+// while port 443 is never blocked.
 package mailer
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
-	"net/smtp"
+	"io"
+	"net/http"
 )
 
-// Config holds the SMTP relay settings. Every field is optional, the same
-// way the rest of internal/config treats non-critical settings: a deploy
-// with no SMTP configured still starts, it just can't send mail (Send
-// returns an error, which callers log rather than fail the request over).
+const sendEndpoint = "https://api.brevo.com/v3/smtp/email"
+
+// Config holds the Brevo API settings. Both fields are optional, the same
+// way the rest of internal/config treats non-critical settings: no API key
+// just means Send fails (logged by the caller, not fatal) rather than the
+// app refusing to start.
 type Config struct {
-	Host     string
-	Port     string
-	Username string
-	Password string
-	From     string
+	APIKey string
+	From   string
 }
 
-// Mailer sends email through the relay it was constructed with.
+// Mailer sends email through the Brevo account it was constructed with.
 type Mailer struct {
-	cfg Config
+	cfg      Config
+	client   *http.Client
+	endpoint string
 }
 
 func New(cfg Config) *Mailer {
-	return &Mailer{cfg: cfg}
+	return NewWithEndpoint(cfg, sendEndpoint)
+}
+
+// NewWithEndpoint is New with the API endpoint overridable, so tests can
+// point Send at an httptest server instead of the real Brevo API.
+func NewWithEndpoint(cfg Config, endpoint string) *Mailer {
+	return &Mailer{cfg: cfg, client: &http.Client{}, endpoint: endpoint}
 }
 
 // Configured reports whether enough settings are present to attempt a send.
 // Callers use this to log a clear "not configured" message instead of
-// letting Send fail with an opaque dial error against an empty host.
+// letting Send fail with an opaque 401 against an empty API key.
 func (m *Mailer) Configured() bool {
-	return m.cfg.Host != "" && m.cfg.From != ""
+	return m.cfg.APIKey != "" && m.cfg.From != ""
 }
 
-// Send delivers a plain-text email. Auth is skipped when no username is
-// configured; net/smtp.SendMail negotiates STARTTLS with the relay itself
-// when the relay offers it, which covers the common port-587 providers
-// (Gmail, Brevo, Mailgun, ...) without any TLS handling of our own.
-func (m *Mailer) Send(to, subject, body string) error {
-	addr := fmt.Sprintf("%s:%s", m.cfg.Host, m.cfg.Port)
+type sendRequest struct {
+	Sender      contact   `json:"sender"`
+	To          []contact `json:"to"`
+	Subject     string    `json:"subject"`
+	TextContent string    `json:"textContent"`
+}
 
-	var auth smtp.Auth
-	if m.cfg.Username != "" {
-		auth = smtp.PlainAuth("", m.cfg.Username, m.cfg.Password, m.cfg.Host)
+type contact struct {
+	Email string `json:"email"`
+}
+
+// Send delivers a plain-text email via Brevo's v3 transactional email
+// endpoint. ctx is the caller's to cancel or time out the HTTP call; the
+// caller must not pass a request-scoped context that outlives the request
+// itself if the send is meant to keep running in the background (see
+// internal/handlers/password_reset_handlers.go).
+func (m *Mailer) Send(ctx context.Context, to, subject, body string) error {
+	reqBody, err := json.Marshal(sendRequest{
+		Sender:      contact{Email: m.cfg.From},
+		To:          []contact{{Email: to}},
+		Subject:     subject,
+		TextContent: body,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s\r\n",
-		m.cfg.From, to, subject, body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.endpoint, bytes.NewReader(reqBody))
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("api-key", m.cfg.APIKey)
 
-	return smtp.SendMail(addr, auth, m.cfg.From, []string{to}, []byte(msg))
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("brevo: unexpected status %d: %s", resp.StatusCode, respBody)
+	}
+	return nil
 }
