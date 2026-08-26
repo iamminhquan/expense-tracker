@@ -12,6 +12,7 @@ import (
 	"expensetracker/internal/config"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
+	"expensetracker/internal/mailer"
 	"expensetracker/internal/sqlcgen"
 	"expensetracker/internal/web"
 
@@ -93,12 +94,21 @@ func main() {
 	}
 
 	deps := handlers.Deps{
-		DB:            pool,
-		Queries:       queries,
-		Sessions:      auth.NewManager(queries),
+		DB:             pool,
+		Queries:        queries,
+		Sessions:       auth.NewManager(queries),
+		PasswordResets: auth.NewPasswordResetManager(queries),
+		Mailer: mailer.New(mailer.Config{
+			Host:     cfg.SMTPHost,
+			Port:     cfg.SMTPPort,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
+			From:     cfg.SMTPFrom,
+		}),
 		Templates:     templates,
 		CookieName:    cfg.SessionCookieName,
 		SecureCookies: cfg.SecureCookies,
+		BaseURL:       cfg.BaseURL,
 	}
 
 	router := handlers.NewRouter(deps)

@@ -55,3 +55,24 @@ services:
         value: session_id
       # PORT is intentionally absent: Render injects it into the container and
       # config.Load() already reads it, defaulting to 8080 only for local runs.
+      # The password-reset email needs an absolute link back to this service;
+      # set by hand once the Render URL is known (e.g.
+      # https://expense-tracker.onrender.com), since it isn't knowable at
+      # blueprint-write time and isn't a secret either way.
+      - key: APP_BASE_URL
+        sync: false
+      # SMTP_HOST/PORT are fixed for whichever relay is in use (Gmail here)
+      # and aren't secret, so they're pinned directly rather than set by hand.
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      # Set by hand in the Render dashboard: an app password (not the Gmail
+      # account password -- see myaccount.google.com/apppasswords), plus the
+      # sending address it was issued for.
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
