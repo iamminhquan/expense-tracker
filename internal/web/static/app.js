@@ -214,7 +214,11 @@ document.addEventListener('toggle', function (evt) {
   var params = new URLSearchParams();
   var month = document.getElementById('current-month-input');
   if (month && month.value) params.set('month', month.value);
-  ['q', 'type', 'category', 'min', 'max'].forEach(function (name) {
+  // Every control in the filter form, sort included: the CSV is meant to be
+  // the list on screen, and that covers the order it is in as well as which
+  // rows survived. Keep this in step with filterQuery in Go -- a control
+  // missing here is one the download quietly ignores.
+  ['q', 'type', 'category', 'min', 'max', 'sort'].forEach(function (name) {
     var el = form.querySelector('[name="' + name + '"]');
     if (el && el.value.trim() !== '') params.set(name, el.value.trim());
   });

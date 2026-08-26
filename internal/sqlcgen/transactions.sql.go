@@ -292,8 +292,11 @@ WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
   AND ($7::bigint IS NULL OR t.category_id = $7::bigint)
   AND ($8::bigint IS NULL OR t.amount >= $8::bigint)
   AND ($9::bigint IS NULL OR t.amount <= $9::bigint)
-ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT $11 OFFSET $10
+ORDER BY
+  CASE WHEN $10::text = 'amount_desc' THEN t.amount END DESC,
+  CASE WHEN $10::text = 'amount_asc' THEN t.amount END ASC,
+  t.occurred_on DESC, t.id DESC
+LIMIT $12 OFFSET $11
 `
 
 type ListTransactionsForMonthParams struct {
@@ -306,6 +309,7 @@ type ListTransactionsForMonthParams struct {
 	CategoryID   pgtype.Int8 `json:"category_id"`
 	MinAmount    pgtype.Int8 `json:"min_amount"`
 	MaxAmount    pgtype.Int8 `json:"max_amount"`
+	Sort         pgtype.Text `json:"sort"`
 	Offset       pgtype.Int4 `json:"offset"`
 	Limit        pgtype.Int4 `json:"limit"`
 }
@@ -357,6 +361,17 @@ type ListTransactionsForMonthRow struct {
 // None of this can use an index and none of it needs to: the month window in
 // front of it is already covered by idx_transactions_user_id_occurred_on, and
 // one person's month is not a large scan.
+//
+// The order arrives as a sixth nullable parameter rather than as a string
+// pasted into the ORDER BY, which is the only way it could be a parameter at
+// all: SQL cannot bind a sort column. Each of the two CASEs tests the same
+// value against one of the orders the list offers, so exactly one of them
+// yields t.amount and the other yields NULL for every row -- and a column
+// that is NULL the whole way down ties every row against every other, leaving
+// the next term to decide. A NULL parameter, or one naming an order that does
+// not exist, therefore falls through both and lands on the date order the
+// list has always had, which is also why that pair stays last rather than
+// being switched between.
 func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransactionsForMonthParams) ([]ListTransactionsForMonthRow, error) {
 	rows, err := q.db.Query(ctx, listTransactionsForMonth,
 		arg.UserID,
@@ -368,6 +383,7 @@ func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransact
 		arg.CategoryID,
 		arg.MinAmount,
 		arg.MaxAmount,
+		arg.Sort,
 		arg.Offset,
 		arg.Limit,
 	)

@@ -30,6 +30,17 @@
 -- None of this can use an index and none of it needs to: the month window in
 -- front of it is already covered by idx_transactions_user_id_occurred_on, and
 -- one person's month is not a large scan.
+--
+-- The order arrives as a sixth nullable parameter rather than as a string
+-- pasted into the ORDER BY, which is the only way it could be a parameter at
+-- all: SQL cannot bind a sort column. Each of the two CASEs tests the same
+-- value against one of the orders the list offers, so exactly one of them
+-- yields t.amount and the other yields NULL for every row -- and a column
+-- that is NULL the whole way down ties every row against every other, leaving
+-- the next term to decide. A NULL parameter, or one naming an order that does
+-- not exist, therefore falls through both and lands on the date order the
+-- list has always had, which is also why that pair stays last rather than
+-- being switched between.
 -- name: ListTransactionsForMonth :many
 SELECT t.*, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
@@ -43,7 +54,10 @@ WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
   AND (sqlc.narg('category_id')::bigint IS NULL OR t.category_id = sqlc.narg('category_id')::bigint)
   AND (sqlc.narg('min_amount')::bigint IS NULL OR t.amount >= sqlc.narg('min_amount')::bigint)
   AND (sqlc.narg('max_amount')::bigint IS NULL OR t.amount <= sqlc.narg('max_amount')::bigint)
-ORDER BY t.occurred_on DESC, t.id DESC
+ORDER BY
+  CASE WHEN sqlc.narg('sort')::text = 'amount_desc' THEN t.amount END DESC,
+  CASE WHEN sqlc.narg('sort')::text = 'amount_asc' THEN t.amount END ASC,
+  t.occurred_on DESC, t.id DESC
 LIMIT sqlc.narg('limit') OFFSET sqlc.narg('offset');
 
 -- CountTransactionsForMonth answers how many rows the list above would have,
