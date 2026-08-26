@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csrf"
@@ -103,6 +104,12 @@ func currentHeaderBalance(r *http.Request, deps Deps, userID int64) (balanceSumm
 // name collected at signup), which nav link is active, and the real
 // current month's balance for the header widget (independent of whatever
 // month the page itself is browsing).
+//
+// The dashboard's greeting is built here too, for two reasons: this is the
+// only place that loads the username it addresses, and it runs on the
+// fragment render as well as the full one -- built anywhere else, the
+// greeting would vanish the first time a month switch swapped the section
+// it sits in.
 func authPageData(r *http.Request, deps Deps, active string) (map[string]any, error) {
 	userID, _ := auth.UserIDFromContext(r.Context())
 	user, err := deps.Queries.GetUserByID(r.Context(), userID)
@@ -119,11 +126,16 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 		return nil, err
 	}
 
+	// Vietnam time, deliberately fixed rather than read from the client: the
+	// app is single-country (as every month boundary here already assumes),
+	// so a server clock in another zone is the only skew worth correcting,
+	// and correcting it needs no cookie and no load-time JavaScript.
 	return map[string]any{
 		"ShowNav":       true,
 		"ActiveNav":     active,
 		"UserName":      user.Username,
 		"UserInitial":   initial,
+		"Greeting":      greetingLine(time.Now().In(vietnamLocation), user.Username),
 		"Theme":         user.Theme,
 		"HeaderBalance": headerBalance,
 	}, nil

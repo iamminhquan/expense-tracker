@@ -7,8 +7,10 @@
 {{define "dashboard_month_section"}}
 <div id="dashboard-month-section" class="flex flex-col gap-[14px] md:gap-[18px] grow md:grow-0">
   <div class="md:hidden -mx-5">{{template "mobile_page_header" .}}</div>
+  {{/* The heading used to be the month, which the picker beside it already
+       said. It greets instead; the month is the picker's to report. */}}
   <div class="hidden md:flex items-center justify-between gap-4">
-    <h1 class="text-[18px] font-semibold text-ink">{{.MonthLabel}}</h1>
+    <h1 class="text-[28px] font-semibold text-ink min-w-0 truncate" style="letter-spacing:-0.02em">{{.Greeting}}</h1>
     {{template "month_picker" .}}
   </div>
 

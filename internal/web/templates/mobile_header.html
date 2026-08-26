@@ -16,7 +16,7 @@
 {{/* The sticky second tier of the mobile header: the page title, the shared
      month_picker (dashboard/transactions only), and an add button
      (transactions/categories only). Driven entirely by .ActiveNav and the
-     MonthLabel/CurrentMonthValue/AvailableMonths each of those
+     Greeting/MonthLabel/CurrentMonthValue/AvailableMonths each of those
      pages' own data already carries -- no page-specific params needed.
      Callers render it as the first child of their existing swappable
      month/list section (not from here in the layout) so an htmx month switch
@@ -25,7 +25,7 @@
      are stuck. */}}
 {{define "mobile_page_header"}}
 <div class="md:hidden flex items-center justify-between gap-[10px] pt-4 px-[18px] pb-3 sticky top-[34px] z-30">
-  <h1 class="text-[24px] font-semibold text-ink min-w-0 truncate" style="letter-spacing:-0.02em">{{if eq .ActiveNav "dashboard"}}{{.MonthLabel}}{{else if eq .ActiveNav "transactions"}}Transactions{{else if eq .ActiveNav "categories"}}Categories{{else if eq .ActiveNav "settings"}}Settings{{end}}</h1>
+  <h1 class="text-[24px] font-semibold text-ink min-w-0 truncate" style="letter-spacing:-0.02em">{{if eq .ActiveNav "dashboard"}}{{.Greeting}}{{else if eq .ActiveNav "transactions"}}Transactions{{else if eq .ActiveNav "categories"}}Categories{{else if eq .ActiveNav "settings"}}Settings{{end}}</h1>
   {{/* 3px, where the row is drawn to 8px: the add button's 44x44 tap target
        is 5px wider than the circle inside it on every side, so a literal 8px
        gap would read as 13px and would stand the circle 5px inside the row's
