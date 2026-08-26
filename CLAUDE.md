@@ -278,6 +278,17 @@ against the `sessions` table; `internal/auth/password.go` handles bcrypt
 hashing/verification. Sessions last 7 days. A password change deletes every
 *other* session for that user but keeps the current one.
 
+`internal/auth/lockout.go` holds the login throttle's numbers -- 5 consecutive
+wrong passwords lock an account for 15 minutes -- because the SQL that stamps
+the lock and the message that explains it have to agree on them. The state is
+two columns on `users` (`failed_login_attempts`, `locked_until`) rather than a
+table of its own, so only real accounts are ever counted and a lapsed lock
+needs no sweeping. `RecordFailedLogin` counts and locks in one UPDATE, since a
+read-modify-write in Go would let a parallel flood spend far more than 5
+guesses. The lock is checked *before* the password, so guessing at a locked
+account can't extend the window; a completed password reset clears it, which
+is the only way out that doesn't involve waiting.
+
 **Deployment** (`render.yaml`): a free Render web service on Render's native
 Go runtime (no Dockerfile), with Postgres on Neon rather than Render's own
 free tier, which is deleted after 30 days. `autoDeploy` on `main` — a schema

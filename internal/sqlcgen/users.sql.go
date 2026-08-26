@@ -7,12 +7,26 @@ package sqlcgen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const clearFailedLogins = `-- name: ClearFailedLogins :exec
+UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1
+`
+
+// ClearFailedLogins wipes the throttle state, called both after a correct
+// password and after a password reset -- the reset is what lets a locked-out
+// owner back in without waiting the window out.
+func (q *Queries) ClearFailedLogins(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, clearFailedLogins, id)
+	return err
+}
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, name, username)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, name, created_at, theme, username
+RETURNING id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until
 `
 
 type CreateUserParams struct {
@@ -38,12 +52,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.Theme,
 		&i.Username,
+		&i.FailedLoginAttempts,
+		&i.LockedUntil,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, name, created_at, theme, username FROM users WHERE email = $1
+SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -57,12 +73,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.CreatedAt,
 		&i.Theme,
 		&i.Username,
+		&i.FailedLoginAttempts,
+		&i.LockedUntil,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, name, created_at, theme, username FROM users WHERE id = $1
+SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -76,7 +94,43 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.CreatedAt,
 		&i.Theme,
 		&i.Username,
+		&i.FailedLoginAttempts,
+		&i.LockedUntil,
 	)
+	return i, err
+}
+
+const recordFailedLogin = `-- name: RecordFailedLogin :one
+UPDATE users
+SET failed_login_attempts = failed_login_attempts + 1,
+    locked_until = CASE
+        WHEN failed_login_attempts + 1 >= $1::int THEN $2::timestamptz
+        ELSE locked_until
+    END
+WHERE id = $3
+RETURNING failed_login_attempts, locked_until
+`
+
+type RecordFailedLoginParams struct {
+	MaxAttempts int32              `json:"max_attempts"`
+	LockedUntil pgtype.Timestamptz `json:"locked_until"`
+	ID          int64              `json:"id"`
+}
+
+type RecordFailedLoginRow struct {
+	FailedLoginAttempts int32              `json:"failed_login_attempts"`
+	LockedUntil         pgtype.Timestamptz `json:"locked_until"`
+}
+
+// RecordFailedLogin counts one wrong password and, on the attempt that
+// reaches max_attempts, stamps the lock. Counting and locking happen in the
+// one statement so two simultaneous guesses can't both read the same count
+// and each write back the same +1 -- a read-modify-write in Go would let a
+// parallel flood spend far more than max_attempts guesses.
+func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginParams) (RecordFailedLoginRow, error) {
+	row := q.db.QueryRow(ctx, recordFailedLogin, arg.MaxAttempts, arg.LockedUntil, arg.ID)
+	var i RecordFailedLoginRow
+	err := row.Scan(&i.FailedLoginAttempts, &i.LockedUntil)
 	return i, err
 }
 
