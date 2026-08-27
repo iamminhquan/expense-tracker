@@ -208,7 +208,22 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		"SelectedType":      selectedType,
 		"Today":             time.Now().In(vietnamLocation).Format("2006-01-02"),
 		"QuickAddError":     quickAddError,
+		// The importer redirects here with a count rather than rendering its
+		// own "done" screen, so the confirmation lands on the list the rows
+		// actually went into.
+		"Imported": importedCount(r),
 	}, nil
+}
+
+// importedCount reads the marker the importer redirects with. A malformed
+// or missing value is 0, which the banner treats as "no import happened" --
+// the same leniency every other value read off this page's URL gets.
+func importedCount(r *http.Request) int {
+	n, err := strconv.Atoi(r.URL.Query().Get("imported"))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }
 
 func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {

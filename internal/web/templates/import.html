@@ -1,0 +1,80 @@
+{{define "content"}}
+<div class="w-full max-w-[560px] mx-auto px-6 pt-7 pb-0 md:pb-9 flex flex-col gap-5">
+  <div class="flex items-center gap-2">
+    <a href="/transactions" class="text-[13px] text-ink-faint">← Transactions</a>
+  </div>
+  <h1 class="text-[18px] font-semibold text-ink">Import CSV</h1>
+
+  <div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
+    <div>
+      <p class="text-[14px] font-semibold text-ink">Choose a file</p>
+      <p class="text-[12px] text-ink-faint mt-[2px]">The file needs the five columns Export CSV writes — Date, Type, Category, Amount, Note — with dates as YYYY-MM-DD and amounts as plain whole numbers. Exporting your own transactions gives you a file in exactly that shape.</p>
+    </div>
+    <form id="import-form" hx-post="/transactions/import" hx-encoding="multipart/form-data"
+      hx-target="#import-preview" hx-swap="innerHTML" class="flex flex-col gap-[15px]">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <input id="import-file" name="file" type="file" accept=".csv,text/csv" required
+        class="w-full text-[13px] text-ink-muted file:h-9 file:mr-3 file:px-3 file:rounded-lg file:border file:border-border-input file:bg-surface file:text-[13px] file:font-semibold file:text-ink">
+      <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Preview</button>
+    </form>
+  </div>
+
+  <div id="import-preview"></div>
+</div>
+{{end}}
+
+{{/* The preview is the only thing that ever swaps here, and it carries the
+     confirm form with it: the file input stays untouched in #import-form
+     above, so hx-include can send the same file a second time rather than
+     the server having to hold it between the two steps. */}}
+{{define "import_preview"}}
+{{if .FatalError}}
+<div class="bg-surface border border-danger-border rounded-xl p-[18px]">
+  <p class="text-[13px] text-expense">{{.FatalError}}</p>
+</div>
+{{else}}
+<div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
+  <div>
+    <p class="text-[14px] font-semibold text-ink">Preview</p>
+    <p class="text-[12px] text-ink-faint mt-[2px]">{{countOf .RowCount "transaction"}} ready to import{{if .NewCategories}} · {{len .NewCategories}} new {{if eq (len .NewCategories) 1}}category{{else}}categories{{end}}{{end}}</p>
+  </div>
+
+  {{if .NewCategories}}
+  <div class="flex flex-col gap-[6px]">
+    <p class="text-[12px] font-medium text-ink-muted">These categories will be created</p>
+    <div class="flex flex-wrap gap-[6px]">
+      {{range .NewCategories}}
+      <span class="px-2 py-1 rounded-lg bg-track text-[12px] text-ink">{{.Name}} <span class="text-ink-faint">· {{.Type}}</span></span>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
+  {{if .Duplicates}}
+  <p class="text-[12px] text-ink-muted bg-track rounded-lg px-3 py-2">{{countOf .Duplicates "line"}} in this file already {{if eq .Duplicates 1}}matches{{else}}match{{end}} a transaction you have. You may have imported it before — importing again will add them a second time.</p>
+  {{end}}
+
+  {{if .Errors}}
+  <div class="flex flex-col gap-[6px]">
+    <p class="text-[12px] font-medium text-expense">Nothing is imported while these lines are wrong</p>
+    <ul class="flex flex-col gap-[4px]">
+      {{range .Errors}}
+      <li class="text-[12px] text-ink-muted">Line {{.Line}}: {{.Message}}</li>
+      {{end}}
+    </ul>
+    {{if .MoreErrors}}<p class="text-[12px] text-ink-faint">and {{.MoreErrors}} more.</p>{{end}}
+  </div>
+  {{end}}
+
+  {{if .Importable}}
+  <form id="import-confirm" hx-post="/transactions/import" hx-encoding="multipart/form-data"
+    hx-include="#import-form" hx-target="#import-preview" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <input type="hidden" name="confirm" value="1">
+    <input type="hidden" name="fingerprint" value="{{.Fingerprint}}">
+    <button type="submit" class="w-full h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Import {{countOf .RowCount "transaction"}}</button>
+  </form>
+  {{end}}
+</div>
+{{end}}
+{{end}}
