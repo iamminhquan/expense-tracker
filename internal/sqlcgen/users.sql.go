@@ -11,6 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const applyVerifiedEmail = `-- name: ApplyVerifiedEmail :exec
+UPDATE users SET email = $2, email_verified = true, pending_email = NULL WHERE id = $1
+`
+
+type ApplyVerifiedEmailParams struct {
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
+}
+
+// ApplyVerifiedEmail is what a clicked verification link runs: it proves
+// email is reachable, so it becomes the account's real address, marks the
+// account verified, and clears pending_email regardless of whether this was
+// a signup verification (email already equalled users.email) or a change
+// (email came from pending_email).
+func (q *Queries) ApplyVerifiedEmail(ctx context.Context, arg ApplyVerifiedEmailParams) error {
+	_, err := q.db.Exec(ctx, applyVerifiedEmail, arg.ID, arg.Email)
+	return err
+}
+
 const clearFailedLogins = `-- name: ClearFailedLogins :exec
 UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1
 `
@@ -26,7 +45,7 @@ func (q *Queries) ClearFailedLogins(ctx context.Context, id int64) error {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, name, username)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until
+RETURNING id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email
 `
 
 type CreateUserParams struct {
@@ -54,12 +73,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Username,
 		&i.FailedLoginAttempts,
 		&i.LockedUntil,
+		&i.EmailVerified,
+		&i.PendingEmail,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until FROM users WHERE email = $1
+SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -75,12 +96,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Username,
 		&i.FailedLoginAttempts,
 		&i.LockedUntil,
+		&i.EmailVerified,
+		&i.PendingEmail,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until FROM users WHERE id = $1
+SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -96,6 +119,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.Username,
 		&i.FailedLoginAttempts,
 		&i.LockedUntil,
+		&i.EmailVerified,
+		&i.PendingEmail,
 	)
 	return i, err
 }
@@ -132,6 +157,24 @@ func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginPa
 	var i RecordFailedLoginRow
 	err := row.Scan(&i.FailedLoginAttempts, &i.LockedUntil)
 	return i, err
+}
+
+const setPendingEmail = `-- name: SetPendingEmail :exec
+UPDATE users SET pending_email = $2 WHERE id = $1
+`
+
+type SetPendingEmailParams struct {
+	ID           int64       `json:"id"`
+	PendingEmail pgtype.Text `json:"pending_email"`
+}
+
+// SetPendingEmail stages a requested address without touching the one the
+// account still logs in and receives a password-reset link at, so a typo
+// here can never cost the owner their recovery path -- see
+// ApplyVerifiedEmail for the confirm side of this.
+func (q *Queries) SetPendingEmail(ctx context.Context, arg SetPendingEmailParams) error {
+	_, err := q.db.Exec(ctx, setPendingEmail, arg.ID, arg.PendingEmail)
+	return err
 }
 
 const updateUserEmail = `-- name: UpdateUserEmail :exec

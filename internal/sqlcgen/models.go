@@ -18,6 +18,13 @@ type Category struct {
 	Slug      pgtype.Text        `json:"slug"`
 }
 
+type EmailVerificationToken struct {
+	Token     string             `json:"token"`
+	UserID    int64              `json:"user_id"`
+	Email     string             `json:"email"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
 type PasswordResetToken struct {
 	Token     string             `json:"token"`
 	UserID    int64              `json:"user_id"`
@@ -54,4 +61,6 @@ type User struct {
 	Username            string             `json:"username"`
 	FailedLoginAttempts int32              `json:"failed_login_attempts"`
 	LockedUntil         pgtype.Timestamptz `json:"locked_until"`
+	EmailVerified       bool               `json:"email_verified"`
+	PendingEmail        pgtype.Text        `json:"pending_email"`
 }
