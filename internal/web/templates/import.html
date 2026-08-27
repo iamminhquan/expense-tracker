@@ -8,7 +8,7 @@
   <div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
     <div>
       <p class="text-[14px] font-semibold text-ink">Choose a file</p>
-      <p class="text-[12px] text-ink-faint mt-[2px]">The file needs the five columns Export CSV writes — Date, Type, Category, Amount, Note — with dates as YYYY-MM-DD and amounts as plain whole numbers. Exporting your own transactions gives you a file in exactly that shape.</p>
+      <p class="text-[12px] text-ink-faint mt-[2px]">Any CSV with one transaction per row will do — the next step asks which column is which, with its best guess already filled in. A file exported from $pend is recognised on sight and skips that step.</p>
     </div>
     <form id="import-form" hx-post="/transactions/import" hx-encoding="multipart/form-data"
       hx-target="#import-preview" hx-swap="innerHTML" class="flex flex-col gap-[15px]">
@@ -54,9 +54,14 @@
   <p class="text-[12px] text-ink-muted bg-track rounded-lg px-3 py-2">{{countOf .Duplicates "line"}} in this file already {{if eq .Duplicates 1}}matches{{else}}match{{end}} a transaction you have. You may have imported it before — importing again will add them a second time.</p>
   {{end}}
 
+  {{if .Rounded}}
+  <p class="text-[12px] text-ink-muted bg-track rounded-lg px-3 py-2">{{countOf .Rounded "amount"}} had a fractional part and {{if eq .Rounded 1}}was{{else}}were{{end}} rounded to whole đồng.</p>
+  {{end}}
+
   {{if .Errors}}
   <div class="flex flex-col gap-[6px]">
     <p class="text-[12px] font-medium text-expense">Nothing is imported while these lines are wrong</p>
+    {{if .DateSuspect}}<p class="text-[12px] text-ink-muted">Most of these are date errors — the date format on the mapping screen is probably wrong.</p>{{end}}
     <ul class="flex flex-col gap-[4px]">
       {{range .Errors}}
       <li class="text-[12px] text-ink-muted">Line {{.Line}}: {{.Message}}</li>
@@ -66,15 +71,92 @@
   </div>
   {{end}}
 
-  {{if .Importable}}
+  {{/* One form with two submit buttons rather than two forms: both need the
+       file (through hx-include) and the whole mapping, and htmx sends the
+       name/value of whichever button was clicked. */}}
   <form id="import-confirm" hx-post="/transactions/import" hx-encoding="multipart/form-data"
-    hx-include="#import-form" hx-target="#import-preview" hx-swap="innerHTML">
+    hx-include="#import-form" hx-target="#import-preview" hx-swap="innerHTML" class="flex flex-col gap-2">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <input type="hidden" name="confirm" value="1">
     <input type="hidden" name="fingerprint" value="{{.Fingerprint}}">
-    <button type="submit" class="w-full h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Import {{countOf .RowCount "transaction"}}</button>
+    {{range $name, $value := .Mapping}}<input type="hidden" name="{{$name}}" value="{{$value}}">
+    {{end}}
+    {{if .Importable}}
+    <button type="submit" name="confirm" value="1" class="w-full h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Import {{countOf .RowCount "transaction"}}</button>
+    {{end}}
+    <button type="submit" name="back" value="1" class="w-full h-[38px] rounded-lg border border-border-input text-[13px] font-semibold text-ink">Back to mapping</button>
   </form>
-  {{end}}
 </div>
 {{end}}
+{{end}}
+
+{{/* The mapping screen. It swaps into the same #import-preview slot the
+     preview does, so the file input above it is never replaced and
+     hx-include can keep re-sending the chosen file at every step. */}}
+{{define "import_mapping"}}
+<div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
+  <div>
+    <p class="text-[14px] font-semibold text-ink">How should we read this file?</p>
+    <p class="text-[12px] text-ink-faint mt-[2px]">{{countOf .Rows "row"}} · this is our guess at what each column holds. Change anything that looks wrong.</p>
+  </div>
+
+  {{if .Error}}<p class="text-[12px] text-expense bg-danger-bg border border-danger-border rounded-lg px-3 py-2">{{.Error}}</p>{{end}}
+
+  <form id="import-mapping-form" hx-post="/transactions/import" hx-encoding="multipart/form-data"
+    hx-include="#import-form" hx-target="#import-preview" hx-swap="innerHTML" class="flex flex-col gap-[15px]">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <input type="hidden" name="mapped" value="1">
+
+    {{range .Roles}}
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="{{.Field}}">{{.Label}}{{if .Optional}} <span class="text-ink-faint">· optional</span>{{end}}</label>
+      <select id="{{.Field}}" name="{{.Field}}" class="h-9 px-3 rounded-lg border border-border-input bg-surface text-[13px] text-ink">
+        {{if .Optional}}<option value="-1"{{if eq .Selected -1}} selected{{end}}>— none —</option>{{end}}
+        {{$selected := .Selected}}
+        {{range $i, $column := $.Columns}}<option value="{{$i}}"{{if eq $i $selected}} selected{{end}}>{{$column}}</option>{{end}}
+      </select>
+    </div>
+    {{end}}
+
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="date_layout">Date format</label>
+      <select id="date_layout" name="date_layout" class="h-9 px-3 rounded-lg border border-border-input bg-surface text-[13px] text-ink">
+        {{range .DateFormats}}<option value="{{.Key}}"{{if eq .Key $.DateLayout}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+      {{if .AmbiguousDate}}<span class="text-[12px] text-ink-muted">Every date in this file fits both DD/MM and MM/DD, so this is a guess — check it before importing.</span>{{end}}
+    </div>
+
+    <div class="flex flex-col gap-[6px]">
+      <label class="flex items-center gap-2 text-[12px] text-ink-muted">
+        <input type="checkbox" name="negative_is_expense" value="1"{{if .NegativeIsExpense}} checked{{end}}>
+        Negative amounts are expenses
+      </label>
+      <span class="text-[12px] text-ink-faint">Only used when there is no Type column; a Type column decides on its own.</span>
+    </div>
+
+    <div class="flex flex-col gap-[6px]">
+      <label class="text-[12px] font-medium text-ink-muted" for="fallback_category">Category for every row, when there is no Category column</label>
+      <select id="fallback_category" name="fallback_category" class="h-9 px-3 rounded-lg border border-border-input bg-surface text-[13px] text-ink">
+        <option value="">— pick one —</option>
+        {{range .CategoryNames}}<option value="{{.}}"{{if eq . $.FallbackCategory}} selected{{end}}>{{.}}</option>{{end}}
+      </select>
+    </div>
+
+    <button type="submit" class="h-[38px] rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Preview</button>
+  </form>
+
+  <div class="flex flex-col gap-[6px]">
+    <p class="text-[12px] font-medium text-ink-muted">The first rows, as they are in the file</p>
+    <div class="overflow-x-auto">
+      <table class="text-[12px] text-ink-muted">
+        <thead>
+          <tr>{{range .Columns}}<th class="text-left font-medium px-2 py-1 whitespace-nowrap border-b border-border-list">{{.}}</th>{{end}}</tr>
+        </thead>
+        <tbody>
+          {{range .Sample}}<tr>{{range .}}<td class="px-2 py-1 whitespace-nowrap">{{.}}</td>{{end}}</tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 {{end}}

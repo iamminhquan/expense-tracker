@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"expensetracker/internal/auth"
@@ -52,6 +54,15 @@ func importHandler(deps Deps) http.HandlerFunc {
 		}
 		defer file.Close()
 
+		// The file is always sniffed, even when a mapping was submitted: it
+		// is what column indexes are validated against, and what the mapping
+		// screen is re-rendered from if they do not hold up.
+		sheet, err := csvimport.Sniff(file)
+		if err != nil {
+			importFailed(w, r, deps, planFailureMessage(err))
+			return
+		}
+
 		catalog, err := importCatalog(r.Context(), deps, userID)
 		if err != nil {
 			log.Printf("import: load categories: %v", err)
@@ -59,7 +70,37 @@ func importHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		plan, err := csvimport.Plan(file, catalog, time.Now().In(vietnamLocation))
+		mapping, submitted := mappingFromForm(r)
+		switch {
+		case r.FormValue("back") != "":
+			// Coming back from the preview keeps the mapping that was tried,
+			// so a wrong date order is one select away from fixed rather
+			// than a fresh start.
+			if !submitted {
+				mapping = sheet.Guess
+			}
+			importMapping(w, r, deps, sheet, mapping, "")
+			return
+		case !submitted && sheet.Exact:
+			// A file this app wrote needs no mapping screen.
+			mapping = sheet.Guess
+		case !submitted:
+			importMapping(w, r, deps, sheet, sheet.Guess, "")
+			return
+		default:
+			if msg := validateMapping(mapping, len(sheet.Columns)); msg != "" {
+				importMapping(w, r, deps, sheet, mapping, msg)
+				return
+			}
+		}
+
+		// Sniff read the file to the end; Plan needs the same bytes again.
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			log.Printf("import: rewind upload: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		plan, err := csvimport.Plan(file, mapping, catalog, time.Now().In(vietnamLocation))
 		if err != nil {
 			importFailed(w, r, deps, planFailureMessage(err))
 			return
@@ -73,7 +114,7 @@ func importHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if r.FormValue("confirm") == "" {
-			renderNamed(w, r, deps, "import", "import_preview", "", previewData(plan, duplicates))
+			renderNamed(w, r, deps, "import", "import_preview", "", previewData(plan, mapping, duplicates))
 			return
 		}
 
@@ -112,7 +153,7 @@ const maxShownErrors = 20
 // rather than handed over whole, so the template neither reaches into
 // another package's struct nor has to do the arithmetic of trimming a long
 // error list.
-func previewData(plan *csvimport.Import, duplicates int) map[string]any {
+func previewData(plan *csvimport.Import, m csvimport.Mapping, duplicates int) map[string]any {
 	shown, more := plan.Errors, 0
 	if len(shown) > maxShownErrors {
 		shown, more = shown[:maxShownErrors], len(plan.Errors)-maxShownErrors
@@ -122,10 +163,31 @@ func previewData(plan *csvimport.Import, duplicates int) map[string]any {
 		"NewCategories": plan.NewCategories,
 		"Errors":        shown,
 		"MoreErrors":    more,
+		"Rounded":       plan.Rounded,
 		"Duplicates":    duplicates,
 		"Fingerprint":   plan.Fingerprint,
 		"Importable":    importable(plan),
+		"DateSuspect":   mostlyDateErrors(plan.Errors),
+		"Mapping":       mappingFieldValues(m),
 	}
+}
+
+// mostlyDateErrors reports whether the failures look like one wrong answer
+// on the mapping screen rather than a file full of bad lines. Picking the
+// wrong date order is the easiest mistake to make there and the hardest to
+// see afterwards, since every line then fails for what reads like its own
+// reason.
+func mostlyDateErrors(errs []csvimport.RowError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	dates := 0
+	for _, e := range errs {
+		if strings.HasPrefix(e.Message, "date ") {
+			dates++
+		}
+	}
+	return dates*2 > len(errs)
 }
 
 // importable reports whether a plan can be applied at all: one bad line

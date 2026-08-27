@@ -27,7 +27,7 @@ func TestPlanReadsTheExportFormatItRoundTripsWith(t *testing.T) {
 		"2026-08-11,expense,Food & Drink,45000,Cà phê\n" +
 		"2026-08-01,income,Salary,20000000,\n"
 
-	got, err := csvimport.Plan(strings.NewReader(file), catalog, now)
+	got, err := csvimport.Plan(strings.NewReader(file), csvimport.ExportMapping(), catalog, now)
 	if err != nil {
 		t.Fatalf("Plan() error = %v, want nil", err)
 	}
@@ -58,12 +58,12 @@ func TestPlanRejectsBadLinesWithoutStoppingAtTheFirst(t *testing.T) {
 	file := "Date,Type,Category,Amount,Note\n" +
 		"11/08/2026,expense,Food & Drink,45000,\n" +
 		"2026-08-11,transfer,Food & Drink,45000,\n" +
-		"2026-08-11,expense,Food & Drink,\"45,000\",\n" +
+		"2026-08-11,expense,Food & Drink,not-a-number,\n" +
 		"2026-08-11,expense,Food & Drink,0,\n" +
 		"2026-09-30,expense,Food & Drink,45000,\n" +
 		"2026-08-11,expense,Food & Drink,45000," + strings.Repeat("x", 201) + "\n"
 
-	got, err := csvimport.Plan(strings.NewReader(file), catalog, now)
+	got, err := csvimport.Plan(strings.NewReader(file), csvimport.ExportMapping(), catalog, now)
 	if err != nil {
 		t.Fatalf("Plan() error = %v, want nil", err)
 	}
@@ -75,9 +75,9 @@ func TestPlanRejectsBadLinesWithoutStoppingAtTheFirst(t *testing.T) {
 		about string
 	}{
 		{2, "YYYY-MM-DD"},
-		{3, "expense or income"},
-		{4, "separators"},
-		{5, "above zero"},
+		{3, "not a word this recognises"},
+		{4, "not a number"},
+		{5, "zero"},
 		{6, "future"},
 		{7, "200"},
 	}
@@ -101,7 +101,7 @@ func TestPlanCreatesOneCategoryPerNameAndType(t *testing.T) {
 		"2026-08-13,income,Cà phê,900000,sold the beans\n" +
 		"2026-08-14,expense,Du lịch,120000,\n"
 
-	got, err := csvimport.Plan(strings.NewReader(file), catalog, now)
+	got, err := csvimport.Plan(strings.NewReader(file), csvimport.ExportMapping(), catalog, now)
 	if err != nil {
 		t.Fatalf("Plan() error = %v, want nil", err)
 	}
@@ -139,15 +139,15 @@ func TestPlanFingerprintsWhatItRead(t *testing.T) {
 	const file = "Date,Type,Category,Amount,Note\n2026-08-11,expense,Food & Drink,45000,\n"
 	const edited = "Date,Type,Category,Amount,Note\n2026-08-11,expense,Food & Drink,45001,\n"
 
-	first, err := csvimport.Plan(strings.NewReader(file), catalog, now)
+	first, err := csvimport.Plan(strings.NewReader(file), csvimport.ExportMapping(), catalog, now)
 	if err != nil {
 		t.Fatalf("Plan() error = %v", err)
 	}
-	again, err := csvimport.Plan(strings.NewReader(file), catalog, now)
+	again, err := csvimport.Plan(strings.NewReader(file), csvimport.ExportMapping(), catalog, now)
 	if err != nil {
 		t.Fatalf("Plan() error = %v", err)
 	}
-	other, err := csvimport.Plan(strings.NewReader(edited), catalog, now)
+	other, err := csvimport.Plan(strings.NewReader(edited), csvimport.ExportMapping(), catalog, now)
 	if err != nil {
 		t.Fatalf("Plan() error = %v", err)
 	}
@@ -170,16 +170,27 @@ func TestPlanRefusesMoreRowsThanItWillImportInOneGo(t *testing.T) {
 		b.WriteString("2026-08-11,expense,Food & Drink,45000,\n")
 	}
 
-	_, err := csvimport.Plan(strings.NewReader(b.String()), catalog, now)
+	_, err := csvimport.Plan(strings.NewReader(b.String()), csvimport.ExportMapping(), catalog, now)
 	if !errors.Is(err, csvimport.ErrTooManyRows) {
 		t.Errorf("Plan(%d rows) error = %v, want ErrTooManyRows", csvimport.MaxRows+1, err)
 	}
 }
 
-func TestPlanRefusesAHeaderFromSomeOtherApp(t *testing.T) {
+// TestPlanReportsLinesTooShortForTheMapping is what a foreign file read
+// under the export's own mapping amounts to: the header is no longer
+// Plan's business (Sniff decides whether a mapping screen is needed), so
+// what has to be loud is every line the mapping cannot reach into.
+func TestPlanReportsLinesTooShortForTheMapping(t *testing.T) {
 	const file = "Ngày,Danh mục,Số tiền\n2026-08-11,Ăn uống,45000\n"
 
-	if _, err := csvimport.Plan(strings.NewReader(file), catalog, now); err == nil {
-		t.Error("Plan(foreign header) error = nil, want a header error")
+	got, err := csvimport.Plan(strings.NewReader(file), csvimport.ExportMapping(), catalog, now)
+	if err != nil {
+		t.Fatalf("Plan() error = %v, want the lines reported instead", err)
+	}
+	if len(got.Rows) != 0 {
+		t.Errorf("Plan() accepted %d rows from a 3-column file, want none", len(got.Rows))
+	}
+	if len(got.Errors) != 1 || !strings.Contains(got.Errors[0].Message, "columns") {
+		t.Errorf("Plan() errors = %+v, want one complaining about the column count", got.Errors)
 	}
 }
