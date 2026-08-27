@@ -1,6 +1,10 @@
 package handlers
 
-import "testing"
+import (
+	"testing"
+
+	"expensetracker/internal/format"
+)
 
 // The ratio bar and its caption are the whole point of the widget's popover,
 // and every interesting case is a division that either can't be done (no
@@ -88,12 +92,12 @@ func TestNewBalanceSummaryRatio(t *testing.T) {
 // change.
 func TestNewBalanceSummaryFormatsNegativeRemaining(t *testing.T) {
 	summary := newBalanceSummary(1200000, 0, 0)
-	if got := vndBalance(summary.Remaining); got != "-1,200,000₫" {
-		t.Errorf("vndBalance(Remaining) = %q, want %q", got, "-1,200,000₫")
+	if got := format.VNDBalance(summary.Remaining); got != "-1,200,000₫" {
+		t.Errorf("VNDBalance(Remaining) = %q, want %q", got, "-1,200,000₫")
 	}
 	positive := newBalanceSummary(2300000, 10000000, 0)
-	if got := vndBalance(positive.Remaining); got != "7,700,000₫" {
-		t.Errorf("vndBalance(Remaining) = %q, want %q", got, "7,700,000₫")
+	if got := format.VNDBalance(positive.Remaining); got != "7,700,000₫" {
+		t.Errorf("VNDBalance(Remaining) = %q, want %q", got, "7,700,000₫")
 	}
 }
 

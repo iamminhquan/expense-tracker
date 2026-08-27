@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/format"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -46,9 +47,9 @@ func (r txnRow) Date() string { return rowDate(r.OccurredOn, r.showYear) }
 // instead of a txnRow, and call this directly.
 func rowDate(d pgtype.Date, showYear bool) string {
 	if showYear {
-		return dateLong(d)
+		return format.DateLong(d)
 	}
-	return dateShort(d)
+	return format.DateShort(d)
 }
 
 // totalsOOBData assembles the payload for the "totals_oob" fragment that
