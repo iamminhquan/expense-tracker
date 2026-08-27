@@ -39,6 +39,7 @@ func NewRouter(deps Deps) http.Handler {
 	r.Post("/forgot-password", forgotPasswordPage(deps))
 	r.Get("/reset-password", resetPasswordPage(deps))
 	r.Post("/reset-password", resetPasswordPage(deps))
+	r.Get("/verify-email", verifyEmailPage(deps))
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(auth.RequireAuth(deps.Sessions, deps.CookieName))

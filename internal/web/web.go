@@ -54,6 +54,7 @@ var pageTemplates = map[string][]string{
 	"auth":            {"auth.html", "auth_card_body.html"},
 	"forgot_password": {"forgot_password.html"},
 	"reset_password":  {"reset_password.html"},
+	"verify_email":    {"verify_email.html"},
 	"categories":      {"categories.html", "category_row.html"},
 	"transactions":    {"transactions.html", "transaction_form.html", "transaction_row.html", "transaction_filters.html"},
 	"dashboard":       {"dashboard.html"},

@@ -213,6 +213,7 @@ func registerPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
+		queueVerificationEmail(r.Context(), deps, user.ID, user.Email)
 		startSession(w, r, deps, user.ID)
 		w.Header().Set("HX-Redirect", "/transactions")
 		w.WriteHeader(http.StatusOK)
