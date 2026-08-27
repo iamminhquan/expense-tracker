@@ -13,7 +13,7 @@ import (
 )
 
 // Everything that answers "which transactions is this page showing?", the
-// companion to month.go's "which month?". The two work the same way on
+// companion to req_month.go's "which month?". The two work the same way on
 // purpose: a value object parsed leniently from the URL, a variant that
 // reads the originating page's URL out of HX-Current-URL for the mutation
 // handlers, and a canonical rendering back into a query string.

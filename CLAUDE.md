@@ -138,13 +138,13 @@ originally specified in the Vietnamese convention (dots for thousands,
 `dd/mm/yyyy`), which is why the helpers exist at all rather than the
 templates formatting inline.
 
-**Month, filters, paging** — three small value-object files in
+**Month, filters, paging** — three small value-object files (the `req_` group) in
 `internal/handlers/`, all built the same way on purpose: parse leniently
 from the URL, never error on a malformed value, and offer a
 `...FromRequest` variant that reads the *originating* page's URL out of the
 `HX-Current-URL` header (a mutation POST/PATCH/DELETE carries no query
 string of its own).
-- `month.go` — `currentMonthRange`, `monthRangeFor`, `monthRangeFromRequest`,
+- `req_month.go` — `currentMonthRange`, `monthRangeFor`, `monthRangeFromRequest`,
   `monthLabel`, `pgDate`, and `vietnamLocation`. Every month window is a
   half-open `[from, to)` anchored to `Asia/Ho_Chi_Minh`, not server UTC, so
   "this month" lines up with what a Vietnamese user expects (with a fixed
@@ -162,7 +162,7 @@ string of its own).
   `/dashboard?month=all` land on the current month rather than on something
   half-rendered, and it is why the picker only offers the entry under
   `ActiveNav == "transactions"`.
-- `filters.go` — `txnFilters` (search, type, category, min/max amount), the
+- `req_filters.go` — `txnFilters` (search, type, category, min/max amount), the
   0 sentinel that means "not filtering", the nullable sqlc params both the
   list and the count query take, and `transactionsURL`, the canonical
   address pushed via `HX-Push-Url`. `Sort` rides in the same value object
@@ -172,7 +172,7 @@ string of its own).
   switches on the bound value through a pair of `CASE`s rather than
   interpolating a column name — an unknown order matches neither and falls
   back to the `occurred_on DESC, id DESC` the list has always had.
-- `paging.go` — `pageSize` (10) and `pager`, which clamps any requested page
+- `req_paging.go` — `pageSize` (10) and `pager`, which clamps any requested page
   into one that exists.
 
 **CSV import** (`internal/csvimport` + `import_handlers.go`,
@@ -361,7 +361,7 @@ where they can be: 000006 and 000008 both `UPDATE ... IN PLACE` rather than
 delete-and-reinsert, because `transactions.category_id` has no `ON DELETE`
 clause and any account with history would break. Month-based queries
 (transactions list, dashboard totals) take explicit `[from, to)` date bounds
-computed in `internal/handlers/month.go`.
+computed in `internal/handlers/req_month.go`.
 
 **Auth**: `internal/auth/session.go` (`Manager`) issues/validates sessions
 against the `sessions` table; `internal/auth/password.go` handles bcrypt

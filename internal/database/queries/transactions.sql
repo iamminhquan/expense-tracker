@@ -1,6 +1,6 @@
 -- ListTransactionsForMonth returns one page of the month's transactions,
 -- narrowed by whatever the search box and filter panel are asking for. The
--- list page is paginated (see pageSize in internal/handlers/paging.go), so
+-- list page is paginated (see pageSize in internal/handlers/req_paging.go), so
 -- every caller wants a window rather than the whole month; a caller that only
 -- needs how many there are should use CountTransactionsForMonth instead of
 -- reading rows it will throw away.
