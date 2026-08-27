@@ -175,15 +175,40 @@ string of its own).
 - `paging.go` — `pageSize` (10) and `pager`, which clamps any requested page
   into one that exists.
 
-**CSV import** (`internal/csvimport` + `import_handlers.go`) reads back the
-file `/transactions/export` writes, and only that file: the five columns in
-that order (case-insensitively, `Description` accepted for `Note`, the
-export's BOM tolerated), `YYYY-MM-DD` dates, amounts as bare integers. No
-column-mapping screen, no date-format guessing -- a file from another app is
-reshaped in a spreadsheet first. `csvimport` never touches the database: the
-account arrives as a `[]csvimport.Category` and the answer leaves as an
-`Import`, which is what lets every rule about the format be tested without
-Postgres.
+**CSV import** (`internal/csvimport` + `import_handlers.go`,
+`import_mapping.go`) reads any CSV with one transaction per row. What a
+column means is a `Mapping` -- which column plays which role, what order the
+date parts are in, whether a minus sign marks an expense -- and the format
+the app exports is just one such Mapping (`ExportMapping`), recognised by
+`Sniff` so a round trip skips the mapping screen entirely.
+
+`csvimport` never touches the database: the account arrives as a
+`[]csvimport.Category` and the answer leaves as a `Sheet` or an `Import`,
+which is what lets every rule about reading a file be tested without
+Postgres. `Sniff` proposes, `Plan` applies -- and `Plan` no longer judges
+headers at all, so a mapping that cannot reach a line reports that line
+rather than refusing the file.
+
+Guessing is by header name first (`headerAliases`, which spells out the
+toned and untoned Vietnamese spellings rather than carrying a Unicode
+normaliser), then by content: a column is a date or an amount if
+`contentShare` of it parses as one, and of whatever columns are left the one
+that repeats itself most is the category and the one that repeats least is
+the note. Every guess is rendered into a control the user can change, which
+is what licenses rules that rough. The exception is the date order: a column
+whose days never pass the 12th fits both DD/MM and MM/DD, and that is the
+only wrong guess in the importer that still produces rows that look right,
+so `Sheet.AmbiguousDate` makes the screen say so -- and a preview whose
+failures are mostly date failures says the format is probably wrong instead
+of listing two hundred separate complaints.
+
+`parseAmount` strips currency symbols, spaces and accounting parentheses,
+and resolves `.` versus `,` by position: with both present the last one is
+the decimal point; with one present, three digits after it means thousands.
+"45.000" is therefore forty-five thousand, which is right far more often
+than it is wrong here. Fractions round to whole đồng and the preview says
+how many rows were rounded, because refusing them would mean a file in a
+currency with cents imports nothing at all.
 
 A category name resolves against the defaults through `i18n` and the slug,
 never against the `name` column, for the same reason the search does. A name
@@ -201,14 +226,18 @@ that second copy apart. Two identical coffees on one day are a real thing to
 record, so exact duplicates are counted and reported rather than refused
 (`countImportDuplicates`, one query over the file's own date range).
 
-The two steps are one handler and no server-side state: the preview leaves
-the form and its file input in the DOM, and the confirm re-uploads the same
-file through `hx-include`. `Import.Fingerprint` is a digest of what was read,
-echoed back in a hidden field, so a file swapped between the two steps is
-refused rather than imported unseen. Row validation deliberately repeats
-what `handleCreateTransaction` enforces (amount, type, 200-character note,
-7-day future limit) -- a laxer second way in would let the importer create
-rows the form would have rejected.
+All three steps are one handler and no server-side state. The upload form
+keeps the file in the DOM and every step re-sends it through `hx-include`,
+so the mapping travels as form fields and nothing half-finished is left
+behind by a session that walked away. The file is sniffed on every request
+(that is what column indexes are validated against, and what the mapping
+screen is re-rendered from), then the upload is rewound and planned.
+`Import.Fingerprint` is a digest of what was read, echoed back in a hidden
+field, so a file swapped between steps is refused rather than imported
+unseen. Row validation deliberately repeats what `handleCreateTransaction`
+enforces (amount, type, 200-character note, 7-day future limit) -- a laxer
+second way in would let the importer create rows the form would have
+rejected.
 
 **The balance** lives in one place: the `header_balance` widget
 (`header_balance.html`), rendered by both nav bars. There is no balance card
