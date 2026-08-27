@@ -395,7 +395,7 @@ its own revoke button, so a click can't log the viewer out of the page they
 are on.
 
 **Email verification** (`internal/auth/email_verification.go`,
-`internal/handlers/email_verification_handlers.go`) mirrors the
+`internal/handlers/auth_email_verification.go`) mirrors the
 forgot-password design against its own `email_verification_tokens` table: a
 24h TTL rather than the reset link's 1h, since confirming an address is
 never the locked-out-owner urgency a password reset is. One token type

@@ -65,7 +65,7 @@ type contact struct {
 // endpoint. ctx is the caller's to cancel or time out the HTTP call; the
 // caller must not pass a request-scoped context that outlives the request
 // itself if the send is meant to keep running in the background (see
-// internal/handlers/password_reset_handlers.go).
+// internal/handlers/auth_password_reset.go).
 func (m *Mailer) Send(ctx context.Context, to, subject, body string) error {
 	reqBody, err := json.Marshal(sendRequest{
 		Sender:      contact{Email: m.cfg.From},

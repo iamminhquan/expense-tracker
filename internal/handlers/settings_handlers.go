@@ -216,7 +216,7 @@ func updateProfileHandler(deps Deps) http.HandlerFunc {
 // which is why it is the one settings form that asks for the current
 // password: a borrowed unlocked browser should not be enough to take the
 // account over. It does not touch users.email itself -- ApplyVerifiedEmail
-// (see email_verification_handlers.go) does that once the link this queues
+// (see auth_email_verification.go) does that once the link this queues
 // has been visited -- so a mistyped address can never cost the owner the
 // one they can still be reached at.
 func updateEmailHandler(deps Deps) http.HandlerFunc {
