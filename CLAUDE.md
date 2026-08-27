@@ -364,6 +364,32 @@ the account's own `email`). Migration 000013 grandfathers in every account
 that already existed as verified, since the check postdates their signup and
 they never asked for it.
 
+**Account deletion** (`deleteAccountHandler` / `deleteAccount` in
+`settings_handlers.go`) is a hard delete, not a `deleted_at` flag: a grace
+period would put a "is this account still alive" predicate on every query in
+the app, and $pend has no billing, audit trail or support desk that a
+recoverable window would serve. What replaces it sits in the danger zone card
+instead -- a CSV export link above the delete button, since the history is the
+part anyone regrets, not the empty account.
+
+`deleteAccount` removes transactions, then the account's own categories, then
+the user row, in one transaction, spelled out rather than left to the
+`ON DELETE CASCADE` on `users`. A single cascading delete does work, but only
+because `transactions.category_id` references `categories(id)` with no
+`ON DELETE` clause and Postgres defers that NO ACTION check to the end of the
+statement -- true, invisible to anyone reading the delete, and one constraint
+change away from not being true. The shared defaults are never at risk: they
+carry a NULL `user_id`, so `WHERE user_id = $1` cannot reach them. Everything
+else that points at the account -- sessions, both token tables -- cascades.
+
+The address is released, and re-registering it is a test
+(`TestDeletedEmailCanRegisterAgainAsAFreshAccount`) rather than an accident.
+No account shares data with another, so the new signup starts empty; reserving
+the address would mean keeping a tombstone of the one piece of personal data
+the owner just asked to be rid of. The gate is the current password, matching
+the email and password forms, and the confirmation lands on `/login?deleted=1`
+because by then there is no account left to show it to.
+
 **Deployment** (`render.yaml`): a free Render web service on Render's native
 Go runtime (no Dockerfile), with Postgres on Neon rather than Render's own
 free tier, which is deleted after 30 days. `autoDeploy` on `main` — a schema

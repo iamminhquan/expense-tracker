@@ -47,7 +47,14 @@ const badCredentials = "Incorrect email or password."
 func loginPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			renderAuthFragmentOrPage(w, r, deps, map[string]any{"Tab": "login"})
+			data := map[string]any{"Tab": "login"}
+			// The account this marker belongs to no longer exists, so this
+			// page is the only place its owner can still be told the
+			// deletion went through rather than silently logged out.
+			if r.URL.Query().Get("deleted") != "" {
+				data["Notice"] = "Your account has been deleted."
+			}
+			renderAuthFragmentOrPage(w, r, deps, data)
 			return
 		}
 
@@ -225,16 +232,24 @@ func logoutHandler(deps Deps) http.HandlerFunc {
 		if cookie, err := r.Cookie(deps.CookieName); err == nil {
 			deps.Sessions.DeleteSession(r.Context(), cookie.Value)
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name:     deps.CookieName,
-			Value:    "",
-			MaxAge:   -1,
-			Path:     "/",
-			SameSite: http.SameSiteLaxMode,
-			Secure:   deps.SecureCookies,
-		})
+		clearSessionCookie(w, deps)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	}
+}
+
+// clearSessionCookie expires the browser's copy of the session cookie. It
+// is separate from deleting the session row because the two have different
+// callers: logging out deletes one row, deleting an account takes every row
+// with the user, and both still have to tell the browser to forget it.
+func clearSessionCookie(w http.ResponseWriter, deps Deps) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     deps.CookieName,
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+		Secure:   deps.SecureCookies,
+	})
 }
 
 func startSession(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {

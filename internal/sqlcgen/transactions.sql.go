@@ -179,6 +179,18 @@ func (q *Queries) DeleteTransaction(ctx context.Context, arg DeleteTransactionPa
 	return result.RowsAffected(), nil
 }
 
+const deleteTransactionsForUser = `-- name: DeleteTransactionsForUser :exec
+DELETE FROM transactions WHERE user_id = $1
+`
+
+// DeleteTransactionsForUser clears the history an account leaves behind when
+// it is deleted. It runs before the categories are removed because
+// transactions.category_id has no ON DELETE clause of its own.
+func (q *Queries) DeleteTransactionsForUser(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteTransactionsForUser, userID)
+	return err
+}
+
 const getTransaction = `-- name: GetTransaction :one
 SELECT id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at FROM transactions WHERE id = $1 AND user_id = $2
 `
