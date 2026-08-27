@@ -21,13 +21,14 @@ import (
 // global name per template set, so the last-parsed page's block would win
 // for every page.
 type Deps struct {
-	DB             *pgxpool.Pool
-	Queries        *sqlcgen.Queries
-	Sessions       *auth.Manager
-	PasswordResets *auth.PasswordResetManager
-	Mailer         *mailer.Mailer
-	Templates      map[string]*template.Template
-	CookieName     string
+	DB                 *pgxpool.Pool
+	Queries            *sqlcgen.Queries
+	Sessions           *auth.Manager
+	PasswordResets     *auth.PasswordResetManager
+	EmailVerifications *auth.EmailVerificationManager
+	Mailer             *mailer.Mailer
+	Templates          map[string]*template.Template
+	CookieName         string
 	// SecureCookies gates the Secure attribute on the session and CSRF
 	// cookies; see internal/config.Config.SecureCookies for how it's
 	// populated.

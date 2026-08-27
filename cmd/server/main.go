@@ -94,10 +94,11 @@ func main() {
 	}
 
 	deps := handlers.Deps{
-		DB:             pool,
-		Queries:        queries,
-		Sessions:       auth.NewManager(queries),
-		PasswordResets: auth.NewPasswordResetManager(queries),
+		DB:                 pool,
+		Queries:            queries,
+		Sessions:           auth.NewManager(queries),
+		PasswordResets:     auth.NewPasswordResetManager(queries),
+		EmailVerifications: auth.NewEmailVerificationManager(queries),
 		Mailer: mailer.New(mailer.Config{
 			APIKey: cfg.BrevoAPIKey,
 			From:   cfg.MailFrom,

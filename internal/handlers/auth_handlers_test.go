@@ -39,15 +39,16 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 
 	return handlers.Deps{
-		DB:             pool,
-		Queries:        sqlcgen.New(pool),
-		Sessions:       auth.NewManager(sqlcgen.New(pool)),
-		PasswordResets: auth.NewPasswordResetManager(sqlcgen.New(pool)),
-		Mailer:         mailer.New(mailer.Config{}),
-		Templates:      templates,
-		CookieName:     "session_id",
-		SecureCookies:  false,
-		BaseURL:        "http://localhost:8080",
+		DB:                 pool,
+		Queries:            sqlcgen.New(pool),
+		Sessions:           auth.NewManager(sqlcgen.New(pool)),
+		PasswordResets:     auth.NewPasswordResetManager(sqlcgen.New(pool)),
+		EmailVerifications: auth.NewEmailVerificationManager(sqlcgen.New(pool)),
+		Mailer:             mailer.New(mailer.Config{}),
+		Templates:          templates,
+		CookieName:         "session_id",
+		SecureCookies:      false,
+		BaseURL:            "http://localhost:8080",
 	}
 }
 
