@@ -359,7 +359,12 @@ func TestUpdateProfileRejectsEmptyName(t *testing.T) {
 	}
 }
 
-func TestChangeEmailSwitchesLoginIdentity(t *testing.T) {
+// TestChangeEmailHoldsUntilVerifiedThenSwitchesLoginIdentity pins the
+// hold-until-verified design: the address a change asks for only becomes
+// the login identity once its own verification link has been visited, so a
+// mistyped address can never cost the owner the one they can still be
+// reached at (see TestChangeEmailMistypedAddressDoesNotAffectLogin).
+func TestChangeEmailHoldsUntilVerifiedThenSwitchesLoginIdentity(t *testing.T) {
 	deps := newTestDeps(t)
 	router := handlers.NewRouter(deps)
 	oldEmail := "email-old@example.com"
@@ -374,13 +379,25 @@ func TestChangeEmailSwitchesLoginIdentity(t *testing.T) {
 	})
 
 	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("expected 303 back to /settings after changing the email, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 303 back to /settings after requesting the change, got %d: %s", rec.Code, rec.Body.String())
 	}
+	if !loginAgain(t, router, oldEmail, "s3cret-pass") {
+		t.Fatal("expected the old email to still log in before the new one is verified")
+	}
+	if loginAgain(t, router, newEmail, "s3cret-pass") {
+		t.Fatal("expected the new email to not log in before it is verified")
+	}
+
+	verifyRec := visitVerifyEmail(router, verificationTokenFor(t, deps, newEmail))
+	if verifyRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /verify-email, got %d: %s", verifyRec.Code, verifyRec.Body.String())
+	}
+
 	if loginAgain(t, router, oldEmail, "s3cret-pass") {
-		t.Fatal("expected the old email to no longer log in")
+		t.Fatal("expected the old email to stop logging in once the new one is verified")
 	}
 	if !loginAgain(t, router, newEmail, "s3cret-pass") {
-		t.Fatal("expected the new email to log in")
+		t.Fatal("expected the verified new email to log in")
 	}
 }
 

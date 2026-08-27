@@ -18,9 +18,6 @@ UPDATE users SET password_hash = $2 WHERE id = $1;
 -- name: UpdateUserProfile :exec
 UPDATE users SET name = $2, username = $3 WHERE id = $1;
 
--- name: UpdateUserEmail :exec
-UPDATE users SET email = $2 WHERE id = $1;
-
 -- SetPendingEmail stages a requested address without touching the one the
 -- account still logs in and receives a password-reset link at, so a typo
 -- here can never cost the owner their recovery path -- see

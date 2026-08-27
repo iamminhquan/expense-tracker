@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -87,6 +88,55 @@ func TestVerifyEmailIsSingleUse(t *testing.T) {
 	replay := visitVerifyEmail(router, token)
 	if !strings.Contains(replay.Body.String(), "invalid or has expired") {
 		t.Fatalf("expected a consumed token to show as invalid, got: %s", replay.Body.String())
+	}
+}
+
+// TestChangeEmailAllowsResubmittingTheCurrentAddress guards against the
+// pre-check in updateEmailHandler mistaking the caller's own row for a
+// collision: GetUserByEmail(email) succeeds when email is unchanged too, so
+// the check must exclude the caller's own id or a no-op re-save would be
+// rejected as "already registered".
+func TestChangeEmailAllowsResubmittingTheCurrentAddress(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "verify-noop@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	rec := postSettings(t, router, cookie, "/settings/email", url.Values{
+		"email":            {email},
+		"current_password": {"s3cret-pass"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 back to /settings, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "already registered") {
+		t.Fatal("expected resubmitting the current address to not be treated as a collision")
+	}
+}
+
+// TestChangeEmailMistypedAddressDoesNotAffectLogin is the scenario the
+// hold-until-verified design exists for: a typo in the new address must
+// never cost the owner their ability to log in with the real one.
+func TestChangeEmailMistypedAddressDoesNotAffectLogin(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "verify-typo@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	rec := postSettings(t, router, cookie, "/settings/email", url.Values{
+		"email":            {"typo-nobody-owns@example.com"},
+		"current_password": {"s3cret-pass"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 back to /settings, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if !loginAgain(t, router, email, "s3cret-pass") {
+		t.Fatal("expected the real email to keep logging in after a mistyped pending change")
 	}
 }
 

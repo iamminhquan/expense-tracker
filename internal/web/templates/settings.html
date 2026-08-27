@@ -42,6 +42,9 @@
     <p class="text-[14px] font-semibold text-ink">Email</p>
     <p class="text-[12px] text-ink-faint mt-[2px]">This is what you log in with, so changing it needs your password.</p>
   </div>
+  {{if .PendingEmail}}
+  <p class="text-[12px] text-ink-muted bg-track rounded-lg px-3 py-2">Waiting on confirmation at <span class="font-medium text-ink">{{.PendingEmail}}</span>.</p>
+  {{end}}
   <form method="POST" action="/settings/email" class="flex flex-col gap-[15px]">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
     <div class="flex flex-col gap-[6px]">

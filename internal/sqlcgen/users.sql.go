@@ -177,20 +177,6 @@ func (q *Queries) SetPendingEmail(ctx context.Context, arg SetPendingEmailParams
 	return err
 }
 
-const updateUserEmail = `-- name: UpdateUserEmail :exec
-UPDATE users SET email = $2 WHERE id = $1
-`
-
-type UpdateUserEmailParams struct {
-	ID    int64  `json:"id"`
-	Email string `json:"email"`
-}
-
-func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) error {
-	_, err := q.db.Exec(ctx, updateUserEmail, arg.ID, arg.Email)
-	return err
-}
-
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users SET password_hash = $2 WHERE id = $1
 `
