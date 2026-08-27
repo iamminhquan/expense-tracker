@@ -122,10 +122,15 @@ dashboard charts on a month switch.
 `HX-Boosted`); a handler that branches on `HX-Request` alone hands a boosted
 click a fragment instead of the page shell.
 
-Money/date formatting helpers (`vnd`, `vndSigned`, `vndBalance`,
-`dateShort`, `dateLong`, `countOf`, `swatches`) live in `internal/handlers/format.go`
-and are registered as template funcs via `handlers.TemplateFuncs()`,
-alongside `catName` (`i18n.CategoryName`). A transaction row does not call
+Money/date formatting helpers (`VND`, `VNDSigned`, `VNDBalance`,
+`DateShort`, `DateLong`, `Timestamp`, `CountOf`) live in `internal/format`,
+which takes finished values and returns strings — no request, no `Deps`, no
+database, which is what lets every money and date rule be tested on its own.
+`internal/handlers/view_funcs.go` maps them (plus `catName`
+(`i18n.CategoryName`) and `swatches`) onto the names templates call, via
+`handlers.TemplateFuncs()`; that mapping stays with the templates.
+`format.Timestamp` takes a `*time.Location` rather than reaching for the app's
+own, since nothing else in the package needs a clock. A transaction row does not call
 either date helper itself: the list wraps its rows in `txnRow`, whose `Date`
 method picks the format, and the three handlers that answer with a single row
 call `rowDate` to make the same choice. That indirection exists because
@@ -383,7 +388,7 @@ The `/settings` "Active sessions" card is what makes `sessions` rows visible
 to the account they belong to, rather than something only a password change
 ever touched. `created_at` and `user_agent` (migration 000012) exist only for
 this list -- `user_agent` is nullable because a session created before that
-migration has none. `deviceLabel` (`internal/handlers/sessions.go`) turns the
+migration has none. `format.DeviceLabel` (`internal/format/device.go`) turns the
 raw UA into a name like "Chrome on Windows" by matching a handful of common
 browser/OS substrings, falling back to the raw string rather than guessing
 wrong. Signing out one listed device goes through `DeleteSessionForUser`,
@@ -549,7 +554,10 @@ narrate code that already reads clearly.
 responsibility, no import cycles. `internal/web` takes its `template.FuncMap`
 as an argument specifically so it never imports `internal/handlers`; keep
 that direction. New shared helpers go in the package that owns the concept,
-not in a grab-bag.
+not in a grab-bag. A helper that needs neither a request nor a database
+belongs outside `internal/handlers` — `internal/format` is where the display
+strings went, and a new one should either join it or get its own package
+rather than growing a file in `handlers` that only happens to live there.
 
 **Tests.** Standard library `testing` only — no testify, no assert helpers
 (`stretchr/testify` in `go.sum` is a transitive dependency of golang-migrate,
