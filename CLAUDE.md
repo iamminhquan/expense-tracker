@@ -315,7 +315,7 @@ The dark palette is declared twice, once under
 `@media (prefers-color-scheme: dark) :root:not(.light)` and once under
 `:root.dark`, so the three preferences (`auto`/`light`/`dark`) all resolve in
 CSS with no load-time JavaScript and no flash. The preference lives in
-`users.theme` (CHECK-constrained, mirrored by `theme.go`'s `validTheme`) and
+`users.theme` (CHECK-constrained, mirrored by `settings_theme.go`'s `validTheme`) and
 is rendered onto `<html class="...">`; `renderNamed` defaults it to `auto`
 for pre-auth pages, because `html/template` prints a missing map key as the
 literal `<no value>`. Chart.js cannot read CSS variables, so
