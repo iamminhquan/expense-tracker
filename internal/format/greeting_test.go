@@ -1,11 +1,13 @@
-package handlers
+package format_test
 
 import (
 	"testing"
 	"time"
+
+	"expensetracker/internal/format"
 )
 
-// at builds a time whose only significant part is the clock: greeting reads
+// at builds a time whose only significant part is the clock: Greeting reads
 // nothing but the hour, and it is the caller that decides which location the
 // hour is read in.
 func at(hour, minute int) time.Time {
@@ -34,8 +36,8 @@ func TestGreeting(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := greeting(tc.in); got != tc.want {
-				t.Errorf("greeting(%s) = %q, want %q", tc.in.Format("15:04"), got, tc.want)
+			if got := format.Greeting(tc.in); got != tc.want {
+				t.Errorf("Greeting(%s) = %q, want %q", tc.in.Format("15:04"), got, tc.want)
 			}
 		})
 	}
@@ -54,8 +56,8 @@ func TestGreetingLine(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := greetingLine(tc.in, tc.userName); got != tc.want {
-				t.Errorf("greetingLine(%s, %q) = %q, want %q", tc.in.Format("15:04"), tc.userName, got, tc.want)
+			if got := format.GreetingLine(tc.in, tc.userName); got != tc.want {
+				t.Errorf("GreetingLine(%s, %q) = %q, want %q", tc.in.Format("15:04"), tc.userName, got, tc.want)
 			}
 		})
 	}

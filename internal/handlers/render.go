@@ -9,6 +9,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csrf"
+	"expensetracker/internal/format"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -135,7 +136,7 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 		"ActiveNav":     active,
 		"UserName":      user.Username,
 		"UserInitial":   initial,
-		"Greeting":      greetingLine(time.Now().In(vietnamLocation), user.Username),
+		"Greeting":      format.GreetingLine(time.Now().In(vietnamLocation), user.Username),
 		"Theme":         user.Theme,
 		"HeaderBalance": headerBalance,
 		"EmailVerified": user.EmailVerified,
