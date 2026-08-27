@@ -89,3 +89,58 @@ func TestVerifyEmailIsSingleUse(t *testing.T) {
 		t.Fatalf("expected a consumed token to show as invalid, got: %s", replay.Body.String())
 	}
 }
+
+func TestResendVerificationReissuesTokenAndInvalidatesTheOldOne(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "verify-resend@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	firstToken := verificationTokenFor(t, deps, email)
+
+	rec := postSettings(t, router, cookie, "/resend-verification", nil)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303 back to /settings from /resend-verification, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	secondToken := verificationTokenFor(t, deps, email)
+	if firstToken == secondToken {
+		t.Fatal("expected a resend to issue a fresh token")
+	}
+
+	if replay := visitVerifyEmail(router, firstToken); !strings.Contains(replay.Body.String(), "invalid or has expired") {
+		t.Fatalf("expected the superseded token to show as invalid, got: %s", replay.Body.String())
+	}
+	if fresh := visitVerifyEmail(router, secondToken); fresh.Code != http.StatusOK {
+		t.Fatalf("expected the reissued token to verify, got %d: %s", fresh.Code, fresh.Body.String())
+	}
+}
+
+func TestDashboardShowsVerifyEmailBannerUntilVerified(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	email := "verify-banner@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), "Verify your email") {
+		t.Fatalf("expected the unverified banner on /dashboard, got: %s", rec.Body.String())
+	}
+
+	visitVerifyEmail(router, verificationTokenFor(t, deps, email))
+
+	req2 := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req2.AddCookie(cookie)
+	rec2 := httptest.NewRecorder()
+	router.ServeHTTP(rec2, req2)
+	if strings.Contains(rec2.Body.String(), "Verify your email") {
+		t.Fatalf("expected the banner to disappear once verified, got: %s", rec2.Body.String())
+	}
+}

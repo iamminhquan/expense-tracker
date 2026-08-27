@@ -25,12 +25,12 @@ func isFragmentRequest(r *http.Request) bool {
 
 // render executes page's "layout" template. It always injects CSRFToken; if
 // active is non-empty it also injects the ShowNav/ActiveNav/UserName/
-// UserInitial/HeaderBalance fields layout.html's nav blocks need, by loading
-// the authenticated user via deps.Queries. Pre-auth pages (login/register) pass
-// active="" so nav data is skipped entirely and layout.html's
-// {{if .ShowNav}} blocks correctly stay hidden -- a missing map key
-// evaluates falsy in html/template's {{if}}, so no explicit false is
-// needed.
+// UserInitial/HeaderBalance/EmailVerified fields layout.html's nav blocks
+// need, by loading the authenticated user via deps.Queries. Pre-auth pages
+// (login/register) pass active="" so nav data is skipped entirely and
+// layout.html's {{if .ShowNav}} blocks correctly stay hidden -- a missing
+// map key evaluates falsy in html/template's {{if}}, so no explicit false
+// is needed.
 func render(w http.ResponseWriter, r *http.Request, deps Deps, page string, active string, data map[string]any) {
 	renderNamed(w, r, deps, page, "layout", active, data)
 }
@@ -138,5 +138,6 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 		"Greeting":      greetingLine(time.Now().In(vietnamLocation), user.Username),
 		"Theme":         user.Theme,
 		"HeaderBalance": headerBalance,
+		"EmailVerified": user.EmailVerified,
 	}, nil
 }

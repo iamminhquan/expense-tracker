@@ -64,6 +64,7 @@ func NewRouter(deps Deps) http.Handler {
 		pr.Get("/settings", settingsPage(deps))
 		pr.Post("/settings/profile", updateProfileHandler(deps))
 		pr.Post("/settings/email", updateEmailHandler(deps))
+		pr.Post("/resend-verification", resendVerificationHandler(deps))
 		pr.Post("/settings/password", updatePasswordHandler(deps))
 		pr.Post("/settings/sessions/revoke", revokeSessionHandler(deps))
 		pr.Post("/settings/sessions/revoke-others", revokeOtherSessionsHandler(deps))

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 
+	"expensetracker/internal/auth"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -80,5 +81,29 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 		}
 
 		render(w, r, deps, "verify_email", "", map[string]any{"Verified": true})
+	}
+}
+
+// resendVerificationHandler reissues a link for whichever address is
+// currently unconfirmed: PendingEmail if a change is in flight, otherwise
+// the account's own Email for a signup that never got verified.
+func resendVerificationHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+
+		user, err := deps.Queries.GetUserByID(r.Context(), userID)
+		if err != nil {
+			log.Printf("resend verification: load user: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		email := user.Email
+		if user.PendingEmail.Valid {
+			email = user.PendingEmail.String
+		}
+		queueVerificationEmail(r.Context(), deps, userID, email)
+
+		http.Redirect(w, r, "/settings?saved=verification-sent", http.StatusSeeOther)
 	}
 }
