@@ -254,7 +254,7 @@ its own `FILTER` — read it carefully before changing it, and note the
 `::bigint` wrapping the whole subtraction, without which sqlc types it `int32`
 and overflows past 2.1 tỷ đồng.
 
-`internal/handlers/balance.go`'s `balanceSummary` struct (built by
+`internal/handlers/balance_summary.go`'s `balanceSummary` struct (built by
 `newBalanceSummary`) resolves the percentages in Go rather than the template,
 because `html/template` cannot divide and because every percentage here — a
 month with no income, a month that overspent its income — is a division that
