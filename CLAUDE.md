@@ -75,7 +75,7 @@ config) and builds the router via `handlers.NewRouter(deps)`. Every handler
 takes `deps` as a closure argument rather than a receiver method — see the
 `xxxHandler(deps) http.HandlerFunc` pattern throughout `internal/handlers/`.
 
-**Routing** (`internal/handlers/router.go`): `/healthz`, `/static/*`,
+**Routing** (`internal/handlers/app_router.go`): `/healthz`, `/static/*`,
 `/login`, `/register`, `/logout` are public. Everything else (`/dashboard`,
 `/transactions`, `/categories`, `/settings`) is behind an `auth.RequireAuth`
 middleware group that reads the session cookie and injects the user ID into
