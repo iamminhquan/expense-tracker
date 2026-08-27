@@ -61,6 +61,18 @@ func (q *Queries) DeleteCategory(ctx context.Context, arg DeleteCategoryParams) 
 	return result.RowsAffected(), nil
 }
 
+const deletePersonalCategoriesForUser = `-- name: DeletePersonalCategoriesForUser :exec
+DELETE FROM categories WHERE user_id = $1
+`
+
+// DeletePersonalCategoriesForUser removes only the categories an account
+// created for itself. The 9 shared defaults carry a NULL user_id and belong
+// to no one, so this predicate can never reach them.
+func (q *Queries) DeletePersonalCategoriesForUser(ctx context.Context, userID pgtype.Int8) error {
+	_, err := q.db.Exec(ctx, deletePersonalCategoriesForUser, userID)
+	return err
+}
+
 const getCategoryForUser = `-- name: GetCategoryForUser :one
 SELECT id, user_id, name, type, color, created_at, slug FROM categories
 WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)

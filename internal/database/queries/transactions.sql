@@ -156,3 +156,9 @@ FROM transactions
 WHERE user_id = $1 AND occurred_on >= $2 AND occurred_on < $3
 GROUP BY month
 ORDER BY month;
+
+-- DeleteTransactionsForUser clears the history an account leaves behind when
+-- it is deleted. It runs before the categories are removed because
+-- transactions.category_id has no ON DELETE clause of its own.
+-- name: DeleteTransactionsForUser :exec
+DELETE FROM transactions WHERE user_id = $1;

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/mail"
@@ -308,4 +310,66 @@ func revokeOtherSessionsHandler(deps Deps) http.HandlerFunc {
 
 		http.Redirect(w, r, "/settings?saved=sessions-revoked", http.StatusSeeOther)
 	}
+}
+
+// deleteAccountHandler erases the account and everything it owns. It is the
+// only action in the app that cannot be undone, so it is gated on the
+// current password -- the same gate the email and password changes use --
+// rather than on holding a live session alone.
+func deleteAccountHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := auth.UserIDFromContext(r.Context())
+
+		user, err := deps.Queries.GetUserByID(r.Context(), userID)
+		if err != nil {
+			log.Printf("delete account: load user: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		if !auth.VerifyPassword(user.PasswordHash, r.FormValue("current_password")) {
+			renderSettingsError(w, r, deps, "DeleteError", "That password is not correct.")
+			return
+		}
+
+		if err := deleteAccount(r.Context(), deps, userID); err != nil {
+			log.Printf("delete account: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		// Every session row went with the user row; what is left is the
+		// browser's own copy of the cookie, which would otherwise be sent
+		// on the next request and resolve to nothing.
+		clearSessionCookie(w, deps)
+		http.Redirect(w, r, "/login?deleted=1", http.StatusSeeOther)
+	}
+}
+
+// deleteAccount removes an account's rows in dependency order, in one
+// transaction so a failure part-way leaves the account whole.
+//
+// The order is spelled out rather than left to the ON DELETE CASCADE on
+// users: transactions.category_id references categories(id) with no ON
+// DELETE clause at all, so what makes a single cascading delete work is
+// that Postgres defers that NO ACTION check to the end of the statement.
+// True, but invisible to anyone reading the delete later, and it stops
+// being true the moment someone marks that constraint RESTRICT.
+func deleteAccount(ctx context.Context, deps Deps, userID int64) error {
+	tx, err := deps.DB.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	qtx := deps.Queries.WithTx(tx)
+
+	if err := qtx.DeleteTransactionsForUser(ctx, userID); err != nil {
+		return fmt.Errorf("delete transactions: %w", err)
+	}
+	if err := qtx.DeletePersonalCategoriesForUser(ctx, pgInt64(userID)); err != nil {
+		return fmt.Errorf("delete categories: %w", err)
+	}
+	if err := qtx.DeleteUser(ctx, userID); err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	return tx.Commit(ctx)
 }

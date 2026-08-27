@@ -8,6 +8,10 @@
     class="flex-1 h-8 rounded-[6px] text-[13px] {{if eq .Tab "register"}}bg-surface text-ink font-semibold shadow-[0_1px_2px_rgb(var(--c-ink)/0.06)]{{else}}text-ink-muted{{end}}">Sign up</button>
 </div>
 
+{{if .Notice}}
+<p class="text-[12px] text-ink-muted bg-track rounded-lg px-3 py-2">{{.Notice}}</p>
+{{end}}
+
 {{if eq .Tab "register"}}
 <form hx-post="/register" hx-target="#auth-card" hx-swap="innerHTML" class="flex flex-col gap-4">
   <div class="flex flex-col gap-[6px]">

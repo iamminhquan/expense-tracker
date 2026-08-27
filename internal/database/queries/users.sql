@@ -53,3 +53,11 @@ RETURNING failed_login_attempts, locked_until;
 -- owner back in without waiting the window out.
 -- name: ClearFailedLogins :exec
 UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1;
+
+-- DeleteUser erases the account itself. Sessions, password-reset tokens and
+-- email-verification tokens all reference users ON DELETE CASCADE and go
+-- with it; the address is freed for a fresh signup, which is the point --
+-- reserving it would mean keeping the one piece of personal data the owner
+-- just asked to be rid of.
+-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1;

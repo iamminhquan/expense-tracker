@@ -79,6 +79,20 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1
+`
+
+// DeleteUser erases the account itself. Sessions, password-reset tokens and
+// email-verification tokens all reference users ON DELETE CASCADE and go
+// with it; the address is freed for a fresh signup, which is the point --
+// reserving it would mean keeping the one piece of personal data the owner
+// just asked to be rid of.
+func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email FROM users WHERE email = $1
 `

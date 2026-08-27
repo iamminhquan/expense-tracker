@@ -11,6 +11,7 @@
   {{template "settings_email_form" .}}
   {{template "settings_password_form" .}}
   {{template "settings_sessions_form" .}}
+  {{template "settings_delete_form" .}}
 </div>
 {{end}}
 
@@ -116,5 +117,32 @@
     </div>
     {{end}}
   </div>
+</div>
+{{end}}
+
+{{define "settings_delete_form"}}
+<div class="bg-surface border border-danger-border rounded-xl p-[18px] flex flex-col gap-[15px]">
+  <div>
+    <p class="text-[14px] font-semibold text-expense">Delete account</p>
+    <p class="text-[12px] text-ink-faint mt-[2px]">Your transactions, your own categories and your account are erased for good. This cannot be undone. The email address is released, so you can sign up with it again later.</p>
+  </div>
+  <a href="/transactions/export?month=all" class="h-[38px] rounded-lg border border-border-input text-[13px] font-semibold text-ink flex items-center justify-center">Download all transactions (CSV)</a>
+  {{if .DeleteError}}<span class="text-[12px] text-expense">{{.DeleteError}}</span>{{end}}
+  <button type="button" onclick="document.getElementById('delete-account-dialog').showModal()" class="h-[38px] rounded-lg bg-expense text-on-solid text-[13px] font-semibold">Delete account</button>
+  <dialog id="delete-account-dialog" class="rounded-xl p-5 max-w-[320px] w-[85vw] backdrop:bg-black/30">
+    <p class="text-[15px] font-semibold text-ink mb-2">Delete your account?</p>
+    <p class="text-[13px] text-ink-faint mb-4">Everything in it goes with it. Enter your password to confirm.</p>
+    <form method="POST" action="/settings/delete" class="flex flex-col gap-[15px]">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <div class="flex flex-col gap-[6px]">
+        <label class="text-[12px] font-medium text-ink-muted" for="delete-account-password">Current password</label>
+        <input id="delete-account-password" name="current_password" type="password" required class="h-9 px-3 rounded-lg border border-border-input text-[13px]">
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="document.getElementById('delete-account-dialog').close()" class="px-4 h-9 rounded-lg border border-border-input text-[13px] text-ink">Cancel</button>
+        <button type="submit" class="px-4 h-9 rounded-lg bg-expense text-on-solid text-[13px] font-semibold">Delete account</button>
+      </div>
+    </form>
+  </dialog>
 </div>
 {{end}}
