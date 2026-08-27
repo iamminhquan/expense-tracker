@@ -11,6 +11,7 @@ import (
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // settingsPage renders the account settings page. The three cards it shows
@@ -34,11 +35,12 @@ func settingsPage(deps Deps) http.HandlerFunc {
 // or a back button from re-submitting the form, and this is what stops the
 // page it lands on from looking like nothing happened.
 var savedMessages = map[string]string{
-	"profile":          "Profile updated.",
-	"email":            "Email updated.",
-	"password":         "Password updated.",
-	"session-revoked":  "Signed out of that session.",
-	"sessions-revoked": "Signed out of every other session.",
+	"profile":           "Profile updated.",
+	"email-pending":     "Check your inbox to confirm the new address.",
+	"verification-sent": "Verification email sent.",
+	"password":          "Password updated.",
+	"session-revoked":   "Signed out of that session.",
+	"sessions-revoked":  "Signed out of every other session.",
 }
 
 // sessionView is what the settings template shows for one row of the
@@ -82,6 +84,7 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 		"ProfileName":     user.Name,
 		"ProfileUsername": user.Username,
 		"ProfileEmail":    user.Email,
+		"PendingEmail":    user.PendingEmail.String,
 		"Sessions":        views,
 		"Saved":           savedMessages[r.URL.Query().Get("saved")],
 	}, nil
@@ -206,9 +209,13 @@ func updateProfileHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// updateEmailHandler changes the address the account logs in with, which is
-// why it is the one settings form that asks for the current password: a
-// borrowed unlocked browser should not be enough to take the account over.
+// updateEmailHandler stages the address the account would log in with next,
+// which is why it is the one settings form that asks for the current
+// password: a borrowed unlocked browser should not be enough to take the
+// account over. It does not touch users.email itself -- ApplyVerifiedEmail
+// (see email_verification_handlers.go) does that once the link this queues
+// has been visited -- so a mistyped address can never cost the owner the
+// one they can still be reached at.
 func updateEmailHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -231,21 +238,31 @@ func updateEmailHandler(deps Deps) http.HandlerFunc {
 			renderSettingsError(w, r, deps, "EmailError", "That email address is not valid.")
 			return
 		}
+		// pending_email carries no UNIQUE constraint of its own -- it is
+		// staging data, not the source of truth -- so a collision has to be
+		// checked explicitly here rather than caught off a write. The real
+		// guarantee is still users.email's constraint, enforced when the
+		// link is confirmed; this is just what turns a collision into an
+		// immediate, friendly error instead of a dead link discovered later.
+		// Excluding the caller's own row is what lets a no-op resubmit of
+		// the address already on the account through, the way the old
+		// UPDATE-based check always did.
+		if existing, err := deps.Queries.GetUserByEmail(r.Context(), email); err == nil && existing.ID != userID {
+			renderSettingsError(w, r, deps, "EmailError", "That email is already registered.")
+			return
+		}
 
-		if err := deps.Queries.UpdateUserEmail(r.Context(), sqlcgen.UpdateUserEmailParams{
-			ID: userID, Email: email,
+		if err := deps.Queries.SetPendingEmail(r.Context(), sqlcgen.SetPendingEmailParams{
+			ID: userID, PendingEmail: pgtype.Text{String: email, Valid: true},
 		}); err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				renderSettingsError(w, r, deps, "EmailError", "That email is already registered.")
-				return
-			}
-			log.Printf("update email: %v", err)
+			log.Printf("update email: set pending: %v", err)
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
-		http.Redirect(w, r, "/settings?saved=email", http.StatusSeeOther)
+		queueVerificationEmail(r.Context(), deps, userID, email)
+
+		http.Redirect(w, r, "/settings?saved=email-pending", http.StatusSeeOther)
 	}
 }
 

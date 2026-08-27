@@ -1,0 +1,27 @@
+{{define "content"}}
+<div class="min-h-screen flex items-center justify-center px-5 py-12 md:py-[72px]">
+  <div class="w-full max-w-[380px] flex flex-col gap-5">
+    <div class="hidden md:flex flex-col items-center gap-2">
+      {{template "logo_auth" .}}
+      <p class="text-[13px] text-ink-faint">Track what you earn and spend, day by day</p>
+    </div>
+    <div class="md:hidden flex flex-col gap-[10px]">
+      {{template "logo_auth" .}}
+      <p class="text-[22px] font-semibold text-ink">Verify your email</p>
+    </div>
+    <div class="flex flex-col gap-4 md:border md:border-border-card md:rounded-xl md:p-[22px]">
+      {{if .Verified}}
+      <p class="hidden md:block text-[15px] font-semibold text-ink">Email verified</p>
+      <p class="text-[13px] text-ink-muted">You're all set. This address is now confirmed.</p>
+      {{else if .Conflict}}
+      <p class="text-[13px] text-ink-muted">Another account has taken this address since the link was sent. Open Settings to try a different one.</p>
+      {{else}}
+      <p class="text-[13px] text-ink-muted">This verification link is invalid or has expired.</p>
+      {{end}}
+      <p class="text-center text-[12px] text-ink-faint">
+        <a href="/dashboard" class="text-accent font-medium">Go to $pend</a>
+      </p>
+    </div>
+  </div>
+</div>
+{{end}}

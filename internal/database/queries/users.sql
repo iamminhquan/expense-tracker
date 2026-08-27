@@ -18,8 +18,20 @@ UPDATE users SET password_hash = $2 WHERE id = $1;
 -- name: UpdateUserProfile :exec
 UPDATE users SET name = $2, username = $3 WHERE id = $1;
 
--- name: UpdateUserEmail :exec
-UPDATE users SET email = $2 WHERE id = $1;
+-- SetPendingEmail stages a requested address without touching the one the
+-- account still logs in and receives a password-reset link at, so a typo
+-- here can never cost the owner their recovery path -- see
+-- ApplyVerifiedEmail for the confirm side of this.
+-- name: SetPendingEmail :exec
+UPDATE users SET pending_email = $2 WHERE id = $1;
+
+-- ApplyVerifiedEmail is what a clicked verification link runs: it proves
+-- email is reachable, so it becomes the account's real address, marks the
+-- account verified, and clears pending_email regardless of whether this was
+-- a signup verification (email already equalled users.email) or a change
+-- (email came from pending_email).
+-- name: ApplyVerifiedEmail :exec
+UPDATE users SET email = $2, email_verified = true, pending_email = NULL WHERE id = $1;
 
 -- RecordFailedLogin counts one wrong password and, on the attempt that
 -- reaches max_attempts, stamps the lock. Counting and locking happen in the

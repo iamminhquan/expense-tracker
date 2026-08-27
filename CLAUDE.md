@@ -330,6 +330,40 @@ deliberate action instead of a side effect. The current session never gets
 its own revoke button, so a click can't log the viewer out of the page they
 are on.
 
+**Email verification** (`internal/auth/email_verification.go`,
+`internal/handlers/email_verification_handlers.go`) mirrors the
+forgot-password design against its own `email_verification_tokens` table: a
+24h TTL rather than the reset link's 1h, since confirming an address is
+never the locked-out-owner urgency a password reset is. One token type
+serves both entry points a link can prove -- a fresh signup and a settings
+email change -- because both ultimately ask the same question, "can this
+account be reached here", and `ApplyVerifiedEmail` answers it the same way
+either time: copy the proven address onto `users.email` and flip
+`email_verified`.
+
+A settings email change (`updateEmailHandler`) never touches `users.email`
+directly; it stages the request on `pending_email` and only
+`ApplyVerifiedEmail` promotes it, once the link sent to the *new* address has
+been visited. This is deliberate: `users.email` is also the login identity
+and the address a forgot-password link is sent to, so applying a change
+immediately would mean a typo can cost the owner both at once, with no way
+back in. Holding it means a typo just leaves `pending_email` sitting
+unconfirmed forever -- the owner keeps logging in and recovering their
+account on the address that was always correct, and can simply resubmit the
+form. The pre-check that rejects an address already registered excludes the
+caller's own row, so resubmitting the address already on the account is
+still a no-op rather than a false collision.
+
+An unverified account is never blocked from anything -- $pend has no
+bot-signup problem worth locking real people out over -- but every
+authenticated page carries a small reminder banner (defined in
+`layout.html`, gated on `EmailVerified` from `authPageData`) until the
+address is confirmed, with a resend link that reissues whichever address is
+currently unconfirmed (`pending_email` if a change is in flight, otherwise
+the account's own `email`). Migration 000013 grandfathers in every account
+that already existed as verified, since the check postdates their signup and
+they never asked for it.
+
 **Deployment** (`render.yaml`): a free Render web service on Render's native
 Go runtime (no Dockerfile), with Postgres on Neon rather than Render's own
 free tier, which is deleted after 30 days. `autoDeploy` on `main` — a schema

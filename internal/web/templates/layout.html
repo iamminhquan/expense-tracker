@@ -29,7 +29,7 @@
   <script src="/static/tailwind-config.js"></script>
 </head>
 <body class="bg-app text-ink font-sans antialiased min-h-screen flex flex-col" hx-boost="true">
-  {{if .ShowNav}}{{template "nav_desktop" .}}{{template "nav_mobile_header" .}}{{end}}
+  {{if .ShowNav}}{{template "nav_desktop" .}}{{template "nav_mobile_header" .}}{{if not .EmailVerified}}{{template "email_verify_banner" .}}{{end}}{{end}}
   {{/* No bottom reserve on mobile: nav_mobile is sticky and in flow, so it
        carries its own clearance in its margins. A reserve here would stack
        on top of that and re-open the gap it exists to close.
@@ -51,4 +51,21 @@
   {{if .ShowNav}}{{template "nav_mobile" .}}{{end}}
 </body>
 </html>
+{{end}}
+
+{{/* email_verify_banner is a reminder, not a gate: an unverified account can
+     still use every page, because $pend has no bot-signup problem worth
+     locking real people out over. It sits above <main> rather than inside
+     any one page's content, so a hx-boosted nav click -- which swaps the
+     whole <body> -- keeps it in sync with the account's verified state
+     without the out-of-band dance header_balance needs; there's no
+     in-place update to keep two copies of it aligned. */}}
+{{define "email_verify_banner"}}
+<div class="bg-accent/10 border-b border-border-card px-4 py-2 flex items-center justify-center gap-3 text-[12px] text-ink text-center">
+  <span>Verify your email to keep password recovery working.</span>
+  <form method="POST" action="/resend-verification" class="shrink-0">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <button type="submit" class="text-accent font-semibold underline underline-offset-2">Resend link</button>
+  </form>
+</div>
 {{end}}
