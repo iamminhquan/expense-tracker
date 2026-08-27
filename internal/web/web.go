@@ -58,6 +58,7 @@ var pageTemplates = map[string][]string{
 	"categories":      {"categories.html", "category_row.html"},
 	"transactions":    {"transactions.html", "transaction_form.html", "transaction_row.html", "transaction_filters.html"},
 	"dashboard":       {"dashboard.html"},
+	"import":          {"import.html"},
 	"settings":        {"settings.html"},
 }
 

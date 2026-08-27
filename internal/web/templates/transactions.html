@@ -1,5 +1,8 @@
 {{define "content"}}
 <div class="w-full max-w-[880px] mx-auto px-[14px] md:px-6 pt-4 md:pt-7 pb-0 md:pb-9 flex flex-col gap-[14px] md:gap-[18px]">
+  {{if .Imported}}
+  <p class="px-[14px] py-[10px] rounded-lg bg-income/10 text-[13px] text-income">Imported {{countOf .Imported "transaction"}}.</p>
+  {{end}}
   {{template "quick_add_form" .}}
   {{template "transactions_month_section" .}}
 </div>

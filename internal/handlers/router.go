@@ -53,6 +53,8 @@ func NewRouter(deps Deps) http.Handler {
 		pr.Get("/transactions", transactionsPage(deps))
 		pr.Post("/transactions", transactionsPage(deps))
 		pr.Get("/transactions/export", exportTransactionsHandler(deps))
+		pr.Get("/transactions/import", importPage(deps))
+		pr.Post("/transactions/import", importHandler(deps))
 		pr.Get("/transactions/category-options", categoryPickerHandler(deps, "category_options"))
 		pr.Get("/transactions/category-chips", categoryPickerHandler(deps, "category_chips"))
 		pr.Get("/transactions/{id}/edit", editTransactionRowHandler(deps))
