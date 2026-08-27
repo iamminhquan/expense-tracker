@@ -75,7 +75,32 @@ config) and builds the router via `handlers.NewRouter(deps)`. Every handler
 takes `deps` as a closure argument rather than a receiver method — see the
 `xxxHandler(deps) http.HandlerFunc` pattern throughout `internal/handlers/`.
 
-**Routing** (`internal/handlers/router.go`): `/healthz`, `/static/*`,
+**Finding a file in `internal/handlers`**: it is one flat package — Go allows
+no other shape, since a package cannot span directories and 31 of its files
+are `_test.go` that must sit beside what they test — so the *filename* carries
+the grouping instead. Every file starts with the area it belongs to, and a
+file sorts next to its own tests:
+
+| prefix | what lives there |
+| --- | --- |
+| `app_` | wiring: `Deps`, the router, the end-to-end smoke test |
+| `auth_` | everything pre-login: login/register, password reset, email verification, the lockout |
+| `balance_` | the header balance widget and its carry-forward |
+| `category_` | the categories page |
+| `import_` | the CSV import handler and its mapping form |
+| `report_` | the dashboard |
+| `req_` | the value objects parsed out of a request: month/scope, filters, paging, route params |
+| `settings_` | the settings page: profile, email, password, sessions, theme, account deletion |
+| `txn_` | the transactions page: list, filters, sort, paging, cross-month, export |
+| `view_` | the render seam, the template FuncMap, and the template invariant tests |
+
+Keep the prefix when adding a file; a new area gets a new prefix rather than a
+bare name. The package's public surface is deliberately three symbols — `Deps`,
+`NewRouter`, `TemplateFuncs` — so nothing here needs exporting to be reachable
+from another file, and splitting the areas into real subpackages would mean
+exporting most of the package to itself.
+
+**Routing** (`internal/handlers/app_router.go`): `/healthz`, `/static/*`,
 `/login`, `/register`, `/logout` are public. Everything else (`/dashboard`,
 `/transactions`, `/categories`, `/settings`) is behind an `auth.RequireAuth`
 middleware group that reads the session cookie and injects the user ID into
@@ -108,7 +133,7 @@ once per full page load. A page-specific script (`charts.js`,
 content instead — htmx re-executes it on swap, which is what rebuilds the
 dashboard charts on a month switch.
 
-`internal/handlers/render.go` has two entry points:
+`internal/handlers/view_render.go` has two entry points:
 - `render(w, r, deps, page, active, data)` — full page, executes the
   `"layout"` block, and (if `active != ""`) injects nav data (`ShowNav`,
   `ActiveNav`, `UserName`, `UserInitial`, `Theme`, `HeaderBalance`) by
@@ -122,10 +147,15 @@ dashboard charts on a month switch.
 `HX-Boosted`); a handler that branches on `HX-Request` alone hands a boosted
 click a fragment instead of the page shell.
 
-Money/date formatting helpers (`vnd`, `vndSigned`, `vndBalance`,
-`dateShort`, `dateLong`, `countOf`, `swatches`) live in `internal/handlers/format.go`
-and are registered as template funcs via `handlers.TemplateFuncs()`,
-alongside `catName` (`i18n.CategoryName`). A transaction row does not call
+Money/date formatting helpers (`VND`, `VNDSigned`, `VNDBalance`,
+`DateShort`, `DateLong`, `Timestamp`, `CountOf`) live in `internal/format`,
+which takes finished values and returns strings — no request, no `Deps`, no
+database, which is what lets every money and date rule be tested on its own.
+`internal/handlers/view_funcs.go` maps them (plus `catName`
+(`i18n.CategoryName`) and `swatches`) onto the names templates call, via
+`handlers.TemplateFuncs()`; that mapping stays with the templates.
+`format.Timestamp` takes a `*time.Location` rather than reaching for the app's
+own, since nothing else in the package needs a clock. A transaction row does not call
 either date helper itself: the list wraps its rows in `txnRow`, whose `Date`
 method picks the format, and the three handlers that answer with a single row
 call `rowDate` to make the same choice. That indirection exists because
@@ -139,12 +169,12 @@ originally specified in the Vietnamese convention (dots for thousands,
 templates formatting inline.
 
 **Month, filters, paging** — three small value-object files in
-`internal/handlers/`, all built the same way on purpose: parse leniently
+`internal/handlers/` (the `req_` group), all built the same way on purpose: parse leniently
 from the URL, never error on a malformed value, and offer a
 `...FromRequest` variant that reads the *originating* page's URL out of the
 `HX-Current-URL` header (a mutation POST/PATCH/DELETE carries no query
 string of its own).
-- `month.go` — `currentMonthRange`, `monthRangeFor`, `monthRangeFromRequest`,
+- `req_month.go` — `currentMonthRange`, `monthRangeFor`, `monthRangeFromRequest`,
   `monthLabel`, `pgDate`, and `vietnamLocation`. Every month window is a
   half-open `[from, to)` anchored to `Asia/Ho_Chi_Minh`, not server UTC, so
   "this month" lines up with what a Vietnamese user expects (with a fixed
@@ -162,7 +192,7 @@ string of its own).
   `/dashboard?month=all` land on the current month rather than on something
   half-rendered, and it is why the picker only offers the entry under
   `ActiveNav == "transactions"`.
-- `filters.go` — `txnFilters` (search, type, category, min/max amount), the
+- `req_filters.go` — `txnFilters` (search, type, category, min/max amount), the
   0 sentinel that means "not filtering", the nullable sqlc params both the
   list and the count query take, and `transactionsURL`, the canonical
   address pushed via `HX-Push-Url`. `Sort` rides in the same value object
@@ -172,7 +202,7 @@ string of its own).
   switches on the bound value through a pair of `CASE`s rather than
   interpolating a column name — an unknown order matches neither and falls
   back to the `occurred_on DESC, id DESC` the list has always had.
-- `paging.go` — `pageSize` (10) and `pager`, which clamps any requested page
+- `req_paging.go` — `pageSize` (10) and `pager`, which clamps any requested page
   into one that exists.
 
 **CSV import** (`internal/csvimport` + `import_handlers.go`,
@@ -254,7 +284,7 @@ its own `FILTER` — read it carefully before changing it, and note the
 `::bigint` wrapping the whole subtraction, without which sqlc types it `int32`
 and overflows past 2.1 tỷ đồng.
 
-`internal/handlers/balance.go`'s `balanceSummary` struct (built by
+`internal/handlers/balance_summary.go`'s `balanceSummary` struct (built by
 `newBalanceSummary`) resolves the percentages in Go rather than the template,
 because `html/template` cannot divide and because every percentage here — a
 month with no income, a month that overspent its income — is a division that
@@ -305,7 +335,7 @@ message catalog, and a language switcher would be a separate piece of work.
 channels, not hex — that is what keeps opacity modifiers like `bg-accent/10`
 working, so never put a hex value in one. Never hardcode a colour in a
 template either (`text-[#6B6862]`, `style="background-color:#FEF7F5"`); add
-or reuse a token — two tests in `templates_layout_test.go` fail on a literal
+or reuse a token — two tests in `view_layout_test.go` fail on a literal
 `rgba(` or `[#hex]` in a template, and on a utility class stranded outside a
 `class="..."` attribute. That same file also fails a form control marked
 `flex-1` with no width bound, and a bottom-sheet grab handle that has drifted
@@ -315,7 +345,7 @@ The dark palette is declared twice, once under
 `@media (prefers-color-scheme: dark) :root:not(.light)` and once under
 `:root.dark`, so the three preferences (`auto`/`light`/`dark`) all resolve in
 CSS with no load-time JavaScript and no flash. The preference lives in
-`users.theme` (CHECK-constrained, mirrored by `theme.go`'s `validTheme`) and
+`users.theme` (CHECK-constrained, mirrored by `settings_theme.go`'s `validTheme`) and
 is rendered onto `<html class="...">`; `renderNamed` defaults it to `auto`
 for pre-auth pages, because `html/template` prints a missing map key as the
 literal `<no value>`. Chart.js cannot read CSS variables, so
@@ -361,7 +391,7 @@ where they can be: 000006 and 000008 both `UPDATE ... IN PLACE` rather than
 delete-and-reinsert, because `transactions.category_id` has no `ON DELETE`
 clause and any account with history would break. Month-based queries
 (transactions list, dashboard totals) take explicit `[from, to)` date bounds
-computed in `internal/handlers/month.go`.
+computed in `internal/handlers/req_month.go`.
 
 **Auth**: `internal/auth/session.go` (`Manager`) issues/validates sessions
 against the `sessions` table; `internal/auth/password.go` handles bcrypt
@@ -383,7 +413,7 @@ The `/settings` "Active sessions" card is what makes `sessions` rows visible
 to the account they belong to, rather than something only a password change
 ever touched. `created_at` and `user_agent` (migration 000012) exist only for
 this list -- `user_agent` is nullable because a session created before that
-migration has none. `deviceLabel` (`internal/handlers/sessions.go`) turns the
+migration has none. `format.DeviceLabel` (`internal/format/device.go`) turns the
 raw UA into a name like "Chrome on Windows" by matching a handful of common
 browser/OS substrings, falling back to the raw string rather than guessing
 wrong. Signing out one listed device goes through `DeleteSessionForUser`,
@@ -395,7 +425,7 @@ its own revoke button, so a click can't log the viewer out of the page they
 are on.
 
 **Email verification** (`internal/auth/email_verification.go`,
-`internal/handlers/email_verification_handlers.go`) mirrors the
+`internal/handlers/auth_email_verification.go`) mirrors the
 forgot-password design against its own `email_verification_tokens` table: a
 24h TTL rather than the reset link's 1h, since confirming an address is
 never the locked-out-owner urgency a password reset is. One token type
@@ -549,7 +579,10 @@ narrate code that already reads clearly.
 responsibility, no import cycles. `internal/web` takes its `template.FuncMap`
 as an argument specifically so it never imports `internal/handlers`; keep
 that direction. New shared helpers go in the package that owns the concept,
-not in a grab-bag.
+not in a grab-bag. A helper that needs neither a request nor a database
+belongs outside `internal/handlers` — `internal/format` is where the display
+strings went, and a new one should either join it or get its own package
+rather than growing a file in `handlers` that only happens to live there.
 
 **Tests.** Standard library `testing` only — no testify, no assert helpers
 (`stretchr/testify` in `go.sum` is a transitive dependency of golang-migrate,

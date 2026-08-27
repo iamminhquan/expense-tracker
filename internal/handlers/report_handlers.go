@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/format"
 	"expensetracker/internal/i18n"
 	"expensetracker/internal/sqlcgen"
 )
@@ -159,7 +160,7 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 		colors = append(colors, row.CategoryColor)
 		legend = append(legend, pieLegendEntry{
 			Name: name, Color: row.CategoryColor,
-			Percent: percentOf(row.Total, totalExpense), Amount: vnd(row.Total),
+			Percent: percentOf(row.Total, totalExpense), Amount: format.VND(row.Total),
 		})
 	}
 	if otherSum > 0 {
@@ -171,7 +172,7 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 		colors = append(colors, "#A1A1AA")
 		legend = append(legend, pieLegendEntry{
 			Name: otherName, Color: "#A1A1AA",
-			Percent: percentOf(otherSum, totalExpense), Amount: vnd(otherSum),
+			Percent: percentOf(otherSum, totalExpense), Amount: format.VND(otherSum),
 		})
 	}
 	return
@@ -219,7 +220,7 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 		return "No data for last month"
 	}
 	if previous == 0 {
-		return fmt.Sprintf("Last month %s", vnd(previous))
+		return fmt.Sprintf("Last month %s", format.VND(previous))
 	}
 	diff := current - previous
 	// Rounds to the nearest percent (matching percentOf's rounding above)
@@ -227,13 +228,13 @@ func comparisonText(current, previous int64, hasPrevData bool) string {
 	// too, not "12%".
 	pct := int(math.Abs(float64(diff))/float64(previous)*100 + 0.5)
 	if diff == 0 {
-		return fmt.Sprintf("Last month %s · unchanged", vnd(previous))
+		return fmt.Sprintf("Last month %s · unchanged", format.VND(previous))
 	}
 	direction := "up"
 	if diff < 0 {
 		direction = "down"
 	}
-	return fmt.Sprintf("Last month %s · %s %d%%", vnd(previous), direction, pct)
+	return fmt.Sprintf("Last month %s · %s %d%%", format.VND(previous), direction, pct)
 }
 
 // comparisonTextMobile builds the shortened comparison line (e.g. "Down

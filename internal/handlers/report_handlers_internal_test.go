@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"expensetracker/internal/format"
 	"expensetracker/internal/i18n"
 	"expensetracker/internal/sqlcgen"
 
@@ -131,7 +132,7 @@ func TestBuildPieDataFoldsTheOtherCategoryIntoTheAggregate(t *testing.T) {
 	if got, want := values[6], int64(275000); got != want {
 		t.Errorf("buildPieData(7 rows) other slice = %d, want %d", got, want)
 	}
-	if got, want := legend[6].Amount, vnd(275000); got != want {
+	if got, want := legend[6].Amount, format.VND(275000); got != want {
 		t.Errorf("buildPieData(7 rows) other legend amount = %q, want %q", got, want)
 	}
 }
