@@ -34,17 +34,20 @@ func isValidSwatch(color string) bool {
 // categoryRowData builds the flat map category_row.html and
 // category_row_edit.html both expect. Every response path that renders a
 // row goes through this so the template never has to distinguish a raw
-// sqlc struct from a hand-built one -- only some paths carry an OOBTarget,
-// and a struct would have to grow a field for it.
+// sqlc struct from a hand-built one.
+//
+// The out-of-band target of a newly created row is deliberately not in here:
+// it belongs to the wrapper category_create_response puts *around* the row,
+// never to the row itself -- see the comment there.
 //
 // slug is what tells a shared default apart from a category the user made:
 // the template resolves the display name through catName, which needs it,
 // and a map key that is simply absent makes html/template fail the whole
 // render rather than fall back -- so every path must pass it, NULL included.
-func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, color string, txnCount int64, oobTarget string) map[string]any {
+func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, color string, txnCount int64) map[string]any {
 	return map[string]any{
 		"ID": id, "UserID": userID, "Slug": slug, "Name": name, "Type": typ, "Color": color,
-		"TransactionCount": txnCount, "OOBTarget": oobTarget,
+		"TransactionCount": txnCount,
 	}
 }
 
@@ -66,7 +69,7 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 		var expense, income []map[string]any
 		hasCustom := false
 		for _, row := range rows {
-			data := categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount, "")
+			data := categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount)
 			if row.Type == "expense" {
 				expense = append(expense, data)
 			} else {
@@ -129,9 +132,8 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	}
 
 	renderNamed(w, r, deps, "categories", "category_create_response", "", map[string]any{
-		"Row": categoryRowData(
-			created.ID, created.UserID, created.Slug, created.Name, created.Type, created.Color, 0, "#category-list-"+created.Type,
-		),
+		"Row":       categoryRowData(created.ID, created.UserID, created.Slug, created.Name, created.Type, created.Color, 0),
+		"OOBTarget": "#category-list-" + created.Type,
 		// Creating a category always means the user now has at least one
 		// custom category, so the "no custom categories yet" empty state
 		// (see categories.html/#categories-empty) must be hidden.
@@ -168,7 +170,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category color: count transactions: %v", err)
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count, ""))
+		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
 	}
 }
 
@@ -188,7 +190,7 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "default categories cannot be renamed", http.StatusForbidden)
 			return
 		}
-		renderNamed(w, r, deps, "categories", "category_row_edit", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount, ""))
+		renderNamed(w, r, deps, "categories", "category_row_edit", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
 	}
 }
 
@@ -204,7 +206,7 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount, ""))
+		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
 	}
 }
 
@@ -228,7 +230,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 
 		name := strings.TrimSpace(r.FormValue("name"))
 		if name == "" {
-			data := categoryRowData(existing.ID, existing.UserID, existing.Slug, existing.Name, existing.Type, existing.Color, 0, "")
+			data := categoryRowData(existing.ID, existing.UserID, existing.Slug, existing.Name, existing.Type, existing.Color, 0)
 			data["Error"] = "Please enter a category name."
 			renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
 			return
@@ -238,7 +240,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				data := categoryRowData(existing.ID, existing.UserID, existing.Slug, name, existing.Type, existing.Color, 0, "")
+				data := categoryRowData(existing.ID, existing.UserID, existing.Slug, name, existing.Type, existing.Color, 0)
 				data["Error"] = "You already have a category with that name."
 				renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
 				return
@@ -252,7 +254,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category name: count transactions: %v", err)
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count, ""))
+		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
 	}
 }
 
