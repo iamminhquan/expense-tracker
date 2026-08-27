@@ -14,7 +14,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -68,6 +67,12 @@ type Import struct {
 	NewCategories []NewCategory
 	Errors        []RowError
 	Fingerprint   string
+
+	// Rounded counts the rows whose amount had a fractional part. VND has
+	// no minor unit, so a file in a currency that does still imports -- the
+	// preview says how many rows were rounded rather than the app silently
+	// changing numbers.
+	Rounded int
 }
 
 // MaxRows caps a single import. The whole batch is inserted in one
@@ -81,11 +86,6 @@ var ErrTooManyRows = fmt.Errorf("file has more than %d rows", MaxRows)
 // columns is the header the export writes, and the only one accepted.
 var columns = []string{"date", "type", "category", "amount", "note"}
 
-// dateLayout is the one date format read, because it is the one the export
-// writes. Accepting more would mean guessing between 03/04 as March 4th and
-// April 3rd, and guessing wrong silently.
-const dateLayout = "2006-01-02"
-
 // futureDays and maxNote mirror the limits handleCreateTransaction applies
 // to the quick-add form.
 const (
@@ -93,21 +93,19 @@ const (
 	maxNote    = 200
 )
 
-// Plan reads the file and works out what importing it would do. A malformed
-// header or an unreadable file is an error; a bad line is not -- it lands in
-// Errors so the caller can show every problem at once instead of one per
-// upload.
-func Plan(r io.Reader, catalog []Category, now time.Time) (*Import, error) {
+// Plan reads the file the way the Mapping says to, and works out what
+// importing it would do. An unreadable file is an error; a bad line is not
+// -- it lands in Errors so the caller can show every problem at once
+// instead of one per upload.
+func Plan(r io.Reader, m Mapping, catalog []Category, now time.Time) (*Import, error) {
 	digest := sha256.New()
 	reader := csv.NewReader(io.TeeReader(r, digest))
-	reader.FieldsPerRecord = len(columns)
+	// Ragged rows are a problem for the rows that are ragged, not for the
+	// file: a short line is reported by line number like any other bad one.
+	reader.FieldsPerRecord = -1
 
-	header, err := reader.Read()
-	if err != nil {
+	if _, err := reader.Read(); err != nil {
 		return nil, fmt.Errorf("read header: %w", err)
-	}
-	if err := checkHeader(header); err != nil {
-		return nil, err
 	}
 
 	index := newCategoryIndex(catalog)
@@ -118,16 +116,19 @@ func Plan(r io.Reader, catalog []Category, now time.Time) (*Import, error) {
 			break
 		}
 		if err != nil {
-			imp.Errors = append(imp.Errors, RowError{Line: line, Message: "this line does not have the 5 expected columns"})
+			imp.Errors = append(imp.Errors, RowError{Line: line, Message: "this line could not be read"})
 			continue
 		}
 		if line-1 > MaxRows {
 			return nil, ErrTooManyRows
 		}
-		row, rowErr := parseRow(record, line, now)
+		row, rounded, rowErr := parseRow(record, line, m, now)
 		if rowErr != "" {
 			imp.Errors = append(imp.Errors, RowError{Line: line, Message: rowErr})
 			continue
+		}
+		if rounded {
+			imp.Rounded++
 		}
 		row.CategoryID = index.lookup(row.CategoryName, row.Type)
 		if row.CategoryID == 0 {
@@ -139,54 +140,105 @@ func Plan(r io.Reader, catalog []Category, now time.Time) (*Import, error) {
 	return imp, nil
 }
 
-// checkHeader accepts the export's own header, case-insensitively and with
-// the BOM the export writes ahead of it, plus "description" for "note" --
-// the column is called Note in the file and description in the database,
-// and a hand-edited file may well say either.
-func checkHeader(header []string) error {
-	if len(header) != len(columns) {
-		return fmt.Errorf("expected %d columns (%s), got %d", len(columns), strings.Join(columns, ", "), len(header))
+// parseRow reads one line under the mapping. It returns the row, whether
+// the amount had to be rounded to whole đồng, and an empty message on
+// success.
+//
+// The date, note and future-date rules are the quick-add form's, repeated
+// rather than relaxed: a row this package accepts must be one the form
+// would have accepted too, or the app grows a second, laxer way in.
+func parseRow(record []string, line int, m Mapping, now time.Time) (Row, bool, string) {
+	if width := m.widest(); width >= len(record) {
+		return Row{}, false, fmt.Sprintf("this line has %d columns, and the mapping needs at least %d", len(record), width+1)
 	}
-	for i, want := range columns {
-		got := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(header[i], "\ufeff")))
-		if got == want || (want == "note" && got == "description") {
-			continue
-		}
-		return fmt.Errorf("column %d is %q, expected %q", i+1, header[i], want)
-	}
-	return nil
-}
 
-func parseRow(record []string, line int, now time.Time) (Row, string) {
-	date, err := time.Parse(dateLayout, strings.TrimSpace(record[0]))
-	if err != nil {
-		return Row{}, fmt.Sprintf("date %q is not in YYYY-MM-DD form", record[0])
+	date, ok := parseDate(record[m.Date], m.DateLayout)
+	if !ok {
+		return Row{}, false, fmt.Sprintf("date %q is not written as %s", record[m.Date], layoutLabel(m.DateLayout))
 	}
-	txnType := strings.ToLower(strings.TrimSpace(record[1]))
-	if txnType != "expense" && txnType != "income" {
-		return Row{}, fmt.Sprintf("type %q must be expense or income", record[1])
-	}
-	amount, err := strconv.ParseInt(strings.TrimSpace(record[3]), 10, 64)
-	if err != nil || amount <= 0 {
-		return Row{}, fmt.Sprintf("amount %q must be a whole number above zero, with no separators", record[3])
-	}
-	category := strings.TrimSpace(record[2])
-	if category == "" {
-		return Row{}, "category is empty"
-	}
-	// The two rules below are the quick-add form's, repeated rather than
-	// relaxed: a row this package accepts must be one the form would have
-	// accepted too, or the app grows a second, laxer way in.
 	if date.After(now.AddDate(0, 0, futureDays)) {
-		return Row{}, fmt.Sprintf("date %s is more than %d days in the future", record[0], futureDays)
+		return Row{}, false, fmt.Sprintf("date %s is more than %d days in the future", record[m.Date], futureDays)
 	}
-	if len([]rune(record[4])) > maxNote {
-		return Row{}, fmt.Sprintf("note is longer than %d characters", maxNote)
+
+	signed, rounded, ok := parseAmount(record[m.Amount])
+	if !ok {
+		return Row{}, false, fmt.Sprintf("amount %q is not a number", record[m.Amount])
 	}
+	amount := signed
+	if amount < 0 {
+		amount = -amount
+	}
+	if amount == 0 {
+		return Row{}, false, "amount is zero"
+	}
+
+	txnType, msg := rowType(record, m, signed)
+	if msg != "" {
+		return Row{}, false, msg
+	}
+
+	category := m.FallbackCategory
+	if m.Category != NoColumn {
+		category = strings.TrimSpace(record[m.Category])
+	}
+	if category == "" {
+		return Row{}, false, "this line has no category, and no fallback category was chosen"
+	}
+
+	note := ""
+	if m.Note != NoColumn {
+		note = record[m.Note]
+	}
+	if len([]rune(note)) > maxNote {
+		return Row{}, false, fmt.Sprintf("note is longer than %d characters", maxNote)
+	}
+
 	return Row{
 		Line: line, Date: date, Type: txnType, Amount: amount,
-		Note: record[4], CategoryName: category,
-	}, ""
+		Note: note, CategoryName: category,
+	}, rounded, ""
+}
+
+// rowType decides whether a line is money in or money out. A type column
+// answers it outright; without one, the sign does, and a file with neither
+// is read as spending -- which is what a file handed to an expense tracker
+// almost always is.
+func rowType(record []string, m Mapping, signed int64) (string, string) {
+	if m.Type != NoColumn {
+		txnType, ok := transactionType(record[m.Type])
+		if !ok {
+			return "", fmt.Sprintf("type %q is not a word this recognises (expense/income, chi/thu, debit/credit)", record[m.Type])
+		}
+		return txnType, ""
+	}
+	if m.NegativeIsExpense {
+		if signed < 0 {
+			return "expense", ""
+		}
+		return "income", ""
+	}
+	return "expense", ""
+}
+
+// widest is the highest column index the mapping reads, so a short line can
+// be reported as short rather than as a date that would not parse.
+func (m Mapping) widest() int {
+	widest := m.Date
+	for _, i := range []int{m.Amount, m.Category, m.Note, m.Type} {
+		if i > widest {
+			widest = i
+		}
+	}
+	return widest
+}
+
+func layoutLabel(key string) string {
+	for _, f := range DateFormats {
+		if f.Key == key {
+			return f.Label
+		}
+	}
+	return key
 }
 
 // categoryIndex answers "which category does this name mean" for one

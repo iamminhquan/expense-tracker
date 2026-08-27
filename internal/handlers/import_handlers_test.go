@@ -214,8 +214,13 @@ func TestImportPreviewWithABadLineOffersNoImportButton(t *testing.T) {
 	if !strings.Contains(body, "Line 3") {
 		t.Errorf("preview does not name the bad line, got: %s", body)
 	}
-	if strings.Contains(body, `name="fingerprint"`) {
+	// The fingerprint and the mapping still ride along -- "Back to mapping"
+	// needs them. What must be missing is the button that writes anything.
+	if strings.Contains(body, `name="confirm"`) {
 		t.Error("preview offers an import button for a file with a bad line")
+	}
+	if !strings.Contains(body, `name="back"`) {
+		t.Error("preview offers no way back to the mapping screen")
 	}
 }
 
@@ -248,7 +253,7 @@ func TestImportWarnsWhenTheSameFileIsImportedTwice(t *testing.T) {
 	if !strings.Contains(again, "already") {
 		t.Errorf("second preview does not warn about the duplicate, got: %s", again)
 	}
-	if !strings.Contains(again, `name="fingerprint"`) {
+	if !strings.Contains(again, `name="confirm"`) {
 		t.Error("second preview refuses the import outright, want a warning that can still be confirmed")
 	}
 }
