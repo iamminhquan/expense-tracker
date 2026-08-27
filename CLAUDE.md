@@ -75,6 +75,31 @@ config) and builds the router via `handlers.NewRouter(deps)`. Every handler
 takes `deps` as a closure argument rather than a receiver method — see the
 `xxxHandler(deps) http.HandlerFunc` pattern throughout `internal/handlers/`.
 
+**Finding a file in `internal/handlers`**: it is one flat package — Go allows
+no other shape, since a package cannot span directories and 31 of its files
+are `_test.go` that must sit beside what they test — so the *filename* carries
+the grouping instead. Every file starts with the area it belongs to, and a
+file sorts next to its own tests:
+
+| prefix | what lives there |
+| --- | --- |
+| `app_` | wiring: `Deps`, the router, the end-to-end smoke test |
+| `auth_` | everything pre-login: login/register, password reset, email verification, the lockout |
+| `balance_` | the header balance widget and its carry-forward |
+| `category_` | the categories page |
+| `import_` | the CSV import handler and its mapping form |
+| `report_` | the dashboard |
+| `req_` | the value objects parsed out of a request: month/scope, filters, paging, route params |
+| `settings_` | the settings page: profile, email, password, sessions, theme, account deletion |
+| `txn_` | the transactions page: list, filters, sort, paging, cross-month, export |
+| `view_` | the render seam, the template FuncMap, and the template invariant tests |
+
+Keep the prefix when adding a file; a new area gets a new prefix rather than a
+bare name. The package's public surface is deliberately three symbols — `Deps`,
+`NewRouter`, `TemplateFuncs` — so nothing here needs exporting to be reachable
+from another file, and splitting the areas into real subpackages would mean
+exporting most of the package to itself.
+
 **Routing** (`internal/handlers/app_router.go`): `/healthz`, `/static/*`,
 `/login`, `/register`, `/logout` are public. Everything else (`/dashboard`,
 `/transactions`, `/categories`, `/settings`) is behind an `auth.RequireAuth`
@@ -143,8 +168,8 @@ originally specified in the Vietnamese convention (dots for thousands,
 `dd/mm/yyyy`), which is why the helpers exist at all rather than the
 templates formatting inline.
 
-**Month, filters, paging** — three small value-object files (the `req_` group) in
-`internal/handlers/`, all built the same way on purpose: parse leniently
+**Month, filters, paging** — three small value-object files in
+`internal/handlers/` (the `req_` group), all built the same way on purpose: parse leniently
 from the URL, never error on a malformed value, and offer a
 `...FromRequest` variant that reads the *originating* page's URL out of the
 `HX-Current-URL` header (a mutation POST/PATCH/DELETE carries no query
