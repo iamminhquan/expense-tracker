@@ -32,23 +32,25 @@ type Mapping struct {
 	FallbackCategory string
 }
 
-// ExportMapping is how to read the file this app exports. It is a Mapping
-// like any other: the format the importer started life only accepting is
-// now one arrangement among many, not a separate code path.
+// ExportMapping returns the column arrangement for files this app exports.
 func ExportMapping() Mapping {
 	return Mapping{Date: 0, Type: 1, Category: 2, Amount: 3, Note: 4, DateLayout: DateISO}
 }
 
-// The date layout keys. They are keys rather than Go layout strings because
-// they are rendered into a <select> and read back off a form, where
-// "02/01/2006" would be an invitation to hand-edit something unparseable.
-const (
-	DateISO      = "iso"
-	DateDMYSlash = "dmy-slash"
-	DateMDYSlash = "mdy-slash"
-	DateDMYDash  = "dmy-dash"
-	DateISOTime  = "iso-datetime"
-)
+// DateISO identifies the ISO 8601 date format (YYYY-MM-DD).
+const DateISO = "iso"
+
+// DateDMYSlash identifies the day-first slash-separated format (DD/MM/YYYY).
+const DateDMYSlash = "dmy-slash"
+
+// DateMDYSlash identifies the month-first slash-separated format (MM/DD/YYYY).
+const DateMDYSlash = "mdy-slash"
+
+// DateDMYDash identifies the day-first dash-separated format (DD-MM-YYYY).
+const DateDMYDash = "dmy-dash"
+
+// DateISOTime identifies the ISO 8601 datetime format (YYYY-MM-DDTHH:MM:SS).
+const DateISOTime = "iso-datetime"
 
 // DateFormat is one entry in the date-order picker.
 type DateFormat struct {
@@ -57,10 +59,8 @@ type DateFormat struct {
 	layout string
 }
 
-// DateFormats is every date order the importer reads, in the order the
-// picker offers them. Anything outside this list is a format the user
-// converts in their spreadsheet, which is a smaller cost than a parser that
-// guesses.
+// DateFormats lists every date order the importer reads, in the order the
+// picker offers them.
 var DateFormats = []DateFormat{
 	{DateISO, "2026-08-11 · YYYY-MM-DD", "2006-01-02"},
 	{DateDMYSlash, "11/08/2026 · DD/MM/YYYY", "02/01/2006"},
@@ -69,7 +69,7 @@ var DateFormats = []DateFormat{
 	{DateISOTime, "2026-08-11T09:30:00 · date and time", "2006-01-02T15:04:05"},
 }
 
-// ValidDateLayout reports whether key names a layout the picker offers.
+// ValidDateLayout reports whether key names a date layout the picker offers.
 func ValidDateLayout(key string) bool {
 	for _, f := range DateFormats {
 		if f.Key == key {

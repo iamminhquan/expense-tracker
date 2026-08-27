@@ -75,9 +75,7 @@ type Import struct {
 	Rounded int
 }
 
-// MaxRows caps a single import. The whole batch is inserted in one
-// transaction and rendered in one preview, and neither wants an unbounded
-// file behind it.
+// MaxRows caps a single import at 2000 transactions.
 const MaxRows = 2000
 
 // ErrTooManyRows reports a file with more than MaxRows data rows.

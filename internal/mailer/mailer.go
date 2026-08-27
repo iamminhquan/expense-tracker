@@ -33,6 +33,7 @@ type Mailer struct {
 	endpoint string
 }
 
+// New constructs a Mailer that sends through the Brevo account in cfg.
 func New(cfg Config) *Mailer {
 	return NewWithEndpoint(cfg, sendEndpoint)
 }

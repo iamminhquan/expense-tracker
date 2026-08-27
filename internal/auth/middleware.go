@@ -9,6 +9,8 @@ type contextKey string
 
 const userIDContextKey contextKey = "userID"
 
+// RequireAuth returns a middleware that validates the session cookie and
+// injects the authenticated user's ID into the request context.
 func RequireAuth(mgr *Manager, cookieName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +52,7 @@ func redirectToLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+// UserIDFromContext extracts the authenticated user's ID from the request context.
 func UserIDFromContext(ctx context.Context) (int64, bool) {
 	id, ok := ctx.Value(userIDContextKey).(int64)
 	return id, ok

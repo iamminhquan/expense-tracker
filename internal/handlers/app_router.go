@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+// NewRouter constructs the application's HTTP handler with all routes registered.
 func NewRouter(deps Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

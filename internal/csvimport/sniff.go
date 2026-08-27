@@ -42,7 +42,7 @@ type Sheet struct {
 	Fingerprint string
 }
 
-// Sniff reads a file and proposes how to import it.
+// Sniff reads a CSV file and proposes how to import it.
 //
 // It reads the whole file rather than a prefix: the fingerprint has to
 // cover every byte, and guessing the date order means finding the one row
