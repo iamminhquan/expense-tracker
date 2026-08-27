@@ -175,6 +175,41 @@ string of its own).
 - `paging.go` — `pageSize` (10) and `pager`, which clamps any requested page
   into one that exists.
 
+**CSV import** (`internal/csvimport` + `import_handlers.go`) reads back the
+file `/transactions/export` writes, and only that file: the five columns in
+that order (case-insensitively, `Description` accepted for `Note`, the
+export's BOM tolerated), `YYYY-MM-DD` dates, amounts as bare integers. No
+column-mapping screen, no date-format guessing -- a file from another app is
+reshaped in a spreadsheet first. `csvimport` never touches the database: the
+account arrives as a `[]csvimport.Category` and the answer leaves as an
+`Import`, which is what lets every rule about the format be tested without
+Postgres.
+
+A category name resolves against the defaults through `i18n` and the slug,
+never against the `name` column, for the same reason the search does. A name
+that matches nothing is planned as a new personal category -- one per
+(name, type), matching the table's own uniqueness -- and the preview names
+them before anything is written. `csvimport.MatchKey` is exported because
+the handler pairing rows with the categories it just created has to use the
+same rule; two subtly different ones would leave a row pointing at a
+category that was never made.
+
+Import is all-or-nothing: one bad line blocks the file. That is not
+fastidiousness -- a partial import means fixing three lines and re-importing
+a file whose other 197 are already in, and nothing in the schema can tell
+that second copy apart. Two identical coffees on one day are a real thing to
+record, so exact duplicates are counted and reported rather than refused
+(`countImportDuplicates`, one query over the file's own date range).
+
+The two steps are one handler and no server-side state: the preview leaves
+the form and its file input in the DOM, and the confirm re-uploads the same
+file through `hx-include`. `Import.Fingerprint` is a digest of what was read,
+echoed back in a hidden field, so a file swapped between the two steps is
+refused rather than imported unseen. Row validation deliberately repeats
+what `handleCreateTransaction` enforces (amount, type, 200-character note,
+7-day future limit) -- a laxer second way in would let the importer create
+rows the form would have rejected.
+
 **The balance** lives in one place: the `header_balance` widget
 (`header_balance.html`), rendered by both nav bars. There is no balance card
 in any page body — that partial existed once and was deleted. The widget
