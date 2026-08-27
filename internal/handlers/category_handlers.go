@@ -43,7 +43,7 @@ func isValidSwatch(color string) bool {
 // slug is what tells a shared default apart from a category the user made:
 // the template resolves the display name through catName, which needs it,
 // and a map key that is simply absent makes html/template fail the whole
-// render rather than fall back -- so every path must pass it, NULL included.
+// categoryRowData builds the template data for rendering a category row.
 func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, color string, txnCount int64) map[string]any {
 	return map[string]any{
 		"ID": id, "UserID": userID, "Slug": slug, "Name": name, "Type": typ, "Color": color,
@@ -51,6 +51,7 @@ func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, 
 	}
 }
 
+// categoriesPage returns an HTTP handler that creates categories for POST requests and renders expense and income categories for other requests.
 func categoriesPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -88,6 +89,8 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 	}
 }
 
+// handleCreateCategory validates and creates a category for the user, rendering form
+// errors or the newly created category row as appropriate.
 func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	typ := r.FormValue("type")
@@ -141,6 +144,8 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	})
 }
 
+// updateCategoryColorHandler creates an HTTP handler that updates a category's color
+// for its owner or a shared default category and renders the updated category row.
 func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -174,6 +179,8 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
+// editCategoryHandler renders the editable row for a user-owned category.
+// It returns 404 when the category cannot be found and 403 when the category is a shared default.
 func editCategoryHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -194,6 +201,7 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
+// viewCategoryRowHandler renders a user-visible category row or returns HTTP 404 when the category cannot be found.
 func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
@@ -210,6 +218,7 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
+// updateCategoryNameHandler creates an HTTP handler that validates and updates a user-owned category name, then renders the updated category row. Shared default categories cannot be renamed.
 func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
