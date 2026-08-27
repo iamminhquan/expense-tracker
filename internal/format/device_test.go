@@ -1,10 +1,9 @@
-package handlers
+package format_test
 
 import (
 	"testing"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"expensetracker/internal/format"
 )
 
 func TestDeviceLabel(t *testing.T) {
@@ -56,21 +55,9 @@ func TestDeviceLabel(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := deviceLabel(tc.ua); got != tc.want {
-				t.Errorf("deviceLabel(%q) = %q, want %q", tc.ua, got, tc.want)
+			if got := format.DeviceLabel(tc.ua); got != tc.want {
+				t.Errorf("DeviceLabel(%q) = %q, want %q", tc.ua, got, tc.want)
 			}
 		})
-	}
-}
-
-func TestSessionTimestamp(t *testing.T) {
-	// 07:00 UTC is 14:00 in Asia/Ho_Chi_Minh (UTC+7).
-	in := pgtype.Timestamptz{
-		Time:  time.Date(2026, time.August, 11, 7, 0, 0, 0, time.UTC),
-		Valid: true,
-	}
-	want := "11 Aug 2026, 14:00"
-	if got := sessionTimestamp(in); got != want {
-		t.Errorf("sessionTimestamp(%v) = %q, want %q", in, got, want)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/format"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -76,8 +77,8 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 	for _, s := range sessions {
 		views = append(views, sessionView{
 			ID:        s.ID,
-			Device:    deviceLabel(s.UserAgent.String),
-			CreatedAt: sessionTimestamp(s.CreatedAt),
+			Device:    format.DeviceLabel(s.UserAgent.String),
+			CreatedAt: format.Timestamp(s.CreatedAt, vietnamLocation),
 			IsCurrent: s.ID == currentToken,
 		})
 	}
