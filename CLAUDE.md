@@ -108,7 +108,7 @@ once per full page load. A page-specific script (`charts.js`,
 content instead — htmx re-executes it on swap, which is what rebuilds the
 dashboard charts on a month switch.
 
-`internal/handlers/render.go` has two entry points:
+`internal/handlers/view_render.go` has two entry points:
 - `render(w, r, deps, page, active, data)` — full page, executes the
   `"layout"` block, and (if `active != ""`) injects nav data (`ShowNav`,
   `ActiveNav`, `UserName`, `UserInitial`, `Theme`, `HeaderBalance`) by
@@ -305,7 +305,7 @@ message catalog, and a language switcher would be a separate piece of work.
 channels, not hex — that is what keeps opacity modifiers like `bg-accent/10`
 working, so never put a hex value in one. Never hardcode a colour in a
 template either (`text-[#6B6862]`, `style="background-color:#FEF7F5"`); add
-or reuse a token — two tests in `templates_layout_test.go` fail on a literal
+or reuse a token — two tests in `view_layout_test.go` fail on a literal
 `rgba(` or `[#hex]` in a template, and on a utility class stranded outside a
 `class="..."` attribute. That same file also fails a form control marked
 `flex-1` with no width bound, and a bottom-sheet grab handle that has drifted
