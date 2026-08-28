@@ -15,7 +15,7 @@ Phạm vi bản đầu: **MB Bank và TPBank**.
 
 | Câu hỏi | Chốt | Vì sao |
 | --- | --- | --- |
-| Email vào app bằng đường nào | Người dùng đặt filter Gmail forward tới địa chỉ riêng do app cấp; dịch vụ inbound parsing POST về app | App không giữ credential hộp thư của ai; là push nên chạy được trên Render free, không cần worker nền |
+| Email vào app bằng đường nào | Người dùng đặt filter Gmail forward tới địa chỉ riêng do app cấp; Cloudflare Email Routing nhận, một Email Worker POST về app | App không giữ credential hộp thư của ai; là push nên chạy được trên Render free, không cần worker nền |
 | Xử lý đồng bộ hay lưu trước | **Lưu email thô trước, xử lý sau** | Parser MB/TPBank chắc chắn sẽ sai vài lần. Email thô còn nằm đó thì sửa parser xong replay được; xử lý thẳng thì email đã bay và phải nhập tay |
 | Transaction vào sổ thế nào | Ghi thẳng, tính vào số dư ngay, mang cờ `source='email'` | Đúng tinh thần tự động. Parse sai thì thiệt hại tối đa là một dòng sai, xoá được |
 | Phân loại | **Tra bảng nhớ trước, gọi AI khi chưa gặp** | Nhất quán (cùng nội dung luôn ra cùng category) và học được từ người dùng; AI đơn thuần thì không có cả hai |
@@ -269,38 +269,60 @@ func (c *Classifier) Classify(ctx context.Context, note string, cats []Category)
 ## 8. Webhook
 
 `POST /inbox/{token}` — **route công khai**, cùng nhóm `/healthz` và `/static/*`,
-nằm ngoài `auth.RequireAuth` vì người gọi là provider chứ không phải trình duyệt
-có cookie.
+nằm ngoài `auth.RequireAuth` vì người gọi là Email Worker chứ không phải trình
+duyệt có cookie.
 
 Hai điều dễ quên:
 
 - Route này phải **được miễn CSRF**. `csrf.Middleware` chặn mọi POST không mang
-  token; provider không có cookie nào để double-submit. Bỏ sót thì mọi email bị
+  token; Worker không có cookie nào để double-submit. Bỏ sót thì mọi email bị
   từ chối 403.
 - Handler chỉ bóc `(from, subject, text, message-id)`, lưu, trả 200. **Phần bóc
   payload nằm riêng một file adapter** — đổi nhà cung cấp thì sửa đúng một file.
+  Hình dạng payload là do Worker của mình định ra, nên adapter này mỏng; nó tồn
+  tại để lần đổi sau không phải mổ handler.
 
 ### Ba lớp xác thực
 
 1. Token trong địa chỉ là chuỗi ngẫu nhiên dài (map ra `users.inbox_token`).
-2. Verify chữ ký webhook của provider — chặn người gọi thẳng endpoint.
+2. Verify chữ ký HMAC do Worker ký bằng `INBOUND_WEBHOOK_SECRET` — chặn người
+   gọi thẳng endpoint. Worker là code của mình nên chữ ký này là thứ mình tự
+   đặt ra; xem ghi chú Brevo ở dưới để biết vì sao điều đó lại quan trọng.
 3. **`From` của email gốc phải khớp địa chỉ đã biết của MB/TPBank.** Không khớp
    thì lưu lại nhưng không bao giờ tạo transaction (`ignored`).
 
 Không có lớp 3 thì ai biết địa chỉ forward cũng gửi được email giả và giao dịch
 giả vào thẳng sổ.
 
-### Nhà cung cấp inbound — chưa xác minh
+### Nhà cung cấp inbound — đã chốt: Cloudflare (2026-08-28)
 
-Người dùng đã có tài khoản Brevo cho mail đi và Brevo có Inbound Parsing, nên
-dùng lại Brevo là gọn nhất: trỏ MX của `in.<domain>` sang Brevo, khai báo URL
-webhook, không thêm nhà cung cấp.
+**Cloudflare Email Routing + một Email Worker.** Email Routing miễn phí và
+không giới hạn dung lượng thư; Worker chạy trên gói Workers Free. Catch-all cho
+`in.ttth-caothang.site` nghĩa là mọi `<token>@in.ttth-caothang.site` vào thẳng
+Worker mà không phải đăng ký từng địa chỉ — khớp đúng mô hình token mỗi user ở
+mục 5. Giới hạn 25 MiB mỗi thư không đụng tới email ngân hàng.
 
-**Chưa chắc Inbound Parsing có trong gói miễn phí của Brevo.** Đây là việc đầu
-tiên phải xác minh trước khi viết code. Phương án thay thế: **Cloudflare Email
-Routing + Email Worker** (miễn phí, nhưng phải nuôi một mẩu JS ngoài repo chỉ
-làm mỗi việc POST email sang app). File adapter tách riêng ở trên là để việc
-đổi này không đội giá.
+Cái giá: một mẩu JS chỉ làm mỗi việc ký HMAC rồi POST sang app, và **domain
+phải dùng nameserver của Cloudflare** — Email Routing đòi full setup, subdomain
+chỉ bật được khi zone đã nằm ở Cloudflare. `ttth-caothang.site` đang ở Vietnix
+nên phải đổi NS và dựng lại các bản ghi hiện có trước khi làm gì khác.
+
+Từ 30/06/2025 Cloudflare bỏ im lặng thư forward từ domain nguồn không có SPF
+hoặc DKIM. Nguồn ở đây là Gmail nên không thành vấn đề, nhưng khi một email
+biến mất không dấu vết thì đây là chỗ nhìn đầu tiên.
+
+**Brevo đã bị loại, dù tài khoản mail đi vẫn là Brevo.** Hai lý do, lý do sau
+nặng hơn:
+
+1. **Brevo không ký webhook.** Không HMAC, không header chữ ký, không shared
+   secret; khuyến nghị chính thức của họ là allowlist dải IP. Lớp 2 ở trên sẽ
+   không tồn tại, và mô hình một-URL-cho-cả-domain của họ còn buộc phải tách
+   user từ trường `To` trong payload thay vì từ `/inbox/{token}`.
+2. **Không xác nhận được trước khi đặt cược.** `GET /v3/webhooks` trả cùng một
+   lỗi `document_not_found` cho mọi `type`, nên nó không nói được inbound có
+   khả dụng hay không. Cách duy nhất để biết là verify domain và trỏ MX xong
+   rồi thử tạo webhook — tức là làm hết phần DNS rồi mới biết có ăn hay không.
+   Cloudflare thì tài liệu đã trả lời trước khi mình chạm vào thứ gì.
 
 ## 9. Cấu hình
 
@@ -310,7 +332,7 @@ trừ `DATABASE_URL`.
 | Biến | Thiếu thì sao |
 | --- | --- |
 | `INBOUND_DOMAIN` | Thẻ Email tracking không hiện, tính năng tự tắt |
-| `INBOUND_WEBHOOK_SECRET` | Webhook từ chối mọi request — không có secret thì không xác thực được ai gọi |
+| `INBOUND_WEBHOOK_SECRET` | Webhook từ chối mọi request — không có secret thì không xác thực được ai gọi. Cùng một giá trị phải đặt vào secret của Worker bên Cloudflare; lệch nhau thì mọi email bị từ chối |
 | `ANTHROPIC_API_KEY` | **Tính năng vẫn chạy đủ.** Không phân loại được thì rơi về `Other`/`Other income`, giao dịch vẫn vào sổ. Giống `BREVO_API_KEY` thiếu thì quên mật khẩu vẫn chạy tới bước gửi |
 | `ANTHROPIC_MODEL` | Mặc định `claude-opus-5`. Có biến này để đổi sang Haiku sau mà không cần deploy code mới |
 
@@ -373,6 +395,9 @@ bảng.
 - **IMAP polling / Gmail API OAuth** cho ingestion: cái đầu bắt app giữ
   credential đọc được toàn bộ hộp thư; cái sau bắt qua verification restricted
   scope của Google, quá nặng cho một app cá nhân.
+- **Brevo Inbound Parsing** cho ingestion: không ký webhook, và không xác nhận
+  được có dùng được hay không cho tới khi đã làm xong phần DNS — lý do đầy đủ ở
+  mục 8.
 - **Gemini free tier** cho phân loại: free tier dùng nội dung để cải thiện sản
   phẩm, không hợp với nội dung chuyển khoản.
 - **Chỉ keyword, không AI**: nội dung CK tiếng Việt không dấu viết tắt thì
