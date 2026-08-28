@@ -75,6 +75,11 @@ Gmail (filter: from MB/TPBank)
 Gộp tất cả vào một migration, theo tiền lệ `000013` (một tính năng = một
 migration, dù chạm nhiều bảng).
 
+**Ngoại lệ do giao theo lát (mục 12):** `category_hints` tách sang `000015` vì
+nó thuộc lát 3, còn mọi thứ còn lại ở đây nằm trong `000014` phục vụ lát 1 và
+lát 2. Một migration mang bảng mà chưa lát nào dùng thì lát 1 không tự đứng
+được — mà tự đứng được mới là toàn bộ lý do cắt lát.
+
 ### `bank_emails`
 
 ```sql
@@ -380,22 +385,40 @@ hex, không `rgba(`, không class Tailwind lạc ra ngoài `class=""`.
 
 Không test nào cần mạng thật hay khoá API thật.
 
-## 12. Thứ tự làm
+## 12. Giao theo lát
 
-Chỉ `bankmail` bị chặn bởi mẫu email. Mọi thứ khác làm được ngay.
+Bốn lát, mỗi lát xong là dùng được thật, không lát nào bắt lát sau phải xong
+mới có giá trị. Ranh giới cắt trùng ranh giới package ở mục 3: `bankmail` và
+`classify` không chạm database và không chạm nhau, nên lát 2 và lát 4 rời được.
 
-1. Xác minh Brevo Inbound Parsing có trong gói miễn phí không (chặn mục 8)
-2. Migration `000014` + `sqlc generate`
-3. Webhook + lưu email + adapter payload
-4. Thẻ settings (bật/tắt, địa chỉ, danh sách `failed`, nút thử lại)
-5. `internal/classify`
-6. `internal/bankmail` (khi có mẫu email)
-7. Nối đầu cuối: xử lý pending, bảng nhớ, tạo transaction, nhãn `auto`, học từ
-   thao tác sửa category
+**Việc phải làm trước lát 1 — đã xong 2026-08-29:** đổi nameserver
+`ttth-caothang.site` từ Vietnix sang Cloudflare, bật Email Routing cho apex và
+cho subdomain `in.ttth-caothang.site`, trỏ catch-all vào Worker `email-inbox`.
+Đã kiểm chứng đầu cuối: một email gửi tới `test123@in.ttth-caothang.site` chạy
+tới Worker, log ra đủ `from`, `to`, `subject`, `Message-ID`, `size`.
+
+| Lát | Nội dung | Xong thì dùng được gì |
+| --- | --- | --- |
+| 1 | Migration `000014` + `sqlc generate`; Worker thật trong `emailworker/` (ký HMAC, POST sang app); webhook + adapter + lưu email thô; thẻ settings (bật/tắt, địa chỉ, danh sách `failed`, nút thử lại); `deleteAccount` thêm `bank_emails` | Forward email vào và **nhìn thấy nó** trong Settings |
+| 2 | `internal/bankmail` + `NoteKey`; goroutine xử lý `pending`; tạo transaction rơi thẳng về `other`/`other_income`; nhãn `auto` + dấu "có thể trùng" | **Hết nhập tay** — giao dịch tự vào sổ, chỉ còn phải sửa category |
+| 3 | Migration `000015` (`category_hints`); tra hint trước khi quyết; ghi đè hint khi người dùng sửa category dòng `auto`; `deleteAccount` thêm `category_hints` | App **học** từ thao tác sửa; giao dịch lặp lại tự đúng, không tốn API |
+| 4 | `internal/classify` + `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`; gọi khi hint trượt | Nội dung lần đầu gặp cũng được phân loại |
+
+Hai điều quyết định thứ tự này:
+
+**Lát 1 đi trước `bankmail` vì nó chính là cỗ máy thu mẫu email.** Parser bị
+chặn bởi mẫu thật; bật ingestion lên rồi forward vài tuần thì `bank_emails.body`
+đầy email thật để dựng bảng test. Viết parser trước là ngồi đoán template.
+
+**Lát 3 đi trước lát 4, ngược với thứ tự tự nhiên "AI rồi mới nhớ".** Bảng nhớ
+tự nó phân loại được phần lớn giao dịch lặp lại — tiền nhà, lương, cùng một
+người chuyển hàng tháng — mà không cần mạng, không cần khoá API. Dùng thật vài
+tuần sau lát 3 thì biết tỉ lệ hint trượt là bao nhiêu, tức là biết lát 4 đáng
+bao nhiêu tiền trước khi trả đồng nào. Làm ngược lại thì không bao giờ đo được.
 
 **Lưu ý vận hành:** test handler không tự chạy migration, nên khi có `000014`
 phải áp nó vào database test cục bộ trước, không thì test DB mới sẽ đỏ vì thiếu
-bảng.
+bảng. `000015` ở lát 3 cũng vậy.
 
 ## 13. Đã cân nhắc và loại
 
