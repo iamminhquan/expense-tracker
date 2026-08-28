@@ -307,6 +307,13 @@ phải dùng nameserver của Cloudflare** — Email Routing đòi full setup, s
 chỉ bật được khi zone đã nằm ở Cloudflare. `ttth-caothang.site` đang ở Vietnix
 nên phải đổi NS và dựng lại các bản ghi hiện có trước khi làm gì khác.
 
+Mẩu JS đó nằm **trong repo này**, ở `emailworker/`, chứ không phải một repo
+riêng. Worker và handler Go là hai nửa của một hợp đồng — cách ký HMAC, hình
+dạng payload, chỗ đặt token — và một hợp đồng nằm ở hai repo thì nó trôi, với
+kiểu hỏng tệ nhất: email lặng lẽ ngừng tới, không test nào đỏ. Đây đúng là lý
+do `NoteKey` ở mục 6 được export thay vì viết hai bản. Đổi lại, nó **không**
+deploy theo `git push` như phần Go; xem comment đầu `emailworker/wrangler.toml`.
+
 Từ 30/06/2025 Cloudflare bỏ im lặng thư forward từ domain nguồn không có SPF
 hoặc DKIM. Nguồn ở đây là Gmail nên không thành vấn đề, nhưng khi một email
 biến mất không dấu vết thì đây là chỗ nhìn đầu tiên.
