@@ -1,5 +1,5 @@
 {{define "category_row"}}
-<div id="category-row-{{.ID}}" {{if .OOBTarget}}hx-swap-oob="afterbegin:{{.OOBTarget}}"{{end}} class="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-3 px-[14px] py-3 border-b border-border-list last:border-b-0">
+<div id="category-row-{{.ID}}" class="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-3 px-[14px] py-3 border-b border-border-list last:border-b-0">
   <!-- On one desktop line a long name is the only part that can give way, so
        it truncates; the mobile layout stacks and lets it wrap in full. -->
   <div class="flex items-center gap-3 min-w-0">
@@ -64,7 +64,17 @@
 </div>
 {{end}}
 
-{{define "category_create_response"}}{{template "category_row" .Row}}{{template "categories_empty_oob" .}}{{end}}
+{{/* The wrapper is what carries the out-of-band swap, and it is load-bearing:
+     htmx only keeps the annotated element itself when the swap style is
+     outerHTML (or a bare "true"). For every other style -- afterbegin here --
+     it inserts that element's *children* and discards the element, so an
+     hx-swap-oob written onto the row div itself would land the row's contents
+     in the list as three loose siblings and take id="category-row-N" with it.
+     The row would then render unaligned, and its own Edit, Delete and colour
+     buttons all target that id, so every one of them would silently do
+     nothing until the next full page load. Wrapping keeps the row the child
+     that gets inserted. Do not move the attribute back onto the row. */}}
+{{define "category_create_response"}}<div hx-swap-oob="afterbegin:{{.OOBTarget}}">{{template "category_row" .Row}}</div>{{template "categories_empty_oob" .}}{{end}}
 
 {{define "category_row_edit"}}
 <form id="category-row-{{.ID}}" hx-patch="/categories/{{.ID}}/name" hx-target="#category-row-{{.ID}}" hx-swap="outerHTML" class="flex items-center gap-3 px-[14px] py-3 border-b border-border-list">

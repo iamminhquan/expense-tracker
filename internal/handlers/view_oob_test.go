@@ -102,6 +102,50 @@ func TestRetiredTotalsElementsAreGone(t *testing.T) {
 	}
 }
 
+// htmx keeps the element an hx-swap-oob is written on only when the swap
+// style is outerHTML, which is also what a bare "true" means. Every other
+// style -- afterbegin, beforeend, innerHTML -- inserts that element's
+// *children* into the target and throws the element itself away (see
+// oobSwap in htmx 1.9.12: "if this is not an inline swap, we use the content
+// of the node, not the node itself").
+//
+// So an element carrying both an id and one of those styles is a bug that
+// renders correctly on the server and breaks only in the browser: the id
+// never reaches the DOM, and every control that targets it silently does
+// nothing until the next full page load. That is exactly what happened to a
+// newly created category row, whose Edit, Delete and colour buttons all
+// address #category-row-N. Put the attribute on a wrapper around the element
+// instead, so the element with the id is the child that gets inserted.
+func TestNonOuterHTMLOOBSwapsDoNotCarryAnID(t *testing.T) {
+	dir := "../web/templates"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read templates dir: %v", err)
+	}
+
+	// Opening tags that carry an hx-swap-oob, whatever else is on them.
+	tagRe := regexp.MustCompile(`<[a-zA-Z][^>]*hx-swap-oob="[^"]*"[^>]*>`)
+	styleRe := regexp.MustCompile(`hx-swap-oob="([^":]*)`)
+	idRe := regexp.MustCompile(`\sid="`)
+
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".html" {
+			continue
+		}
+		body := readTemplate(t, e.Name())
+		for _, tag := range tagRe.FindAllString(body, -1) {
+			style := styleRe.FindStringSubmatch(tag)[1]
+			if style == "true" || style == "outerHTML" {
+				continue
+			}
+			if idRe.MatchString(tag) {
+				t.Errorf("%s: hx-swap-oob=%q is on an element that also has an id, so htmx will insert the element's children and drop the id:\n\t%s",
+					e.Name(), style, tag)
+			}
+		}
+	}
+}
+
 func readTemplate(t *testing.T, name string) string {
 	t.Helper()
 	body, err := os.ReadFile(filepath.Join("../web/templates", name))

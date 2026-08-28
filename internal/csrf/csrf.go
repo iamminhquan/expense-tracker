@@ -7,11 +7,14 @@ import (
 	"net/http"
 )
 
-const (
-	CookieName = "csrf_token"
-	HeaderName = "X-CSRF-Token"
-	FormField  = "csrf_token"
-)
+// CookieName is the name of the CSRF token cookie.
+const CookieName = "csrf_token"
+
+// HeaderName is the HTTP header name carrying the CSRF token on XHR requests.
+const HeaderName = "X-CSRF-Token"
+
+// FormField is the hidden form field name carrying the CSRF token on plain POST submissions.
+const FormField = "csrf_token"
 
 // Middleware implements the stateless double-submit-cookie CSRF pattern: no
 // server-side token storage is needed because the check only proves the

@@ -24,6 +24,7 @@ type PasswordResetManager struct {
 	queries *sqlcgen.Queries
 }
 
+// NewPasswordResetManager constructs a password reset manager backed by the given query executor.
 func NewPasswordResetManager(q *sqlcgen.Queries) *PasswordResetManager {
 	return &PasswordResetManager{queries: q}
 }

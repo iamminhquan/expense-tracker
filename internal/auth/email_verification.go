@@ -25,6 +25,7 @@ type EmailVerificationManager struct {
 	queries *sqlcgen.Queries
 }
 
+// NewEmailVerificationManager constructs an email verification manager backed by the given query executor.
 func NewEmailVerificationManager(q *sqlcgen.Queries) *EmailVerificationManager {
 	return &EmailVerificationManager{queries: q}
 }

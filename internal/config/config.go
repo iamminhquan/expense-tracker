@@ -12,6 +12,7 @@ import (
 // somewhere the operator never named rather than saying what is missing.
 var ErrMissingDatabaseURL = errors.New("DATABASE_URL is not set (copy .env.example to .env and fill it in)")
 
+// Config holds the application's environment-derived configuration.
 type Config struct {
 	DatabaseURL       string
 	Port              string

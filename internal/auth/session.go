@@ -15,14 +15,17 @@ import (
 
 const sessionTTL = 7 * 24 * time.Hour
 
+// Manager issues and validates session tokens against the sessions table.
 type Manager struct {
 	queries *sqlcgen.Queries
 }
 
+// NewManager constructs a session Manager backed by the given query executor.
 func NewManager(q *sqlcgen.Queries) *Manager {
 	return &Manager{queries: q}
 }
 
+// CreateSession issues a new session for userID and returns the token and expiry.
 func (m *Manager) CreateSession(ctx context.Context, userID int64, userAgent string) (string, time.Time, error) {
 	token, err := generateToken()
 	if err != nil {
@@ -42,6 +45,8 @@ func (m *Manager) CreateSession(ctx context.Context, userID int64, userAgent str
 	return session.ID, session.ExpiresAt.Time, nil
 }
 
+// ValidateSession reports which user token belongs to, or an error if the
+// session is not found or has expired.
 func (m *Manager) ValidateSession(ctx context.Context, token string) (int64, error) {
 	session, err := m.queries.GetSession(ctx, token)
 	if err != nil {
@@ -57,6 +62,7 @@ func (m *Manager) ValidateSession(ctx context.Context, token string) (int64, err
 	return session.UserID, nil
 }
 
+// DeleteSession removes token from the sessions table.
 func (m *Manager) DeleteSession(ctx context.Context, token string) error {
 	return m.queries.DeleteSession(ctx, token)
 }
