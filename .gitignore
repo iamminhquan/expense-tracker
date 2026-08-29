@@ -1,2 +1,4 @@
 .env
 /server
+emailworker/node_modules/
+emailworker/.wrangler/
