@@ -14,8 +14,8 @@ import (
 )
 
 // otherExpenseSlug and otherIncomeSlug are the default categories a
-// processed email's transaction falls back to -- learning a better category
-// from a user's past corrections is a later slice's job. Matched by slug,
+// processed email's transaction falls back to when neither a category_hints
+// row nor (a later slice's job) an AI call decides it. Matched by slug,
 // never by display name: a default's name is resolved through internal/i18n
 // and can change independently of this column, the same reason every other
 // default-category lookup in this app goes through its slug.
@@ -115,13 +115,18 @@ func markUnprocessableBankEmail(ctx context.Context, deps Deps, id int64, err er
 // 'processing' forever would mean it never gets picked up by
 // ListPendingBankEmailIDs again.
 func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.BankEmail, notice bankmail.Notice) error {
-	slug := otherExpenseSlug
-	if notice.Direction == "income" {
-		slug = otherIncomeSlug
-	}
-	category, err := deps.Queries.GetCategoryBySlug(ctx, pgText(slug))
+	// Computed once and threaded through to both the hint lookup and the
+	// insert below, rather than each recomputing it from notice.Description:
+	// resolveCategoryForNotice's NoteKey and the row's own stored
+	// description must come from the exact same string, or a note long
+	// enough to get truncated here would write a hint under a key a later
+	// correction (keyed on the already-truncated, stored description) could
+	// never reproduce.
+	description := truncateEmailNote(notice.Description)
+
+	category, err := resolveCategoryForNotice(ctx, deps, email.UserID, notice, description)
 	if err != nil {
-		return fmt.Errorf("look up category %q: %w", slug, err)
+		return err
 	}
 
 	_, err = deps.Queries.CreateTransactionFromEmail(ctx, sqlcgen.CreateTransactionFromEmailParams{
@@ -129,7 +134,7 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 		CategoryID:  category.ID,
 		Amount:      notice.Amount,
 		Type:        notice.Direction,
-		Description: truncateEmailNote(notice.Description),
+		Description: description,
 		OccurredOn:  pgDate(notice.OccurredAt),
 		BankEmailID: pgInt64(email.ID),
 	})
@@ -144,6 +149,69 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 		return fmt.Errorf("mark imported: %w", err)
 	}
 	return nil
+}
+
+// resolveCategoryForNotice decides which category a new email-sourced
+// transaction files under. A remembered hint for this note wins over the
+// Other/Other income fallback; a miss keeps that fallback exactly as before
+// this slice. Slice 4 adds an AI classification call between those two
+// steps -- in the miss branch, before the fallback lookup -- so its shape
+// is left ready here rather than written now.
+//
+// storedDescription must be the same string the caller is about to save on
+// the transaction row (truncateEmailNote(notice.Description), not
+// notice.Description itself) -- the correction path in txn_handlers.go
+// computes its own NoteKey from the row's stored description, and the two
+// sides have to agree on exactly the same input or a note long enough to
+// get truncated would write a hint under a key that side can never
+// reproduce.
+//
+// A hint is an optimisation, never a requirement for the row to exist at
+// all: any error reading category_hints -- not just a plain miss -- falls
+// through to the same Other/Other income fallback rather than aborting the
+// email. A dropped connection here must cost at most a wrong category, the
+// same two-click fix as any other misclassification; it must never cost the
+// transaction itself the way returning the error up to processOneBankEmail
+// (which marks the email 'failed' and creates nothing) would.
+func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, notice bankmail.Notice, storedDescription string) (sqlcgen.Category, error) {
+	noteKey := bankmail.NoteKey(storedDescription)
+	hint, err := deps.Queries.GetCategoryHint(ctx, sqlcgen.GetCategoryHintParams{UserID: userID, NoteKey: noteKey})
+	switch {
+	case err == nil:
+		// GetCategoryForUser's own WHERE (user_id = $2 OR user_id IS NULL)
+		// is the ownership guard: a hint can only ever have been written for
+		// a category this same user owns or a shared default, but this
+		// keeps that true even if that ever stopped holding. The type check
+		// alongside it guards the other way a hint could misfire -- an old
+		// hint whose category was repurposed, or (data corruption aside)
+		// one pointing at income when this notice is an expense. Either
+		// guard failing falls through to the fallback below rather than
+		// erroring: a hint that doesn't fit is exactly a miss, not a bug.
+		category, err := deps.Queries.GetCategoryForUser(ctx, sqlcgen.GetCategoryForUserParams{
+			ID: hint.CategoryID, UserID: pgInt64(userID),
+		})
+		if err == nil && category.Type == notice.Direction {
+			return category, nil
+		}
+	case errors.Is(err, pgx.ErrNoRows):
+		// A plain miss -- fall through to the fallback below.
+	default:
+		// Any other lookup error (a dropped connection, an exhausted pool)
+		// is logged and treated exactly like a miss -- see the doc comment
+		// above for why this must never propagate as an error that costs
+		// the transaction.
+		log.Printf("look up category hint for user %d: %v", userID, err)
+	}
+
+	slug := otherExpenseSlug
+	if notice.Direction == "income" {
+		slug = otherIncomeSlug
+	}
+	category, err := deps.Queries.GetCategoryBySlug(ctx, pgText(slug))
+	if err != nil {
+		return sqlcgen.Category{}, fmt.Errorf("look up category %q: %w", slug, err)
+	}
+	return category, nil
 }
 
 // truncateEmailNote cuts a note to the same 200-rune limit
