@@ -53,10 +53,10 @@ func (q *Queries) CountBankEmailsForUser(ctx context.Context, userID int64) (int
 }
 
 const createBankEmail = `-- name: CreateBankEmail :one
-INSERT INTO bank_emails (user_id, message_id, from_address, subject, body, status, failure_reason)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO bank_emails (user_id, message_id, from_address, subject, body, raw_body, status, failure_reason)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (user_id, message_id) DO NOTHING
-RETURNING id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at
+RETURNING id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at, raw_body
 `
 
 type CreateBankEmailParams struct {
@@ -65,6 +65,7 @@ type CreateBankEmailParams struct {
 	FromAddress   string `json:"from_address"`
 	Subject       string `json:"subject"`
 	Body          string `json:"body"`
+	RawBody       string `json:"raw_body"`
 	Status        string `json:"status"`
 	FailureReason string `json:"failure_reason"`
 }
@@ -79,6 +80,7 @@ func (q *Queries) CreateBankEmail(ctx context.Context, arg CreateBankEmailParams
 		arg.FromAddress,
 		arg.Subject,
 		arg.Body,
+		arg.RawBody,
 		arg.Status,
 		arg.FailureReason,
 	)
@@ -95,6 +97,7 @@ func (q *Queries) CreateBankEmail(ctx context.Context, arg CreateBankEmailParams
 		&i.Status,
 		&i.FailureReason,
 		&i.ProcessedAt,
+		&i.RawBody,
 	)
 	return i, err
 }
@@ -139,7 +142,7 @@ func (q *Queries) ListPendingBankEmailIDs(ctx context.Context, userID int64) ([]
 }
 
 const listRecentBankEmails = `-- name: ListRecentBankEmails :many
-SELECT id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at FROM bank_emails
+SELECT id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at, raw_body FROM bank_emails
 WHERE user_id = $1
 ORDER BY received_at DESC
 LIMIT $2
@@ -175,6 +178,7 @@ func (q *Queries) ListRecentBankEmails(ctx context.Context, arg ListRecentBankEm
 			&i.Status,
 			&i.FailureReason,
 			&i.ProcessedAt,
+			&i.RawBody,
 		); err != nil {
 			return nil, err
 		}
@@ -187,7 +191,7 @@ func (q *Queries) ListRecentBankEmails(ctx context.Context, arg ListRecentBankEm
 }
 
 const listRecentFailedBankEmails = `-- name: ListRecentFailedBankEmails :many
-SELECT id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at FROM bank_emails
+SELECT id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at, raw_body FROM bank_emails
 WHERE user_id = $1 AND status = 'failed'
 ORDER BY received_at DESC
 LIMIT $2
@@ -219,6 +223,7 @@ func (q *Queries) ListRecentFailedBankEmails(ctx context.Context, arg ListRecent
 			&i.Status,
 			&i.FailureReason,
 			&i.ProcessedAt,
+			&i.RawBody,
 		); err != nil {
 			return nil, err
 		}
