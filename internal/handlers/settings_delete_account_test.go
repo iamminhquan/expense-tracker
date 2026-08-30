@@ -241,7 +241,7 @@ func TestDeleteAccountRemovesStoredBankEmails(t *testing.T) {
 		t.Fatalf("get user: %v", err)
 	}
 	token := enableInbox(t, deps, user.ID)
-	body := inboxPayload("no-reply@mb.com.vn", token+"@in.example.site", "s", "<del@mail>", "x")
+	body := inboxPayload("no-reply@mbbank.com.vn", token+"@in.example.site", "s", "<del@mail>", "x")
 	if rec := postInbox(t, router, "s3cret", token, body); rec.Code != http.StatusOK {
 		t.Fatalf("seed email: POST /inbox = %d, want 200", rec.Code)
 	}

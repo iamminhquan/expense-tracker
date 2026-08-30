@@ -63,7 +63,7 @@ func TestInboxWebhookStoresAForwardedBankEmail(t *testing.T) {
 	userID := registerTestUser(t, router, deps)
 	token := enableInbox(t, deps, userID)
 
-	body := inboxPayload("no-reply@mb.com.vn", token+"@in.example.site",
+	body := inboxPayload("no-reply@mbbank.com.vn", token+"@in.example.site",
 		"Bien dong so du", "<m1@mail>", "TK 123 +50,000 VND")
 	rec := postInbox(t, router, "s3cret", token, body)
 
@@ -86,7 +86,7 @@ func TestInboxWebhookRejectsABadSignature(t *testing.T) {
 	userID := registerTestUser(t, router, deps)
 	token := enableInbox(t, deps, userID)
 
-	body := inboxPayload("no-reply@mb.com.vn", token+"@in.example.site", "s", "<m2@mail>", "x")
+	body := inboxPayload("no-reply@mbbank.com.vn", token+"@in.example.site", "s", "<m2@mail>", "x")
 	rec := postInbox(t, router, "the-wrong-secret", token, body)
 
 	if rec.Code != http.StatusForbidden {
@@ -103,7 +103,7 @@ func TestInboxWebhookRejectsAnUnknownToken(t *testing.T) {
 	deps.InboundWebhookSecret = "s3cret"
 	router := handlers.NewRouter(deps)
 
-	body := inboxPayload("no-reply@mb.com.vn", "nobody@in.example.site", "s", "<m3@mail>", "x")
+	body := inboxPayload("no-reply@mbbank.com.vn", "nobody@in.example.site", "s", "<m3@mail>", "x")
 	rec := postInbox(t, router, "s3cret", "nobody", body)
 
 	if rec.Code != http.StatusNotFound {
@@ -138,6 +138,35 @@ func TestInboxWebhookStoresAStrangerAsIgnoredRatherThanDroppingIt(t *testing.T) 
 	}
 }
 
+// A lookalike domain must not pass the sender check. The match is on the
+// "@domain" suffix rather than the bare domain precisely so that a sender at
+// notmbbank.com.vn cannot inherit MB's trust by ending with the same letters.
+func TestInboxWebhookRejectsALookalikeSenderDomain(t *testing.T) {
+	deps := newTestDeps(t)
+	deps.InboundWebhookSecret = "s3cret"
+	router := handlers.NewRouter(deps)
+	userID := registerTestUser(t, router, deps)
+	token := enableInbox(t, deps, userID)
+
+	body := inboxPayload("no-reply@notmbbank.com.vn", token+"@in.example.site",
+		"s", "<look@mail>", "x")
+	if rec := postInbox(t, router, "s3cret", token, body); rec.Code != http.StatusOK {
+		t.Fatalf("POST /inbox from a lookalike domain = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	rows, err := deps.Queries.ListRecentBankEmails(context.Background(),
+		sqlcgen.ListRecentBankEmailsParams{UserID: userID, Limit: 10})
+	if err != nil {
+		t.Fatalf("ListRecentBankEmails() error = %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("stored emails = %d, want 1", len(rows))
+	}
+	if rows[0].Status != "ignored" {
+		t.Errorf("status for a lookalike sender = %q, want %q", rows[0].Status, "ignored")
+	}
+}
+
 func TestInboxWebhookStoresTheSameMessageOnlyOnce(t *testing.T) {
 	deps := newTestDeps(t)
 	deps.InboundWebhookSecret = "s3cret"
@@ -145,7 +174,7 @@ func TestInboxWebhookStoresTheSameMessageOnlyOnce(t *testing.T) {
 	userID := registerTestUser(t, router, deps)
 	token := enableInbox(t, deps, userID)
 
-	body := inboxPayload("no-reply@mb.com.vn", token+"@in.example.site", "s", "<dup@mail>", "x")
+	body := inboxPayload("no-reply@mbbank.com.vn", token+"@in.example.site", "s", "<dup@mail>", "x")
 	for i := 0; i < 2; i++ {
 		if rec := postInbox(t, router, "s3cret", token, body); rec.Code != http.StatusOK {
 			t.Fatalf("POST #%d = %d, want %d", i+1, rec.Code, http.StatusOK)
@@ -165,7 +194,7 @@ func TestInboxWebhookRejectsEveryRequestWhenNoSecretIsConfigured(t *testing.T) {
 	userID := registerTestUser(t, router, deps)
 	token := enableInbox(t, deps, userID)
 
-	body := inboxPayload("no-reply@mb.com.vn", token+"@in.example.site", "s", "<m5@mail>", "x")
+	body := inboxPayload("no-reply@mbbank.com.vn", token+"@in.example.site", "s", "<m5@mail>", "x")
 	rec := postInbox(t, router, "", token, body)
 
 	if rec.Code != http.StatusForbidden {
@@ -183,7 +212,7 @@ func TestInboxCSRFExemptionRejectsAnExtraPathSegment(t *testing.T) {
 	deps.InboundWebhookSecret = "s3cret"
 	router := handlers.NewRouter(deps)
 
-	body := inboxPayload("no-reply@mb.com.vn", "x@in.example.site", "s", "<extra@mail>", "x")
+	body := inboxPayload("no-reply@mbbank.com.vn", "x@in.example.site", "s", "<extra@mail>", "x")
 	req := httptest.NewRequest(http.MethodPost, "/inbox/abc/def", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(inbound.SignatureHeader, inbound.Sign("s3cret", body))
