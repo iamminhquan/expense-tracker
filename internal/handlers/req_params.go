@@ -14,6 +14,12 @@ func pgInt64(v int64) pgtype.Int8 {
 	return pgtype.Int8{Int64: v, Valid: true}
 }
 
+// pgText wraps a string as the nullable text sqlc generates for a nullable
+// column. An empty string is still a valid, non-NULL value here.
+func pgText(v string) pgtype.Text {
+	return pgtype.Text{String: v, Valid: true}
+}
+
 // idParam reads the {id} route parameter as an int64. Every row-scoped
 // handler starts with it, and every one of them answers a malformed id the
 // same way, so the 400 is written here and the caller only has to stop:
