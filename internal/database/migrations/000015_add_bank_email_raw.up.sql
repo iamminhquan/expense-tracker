@@ -1,0 +1,15 @@
+-- raw_body giu ban MIME goc cua thu, canh ben body vốn là văn bản đã bóc.
+--
+-- Ly do them cot nay den tu mot su co that: email MB khong co phan text/plain,
+-- nen no di qua duong boc HTML, ma duong do luc dau khong giai ma HTML entity.
+-- Ket qua la moi nhan tieng Viet bi luu thanh "S&#7889; ti&#7873;n". Sua Worker
+-- thi email SAU do dung, con thu da luu thi hong vinh vien -- vi thu duoc luu
+-- la ket qua boc, khong phai ban goc.
+--
+-- Muc 4 cua thiet ke hua "luu email tho truoc, xu ly sau, sua parser xong replay
+-- duoc". Loi hua do chi dung khi ban goc con nam lai. Cot nay lam no thanh su
+-- that: sua khau boc xong thi dung lai duoc tu raw_body ma khong can email moi.
+--
+-- Mac dinh chuoi rong: nhung dong da co truoc migration nay khong the khoi phuc
+-- ban goc, va NULL khong noi len dieu gi ma '' khong noi.
+ALTER TABLE bank_emails ADD COLUMN raw_body TEXT NOT NULL DEFAULT '';

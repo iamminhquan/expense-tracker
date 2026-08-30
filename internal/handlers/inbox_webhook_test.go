@@ -79,6 +79,45 @@ func TestInboxWebhookStoresAForwardedBankEmail(t *testing.T) {
 	}
 }
 
+// The original MIME is stored beside the extracted text so that a later fix to
+// the extraction can be replayed against what actually arrived. That promise
+// failed once already: an HTML-only notice was stored with its entities
+// undecoded, and fixing the extractor could not repair the rows already saved.
+func TestInboxWebhookStoresTheOriginalMessageBesideTheExtractedText(t *testing.T) {
+	deps := newTestDeps(t)
+	deps.InboundWebhookSecret = "s3cret"
+	router := handlers.NewRouter(deps)
+	userID := registerTestUser(t, router, deps)
+	token := enableInbox(t, deps, userID)
+
+	const rawMIME = "Content-Type: text/html\r\n\r\n<p>S&#7889; ti&#7873;n</p>"
+	body, err := json.Marshal(inbound.Payload{
+		From: "no-reply@mbbank.com.vn", To: token + "@in.example.site",
+		Subject: "s", MessageID: "<raw@mail>", Text: "So tien", Raw: rawMIME,
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if rec := postInbox(t, router, "s3cret", token, body); rec.Code != http.StatusOK {
+		t.Fatalf("POST /inbox = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	rows, err := deps.Queries.ListRecentBankEmails(context.Background(),
+		sqlcgen.ListRecentBankEmailsParams{UserID: userID, Limit: 10})
+	if err != nil {
+		t.Fatalf("ListRecentBankEmails() error = %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("stored emails = %d, want 1", len(rows))
+	}
+	if rows[0].RawBody != rawMIME {
+		t.Errorf("RawBody = %q, want %q", rows[0].RawBody, rawMIME)
+	}
+	if rows[0].Body != "So tien" {
+		t.Errorf("Body = %q, want %q", rows[0].Body, "So tien")
+	}
+}
+
 func TestInboxWebhookRejectsABadSignature(t *testing.T) {
 	deps := newTestDeps(t)
 	deps.InboundWebhookSecret = "s3cret"

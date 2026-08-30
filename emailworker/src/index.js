@@ -6,6 +6,12 @@ import { truncateUtf8 } from "./truncate.js";
 // thu qua kho khong lam day database free tier.
 const MAX_BODY = 64 * 1024;
 
+// Ban MIME goc duoc gui kem, khong phai thay the: `text` la thu parser doc,
+// `raw` la thu de chay lai khau boc khi khau do sai -- ma no da sai mot lan roi
+// (email chi co HTML, entity khong duoc giai ma). Cap lon hon MAX_BODY vi ban
+// goc mang theo header, the va ma hoa truyen tai quanh cung noi dung do.
+const MAX_RAW = 2 * MAX_BODY;
+
 // Caps subject and from, which are never bounded by MAX_BODY. Unlike the
 // body they normally run a handful of bytes, but nothing stops a hostile or
 // malformed message from carrying a header of arbitrary length -- and an
@@ -121,9 +127,12 @@ async function parseMessage(message) {
   // fallback -- PostalMime.parse also accepts an ArrayBuffer directly.
   const buf = await new Response(message.raw).arrayBuffer();
 
+  // Ban goc di kem ket qua boc, cat theo bien gioi rune giong `text`.
+  const raw = truncateUtf8(new TextDecoder().decode(buf), MAX_RAW);
+
   try {
     const email = await PostalMime.parse(buf);
-    return { email, text: extractText(email, buf) };
+    return { email, text: extractText(email, buf), raw };
   } catch (err) {
     // A real bank notice is usually multipart/alternative with
     // base64/quoted-printable parts; a MIME parse failure here is rare but
@@ -131,7 +140,7 @@ async function parseMessage(message) {
     // With no parse, from/subject/messageId fall back to raw headers too
     // (see default.email below).
     console.log("ERROR: MIME parse failed, falling back to crude extraction", String(err));
-    return { email: null, text: truncateUtf8(crudeExtractText(buf), MAX_BODY) };
+    return { email: null, text: truncateUtf8(crudeExtractText(buf), MAX_BODY), raw };
   }
 }
 
@@ -165,7 +174,7 @@ export default {
         return;
       }
 
-      const { email, text } = await parseMessage(message);
+      const { email, text, raw } = await parseMessage(message);
 
       // message.from is the SMTP envelope sender, not the From: header --
       // Gmail rewrites it to the forwarding account on every message it
@@ -185,6 +194,7 @@ export default {
         subject: truncateUtf8(subject, MAX_HEADER),
         messageId,
         text,
+        raw,
       });
 
       const res = await fetch(

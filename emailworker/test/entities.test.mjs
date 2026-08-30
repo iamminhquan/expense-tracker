@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readText } from "../src/index.js";
+import { readText, parseMessage } from "../src/index.js";
 
 // Dung nguyen hinh dang email MB that: khong co phan text/plain, chu tieng
 // Viet viet bang entity so, tron lan voi UTF-8 that.
@@ -53,4 +53,14 @@ test("does not cascade: &amp;#65; stays literal", async () => {
   const got = await readText({ raw });
   assert.match(got, /&#65;/, "phai giu nguyen chu khong giai thanh A");
   assert.doesNotMatch(got, /(^|[^#])A([^0-9]|$)/);
+});
+
+test("keeps the original MIME alongside the extracted text", async () => {
+  const { text, raw } = await parseMessage({ raw: mbLikeHtmlMessage() });
+  // Ban boc phai sach the va entity...
+  assert.match(text, /Số tiền giao dịch/);
+  assert.doesNotMatch(text, /<td>/);
+  // ...con ban goc phai giu nguyen ca hai, vi do moi la thu chay lai duoc.
+  assert.match(raw, /<td>/);
+  assert.match(raw, /S&#7889; ti&#7873;n giao d&#7883;ch/);
 });
