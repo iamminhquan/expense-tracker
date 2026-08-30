@@ -66,7 +66,7 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 		// overhead around a text field that is itself allowed to reach
 		// MaxBodyBytes. The multiplier leaves real headroom rather than
 		// rejecting a legitimate envelope right at the boundary.
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4*inbound.MaxBodyBytes))
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2*(inbound.MaxBodyBytes+inbound.MaxRawBytes)))
 		if err != nil {
 			var tooLarge *http.MaxBytesError
 			if errors.As(err, &tooLarge) {
@@ -121,6 +121,7 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 			FromAddress:   payload.From,
 			Subject:       payload.Subject,
 			Body:          inbound.TruncateBody(payload.Text),
+			RawBody:       inbound.TruncateRaw(payload.Raw),
 			Status:        status,
 			FailureReason: reason,
 		})

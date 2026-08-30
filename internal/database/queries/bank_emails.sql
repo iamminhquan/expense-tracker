@@ -2,8 +2,8 @@
 -- trên (user_id, message_id) là thứ chặn thư trùng, và một thư trùng không
 -- phải lỗi để trả về cho Worker -- Worker không làm gì được với nó.
 -- name: CreateBankEmail :one
-INSERT INTO bank_emails (user_id, message_id, from_address, subject, body, status, failure_reason)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO bank_emails (user_id, message_id, from_address, subject, body, raw_body, status, failure_reason)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (user_id, message_id) DO NOTHING
 RETURNING *;
 

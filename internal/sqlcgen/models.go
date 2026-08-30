@@ -20,6 +20,7 @@ type BankEmail struct {
 	Status        string             `json:"status"`
 	FailureReason string             `json:"failure_reason"`
 	ProcessedAt   pgtype.Timestamptz `json:"processed_at"`
+	RawBody       string             `json:"raw_body"`
 }
 
 type Category struct {

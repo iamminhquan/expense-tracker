@@ -26,6 +26,14 @@ import (
 // the cap exists so one oversized forward cannot fill the free-tier database.
 const MaxBodyBytes = 64 * 1024
 
+// MaxRawBytes caps the original MIME message kept beside the extracted text.
+// It is larger than MaxBodyBytes because the raw form carries headers, markup
+// and transfer encoding around the same content. Its purpose is replay: the
+// extraction step has been wrong before -- an HTML-only notice whose entities
+// were left undecoded -- and without the original there is nothing to run a
+// fixed extractor against.
+const MaxRawBytes = 2 * MaxBodyBytes
+
 // SignatureHeader carries the hex HMAC the Worker stamps on the request body.
 const SignatureHeader = "X-Inbox-Signature"
 
@@ -42,6 +50,9 @@ type Payload struct {
 	Subject   string `json:"subject"`
 	MessageID string `json:"messageId"`
 	Text      string `json:"text"`
+	// Raw is the original MIME message, kept so a later fix to the text
+	// extraction can be replayed against what actually arrived.
+	Raw string `json:"raw"`
 }
 
 // ParsePayload decodes the Worker's JSON body.
@@ -105,17 +116,30 @@ func Fingerprint(p Payload) string {
 	return "fp-" + hex.EncodeToString(h.Sum(nil))
 }
 
-// TruncateBody caps a body at MaxBodyBytes while respecting UTF-8 boundaries.
-// A slice by byte count alone can split a multi-byte rune, producing invalid
-// UTF-8 that later queries cannot store. This matters for Vietnamese text,
-// which is full of multi-byte runes.
+// TruncateBody caps the extracted plain text at MaxBodyBytes.
 func TruncateBody(s string) string {
-	if len(s) <= MaxBodyBytes {
+	return truncateUTF8(s, MaxBodyBytes)
+}
+
+// TruncateRaw caps the original MIME message at MaxRawBytes, on the same rune
+// boundary rule as TruncateBody: a message cut through a multi-byte character
+// is invalid UTF-8, which Postgres refuses outright.
+func TruncateRaw(s string) string {
+	return truncateUTF8(s, MaxRawBytes)
+}
+
+// truncateUTF8 cuts s to at most max bytes without splitting a multi-byte
+// character. Vietnamese bank text is full of multi-byte runes, and a string cut
+// through one is invalid UTF-8 that Postgres refuses outright -- which would
+// lose the whole message rather than shorten it.
+func truncateUTF8(s string, max int) string {
+	if len(s) <= max {
 		return s
 	}
-	truncated := s[:MaxBodyBytes]
-	// Trim back to the last complete rune by dropping bytes while the last
-	// rune decodes as utf8.RuneError.
+	truncated := s[:max]
+	// Drop trailing bytes while the last rune decodes as utf8.RuneError with
+	// size 1, which is what a severed multi-byte sequence looks like. A real
+	// U+FFFD decodes with size 3, so this cannot eat a legitimate one.
 	for len(truncated) > 0 {
 		r, size := utf8.DecodeLastRuneInString(truncated)
 		if r != utf8.RuneError || size != 1 {
