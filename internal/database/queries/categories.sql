@@ -29,6 +29,15 @@ RETURNING *;
 SELECT * FROM categories
 WHERE slug = 'other';
 
+-- GetCategoryBySlug looks up a shared default by its slug, never by name --
+-- a default's displayed name is resolved through internal/i18n and can
+-- change independently of the row, so matching on name would break the
+-- moment that display text changed. The email processing loop uses this to
+-- fall back to 'other' (expense) or 'other_income' (income).
+-- name: GetCategoryBySlug :one
+SELECT * FROM categories
+WHERE slug = $1;
+
 -- name: ListCategoriesWithTransactionCounts :many
 SELECT c.*, COUNT(t.id) AS transaction_count
 FROM categories c

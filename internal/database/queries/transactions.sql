@@ -83,6 +83,15 @@ INSERT INTO transactions (user_id, category_id, amount, type, description, occur
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
+-- CreateTransactionFromEmail is the email processing loop's own insert
+-- rather than a reuse of CreateTransaction: it stamps source='email' and
+-- bank_email_id so this row is distinguishable from one a person typed in,
+-- which is what the transactions list's "auto" label reads.
+-- name: CreateTransactionFromEmail :one
+INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on, source, bank_email_id)
+VALUES ($1, $2, $3, $4, $5, $6, 'email', $7)
+RETURNING *;
+
 -- name: GetTransaction :one
 SELECT * FROM transactions WHERE id = $1 AND user_id = $2;
 

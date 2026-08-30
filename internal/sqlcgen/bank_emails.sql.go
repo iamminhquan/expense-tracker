@@ -7,7 +7,39 @@ package sqlcgen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const claimPendingBankEmail = `-- name: ClaimPendingBankEmail :one
+UPDATE bank_emails SET status = 'processing'
+WHERE id = $1 AND status = 'pending'
+RETURNING id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at
+`
+
+// ClaimPendingBankEmail giành một email pending cho đúng một goroutine: chỉ
+// goroutine nào UPDATE trúng dòng còn 'pending' mới nhận được nó về, mọi
+// goroutine khác chạy cùng lúc nhận không hàng nào (pgx.ErrNoRows) và phải bỏ
+// qua email này. Đọc rồi mới ghi sẽ để hai goroutine cùng xử lý một email và
+// tạo hai transaction từ một thư.
+func (q *Queries) ClaimPendingBankEmail(ctx context.Context, id int64) (BankEmail, error) {
+	row := q.db.QueryRow(ctx, claimPendingBankEmail, id)
+	var i BankEmail
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.MessageID,
+		&i.FromAddress,
+		&i.Subject,
+		&i.Body,
+		&i.ReceivedAt,
+		&i.OccurredAt,
+		&i.Status,
+		&i.FailureReason,
+		&i.ProcessedAt,
+	)
+	return i, err
+}
 
 const countBankEmailsForUser = `-- name: CountBankEmailsForUser :one
 SELECT count(*) FROM bank_emails WHERE user_id = $1
@@ -74,6 +106,36 @@ DELETE FROM bank_emails WHERE user_id = $1
 func (q *Queries) DeleteBankEmailsForUser(ctx context.Context, userID int64) error {
 	_, err := q.db.Exec(ctx, deleteBankEmailsForUser, userID)
 	return err
+}
+
+const listPendingBankEmailIDs = `-- name: ListPendingBankEmailIDs :many
+SELECT id FROM bank_emails
+WHERE user_id = $1 AND status = 'pending'
+ORDER BY received_at
+`
+
+// ListPendingBankEmailIDs is what the processing loop walks: every pending
+// email for the user, not just the one that just arrived, so a Render
+// restart that left one mid-flight gets swept up by whichever email
+// processes next instead of needing a cron job of its own.
+func (q *Queries) ListPendingBankEmailIDs(ctx context.Context, userID int64) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listPendingBankEmailIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listRecentBankEmails = `-- name: ListRecentBankEmails :many
@@ -166,6 +228,60 @@ func (q *Queries) ListRecentFailedBankEmails(ctx context.Context, arg ListRecent
 		return nil, err
 	}
 	return items, nil
+}
+
+const markBankEmailFailed = `-- name: MarkBankEmailFailed :exec
+UPDATE bank_emails SET status = 'failed', failure_reason = $2, processed_at = now()
+WHERE id = $1
+`
+
+type MarkBankEmailFailedParams struct {
+	ID            int64  `json:"id"`
+	FailureReason string `json:"failure_reason"`
+}
+
+// MarkBankEmailFailed is the "needs fixing" list: our own error, not the
+// sender's mail. failure_reason is what the retry button on /settings reads
+// back, and processed_at records when the read was found bad.
+func (q *Queries) MarkBankEmailFailed(ctx context.Context, arg MarkBankEmailFailedParams) error {
+	_, err := q.db.Exec(ctx, markBankEmailFailed, arg.ID, arg.FailureReason)
+	return err
+}
+
+const markBankEmailIgnored = `-- name: MarkBankEmailIgnored :exec
+UPDATE bank_emails SET status = 'ignored', failure_reason = $2, processed_at = now()
+WHERE id = $1
+`
+
+type MarkBankEmailIgnoredParams struct {
+	ID            int64  `json:"id"`
+	FailureReason string `json:"failure_reason"`
+}
+
+// MarkBankEmailIgnored covers an unknown sender or a body that parses to no
+// transaction (OTP, ad, a failed transfer). Kept separate from 'failed' so
+// that list stays a to-do rather than filling with ordinary bank mail.
+func (q *Queries) MarkBankEmailIgnored(ctx context.Context, arg MarkBankEmailIgnoredParams) error {
+	_, err := q.db.Exec(ctx, markBankEmailIgnored, arg.ID, arg.FailureReason)
+	return err
+}
+
+const markBankEmailImported = `-- name: MarkBankEmailImported :exec
+UPDATE bank_emails SET status = 'imported', occurred_at = $2, processed_at = now()
+WHERE id = $1
+`
+
+type MarkBankEmailImportedParams struct {
+	ID         int64              `json:"id"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
+// MarkBankEmailImported closes an email that became a transaction. occurred_at
+// keeps the full Notice.OccurredAt timestamp; transactions.occurred_on only
+// ever holds the date part of it.
+func (q *Queries) MarkBankEmailImported(ctx context.Context, arg MarkBankEmailImportedParams) error {
+	_, err := q.db.Exec(ctx, markBankEmailImported, arg.ID, arg.OccurredAt)
+	return err
 }
 
 const requeueFailedBankEmails = `-- name: RequeueFailedBankEmails :exec

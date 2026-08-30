@@ -164,6 +164,53 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 	return i, err
 }
 
+const createTransactionFromEmail = `-- name: CreateTransactionFromEmail :one
+INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on, source, bank_email_id)
+VALUES ($1, $2, $3, $4, $5, $6, 'email', $7)
+RETURNING id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at, source, bank_email_id
+`
+
+type CreateTransactionFromEmailParams struct {
+	UserID      int64       `json:"user_id"`
+	CategoryID  int64       `json:"category_id"`
+	Amount      int64       `json:"amount"`
+	Type        string      `json:"type"`
+	Description string      `json:"description"`
+	OccurredOn  pgtype.Date `json:"occurred_on"`
+	BankEmailID pgtype.Int8 `json:"bank_email_id"`
+}
+
+// CreateTransactionFromEmail is the email processing loop's own insert
+// rather than a reuse of CreateTransaction: it stamps source='email' and
+// bank_email_id so this row is distinguishable from one a person typed in,
+// which is what the transactions list's "auto" label reads.
+func (q *Queries) CreateTransactionFromEmail(ctx context.Context, arg CreateTransactionFromEmailParams) (Transaction, error) {
+	row := q.db.QueryRow(ctx, createTransactionFromEmail,
+		arg.UserID,
+		arg.CategoryID,
+		arg.Amount,
+		arg.Type,
+		arg.Description,
+		arg.OccurredOn,
+		arg.BankEmailID,
+	)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CategoryID,
+		&i.Amount,
+		&i.Type,
+		&i.Description,
+		&i.OccurredOn,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Source,
+		&i.BankEmailID,
+	)
+	return i, err
+}
+
 const deleteTransaction = `-- name: DeleteTransaction :execrows
 DELETE FROM transactions WHERE id = $1 AND user_id = $2
 `
