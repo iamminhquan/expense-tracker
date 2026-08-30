@@ -103,10 +103,12 @@ func main() {
 			APIKey: cfg.BrevoAPIKey,
 			From:   cfg.MailFrom,
 		}),
-		Templates:     templates,
-		CookieName:    cfg.SessionCookieName,
-		SecureCookies: cfg.SecureCookies,
-		BaseURL:       cfg.BaseURL,
+		Templates:            templates,
+		CookieName:           cfg.SessionCookieName,
+		SecureCookies:        cfg.SecureCookies,
+		BaseURL:              cfg.BaseURL,
+		InboundDomain:        cfg.InboundDomain,
+		InboundWebhookSecret: cfg.InboundWebhookSecret,
 	}
 
 	router := handlers.NewRouter(deps)

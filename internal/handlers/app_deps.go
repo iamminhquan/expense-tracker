@@ -36,4 +36,8 @@ type Deps struct {
 	// BaseURL is used to build the absolute link a password-reset email
 	// points at; see internal/config.Config.BaseURL.
 	BaseURL string
+	// InboundDomain and InboundWebhookSecret configure the email ingestion
+	// path; see internal/config.Config for what an empty value means.
+	InboundDomain        string
+	InboundWebhookSecret string
 }

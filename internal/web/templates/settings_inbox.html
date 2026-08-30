@@ -1,0 +1,61 @@
+{{define "settings_inbox"}}
+{{if .InboxAvailable}}
+<div class="bg-surface border border-border-card rounded-xl p-[18px] flex flex-col gap-[15px]">
+  <div>
+    <p class="text-[14px] font-semibold text-ink">Email tracking</p>
+    <p class="text-[12px] text-ink-faint mt-[2px]">Forward your bank's balance-change email here and $pend records the transaction for you.</p>
+  </div>
+
+  {{if .InboxEnabled}}
+  <div class="flex flex-col gap-[6px]">
+    <label class="text-[12px] font-medium text-ink-muted">Your forwarding address</label>
+    <div class="flex items-center gap-2 flex-wrap">
+      <code data-copy-value="{{.InboxAddress}}" class="text-[13px] text-ink bg-track rounded-lg px-3 py-2 break-all">{{.InboxAddress}}</code>
+      <button type="button" data-copy-trigger class="h-8 px-3 rounded-lg border border-border-input text-[12px] font-semibold text-accent whitespace-nowrap">Copy</button>
+    </div>
+    <p class="text-[12px] text-ink-faint mt-[2px]">In Gmail: Settings, then Forwarding, add this address, then create a filter for your bank's sender that forwards to it.</p>
+  </div>
+
+  <div class="flex items-center gap-2 flex-wrap">
+    <form method="POST" action="/settings/inbox/enable">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit" class="h-8 px-3 rounded-lg border border-border-input text-[12px] font-semibold text-ink whitespace-nowrap">Generate a new address</button>
+    </form>
+    <form method="POST" action="/settings/inbox/disable">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit" class="h-8 px-3 rounded-lg border border-border-input text-[12px] font-semibold text-expense whitespace-nowrap">Turn off</button>
+    </form>
+  </div>
+
+  {{if .InboxRecent}}
+  <div class="flex flex-col gap-[10px] border-t border-border-list pt-[15px]">
+    <p class="text-[13px] font-semibold text-ink">Recent emails</p>
+    <ul class="flex flex-col gap-[10px]">
+      {{range $i, $email := .InboxRecent}}
+      <li class="flex flex-col {{if $i}}border-t border-border-list pt-[10px]{{end}}">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[13px] text-ink">{{.Subject}}</span>
+          <span class="text-[11px] font-semibold text-ink-faint uppercase whitespace-nowrap">{{.Status}}</span>
+        </div>
+        <span class="text-[12px] text-ink-faint mt-[2px]">{{.ReceivedAt}}{{if .Reason}} — {{.Reason}}{{end}}</span>
+      </li>
+      {{end}}
+    </ul>
+    {{if .InboxHasFailed}}
+    <form method="POST" action="/settings/inbox/retry">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <button type="submit" class="h-8 px-3 rounded-lg border border-border-input text-[12px] font-semibold text-accent whitespace-nowrap">Try these again</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{else}}
+  <form method="POST" action="/settings/inbox/enable">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <button type="submit" class="h-[38px] w-full rounded-lg bg-accent text-on-solid text-[13px] font-semibold">Turn on email tracking</button>
+  </form>
+  {{end}}
+</div>
+{{end}}
+{{end}}

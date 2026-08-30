@@ -44,6 +44,9 @@ var savedMessages = map[string]string{
 	"password":          "Password updated.",
 	"session-revoked":   "Signed out of that session.",
 	"sessions-revoked":  "Signed out of every other session.",
+	"inbox-enabled":     "Email tracking is on. Forward your bank email to the address below.",
+	"inbox-disabled":    "Email tracking is off. The old address no longer accepts mail.",
+	"inbox-retried":     "Those emails are set back to pending.",
 }
 
 // sessionView is what the settings template shows for one row of the
@@ -83,14 +86,24 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 		})
 	}
 
-	return map[string]any{
+	data := map[string]any{
 		"ProfileName":     user.Name,
 		"ProfileUsername": user.Username,
 		"ProfileEmail":    user.Email,
 		"PendingEmail":    user.PendingEmail.String,
 		"Sessions":        views,
 		"Saved":           savedMessages[r.URL.Query().Get("saved")],
-	}, nil
+	}
+
+	inboxData, err := inboxSettingsData(r, deps, userID, user.InboxToken)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range inboxData {
+		data[k] = v
+	}
+
+	return data, nil
 }
 
 // renderSettingsError re-renders the whole settings page with one form's
@@ -365,6 +378,17 @@ func deleteAccount(ctx context.Context, deps Deps, userID int64) error {
 
 	if err := qtx.DeleteTransactionsForUser(ctx, userID); err != nil {
 		return fmt.Errorf("delete transactions: %w", err)
+	}
+	// bank_emails.user_id already carries ON DELETE CASCADE from users, so
+	// this delete is not what stops a foreign-key error the way the ones
+	// around it are -- it is spelled out for the same reason the rest of
+	// this function is: leaving it to the cascade works today, but that
+	// fact is invisible here and one constraint change away from not being
+	// true. transactions.bank_email_id is ON DELETE SET NULL, not NO
+	// ACTION, so it never blocks this either way -- there is no ordering
+	// bug here to "fix" by moving this call again.
+	if err := qtx.DeleteBankEmailsForUser(ctx, userID); err != nil {
+		return fmt.Errorf("delete bank emails: %w", err)
 	}
 	if err := qtx.DeletePersonalCategoriesForUser(ctx, pgInt64(userID)); err != nil {
 		return fmt.Errorf("delete categories: %w", err)

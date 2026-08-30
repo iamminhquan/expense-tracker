@@ -32,6 +32,17 @@ type Config struct {
 	// rather than the app refusing to start.
 	BrevoAPIKey string
 	MailFrom    string
+	// InboundDomain is the domain forwarded bank email is received at
+	// (e.g. "in.example.site"). Empty means the feature is off: the
+	// settings card hides itself, because an inbox address cannot be built
+	// without it.
+	InboundDomain string
+	// InboundWebhookSecret is the HMAC secret the Cloudflare Email Worker
+	// signs its POST with. Empty rejects every webhook request rather than
+	// accepting every one -- there is nothing to authenticate a caller with.
+	// The same value must be set as the Worker's secret; see
+	// emailworker/wrangler.toml.
+	InboundWebhookSecret string
 }
 
 // Load reads the configuration from the environment. Everything but the
@@ -46,13 +57,15 @@ func Load() (Config, error) {
 	port := getEnv("PORT", "8080")
 
 	return Config{
-		DatabaseURL:       databaseURL,
-		Port:              port,
-		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "session_id"),
-		SecureCookies:     getEnvBool("SECURE_COOKIES", false),
-		BaseURL:           getEnv("APP_BASE_URL", "http://localhost:"+port),
-		BrevoAPIKey:       getEnv("BREVO_API_KEY", ""),
-		MailFrom:          getEnv("MAIL_FROM", ""),
+		DatabaseURL:          databaseURL,
+		Port:                 port,
+		SessionCookieName:    getEnv("SESSION_COOKIE_NAME", "session_id"),
+		SecureCookies:        getEnvBool("SECURE_COOKIES", false),
+		BaseURL:              getEnv("APP_BASE_URL", "http://localhost:"+port),
+		BrevoAPIKey:          getEnv("BREVO_API_KEY", ""),
+		MailFrom:             getEnv("MAIL_FROM", ""),
+		InboundDomain:        getEnv("INBOUND_DOMAIN", ""),
+		InboundWebhookSecret: getEnv("INBOUND_WEBHOOK_SECRET", ""),
 	}, nil
 }
 

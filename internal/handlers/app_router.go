@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csrf"
@@ -16,12 +17,20 @@ func NewRouter(deps Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(csrf.Middleware(deps.SecureCookies))
+	// The Worker webhook is the one route with no browser behind it, so it
+	// has no cookie to double-submit and csrf.Middleware would reject every
+	// email with 403. The exemption is expressed here, in the router, rather
+	// than inside internal/csrf, which has no business knowing route paths.
+	r.Use(csrfExcept(csrf.Middleware(deps.SecureCookies), isInboxWebhookRequest))
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
+	// Public: the caller is the Cloudflare Email Worker, not a browser
+	// carrying a session cookie.
+	r.Post("/inbox/{token}", inboxWebhookHandler(deps))
 
 	// Public: the login page needs the stylesheet and app.js before anyone
 	// is authenticated.
@@ -72,8 +81,48 @@ func NewRouter(deps Deps) http.Handler {
 		pr.Post("/settings/delete", deleteAccountHandler(deps))
 		pr.Post("/settings/sessions/revoke", revokeSessionHandler(deps))
 		pr.Post("/settings/sessions/revoke-others", revokeOtherSessionsHandler(deps))
+		pr.Post("/settings/inbox/enable", enableInboxHandler(deps))
+		pr.Post("/settings/inbox/disable", disableInboxHandler(deps))
+		pr.Post("/settings/inbox/retry", retryFailedEmailsHandler(deps))
 		pr.Put("/settings/theme", updateThemeHandler(deps))
 	})
 
 	return r
+}
+
+// csrfExcept applies mw to every request except those for which except
+// reports true.
+func csrfExcept(mw func(http.Handler) http.Handler, except func(*http.Request) bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		guarded := mw(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if except(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			guarded.ServeHTTP(w, r)
+		})
+	}
+}
+
+// isInboxWebhookRequest reports whether r is exactly POST /inbox/{token} --
+// the one route with no browser behind it, so it has no CSRF cookie to
+// double-submit.
+//
+// The match is deliberately narrow rather than a path-prefix test: method
+// POST, plus exactly one non-empty path segment after "/inbox/" with no
+// further "/". A future browser-facing page added under /inbox/ -- an inbox
+// log view, say -- would otherwise silently inherit this exemption merely by
+// sharing the prefix, with nothing at that new call site to prompt a second
+// look. Resist loosening this back to strings.HasPrefix.
+func isInboxWebhookRequest(r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return false
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/inbox/")
+	if rest == r.URL.Path {
+		// No "/inbox/" prefix at all.
+		return false
+	}
+	return rest != "" && !strings.Contains(rest, "/")
 }

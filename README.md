@@ -51,6 +51,12 @@ dashboard's category breakdown chart.
    "Forgot password?" still works end to end except the actual send, which
    is logged instead of delivered.
 
+   `INBOUND_DOMAIN` and `INBOUND_WEBHOOK_SECRET` configure the email
+   ingestion webhook (see `.env.example`); they enable users to forward
+   bank emails into the tracker. The Cloudflare Email Worker in `emailworker/`
+   is deployed separately by running `npx wrangler deploy` from inside that
+   directory and is not covered by a `git push`.
+
 2. Make sure the target Postgres database exists and is reachable at
    `DATABASE_URL`.
 

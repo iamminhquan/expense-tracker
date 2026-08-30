@@ -6,10 +6,6 @@
 # len; sua thu muc nay thi phai chay `npx wrangler deploy` tu trong
 # emailworker/, khong thi Cloudflare van chay ban cu va email im lang sai theo
 # kieu khong test nao bat duoc.
-#
-# Ban hien tai chi ghi log -- no ton tai de chung minh duong ong da thong.
-# Lat 1 thay bang ban that: ky HMAC bang INBOUND_WEBHOOK_SECRET roi POST sang
-# /inbox/{token}.
 name = "email-inbox"
 main = "src/index.js"
 compatibility_date = "2026-08-28"

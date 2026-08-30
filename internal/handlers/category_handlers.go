@@ -317,9 +317,10 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if count > 0 && category.Type == "income" {
-			// The 9 shared defaults have no income-side "Other" to reassign
-			// into, so an income category with existing transactions cannot
-			// be deleted at all -- only emptied first.
+			// An income-side "Other" default now exists (after migration 000014),
+			// but GetDefaultCategoryForReassignment is hardcoded to the
+			// expense-side `other` slug, so deleting an income category with
+			// existing transactions is still refused rather than reassigned.
 			http.Error(w, "category has existing transactions", http.StatusConflict)
 			return
 		}

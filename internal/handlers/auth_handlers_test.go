@@ -2,10 +2,12 @@ package handlers_test
 
 import (
 	"context"
+	"hash/fnv"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -50,6 +52,41 @@ func newTestDeps(t *testing.T) handlers.Deps {
 		SecureCookies:      false,
 		BaseURL:            "http://localhost:8080",
 	}
+}
+
+// registerTestUser registers a fresh account, named deterministically after
+// the running test so parallel tests never collide on the unique email or
+// username, and returns its database id. Inbox tests need the id to look up
+// bank_emails rows by user, which the register response (a redirect header
+// and a session cookie) doesn't carry.
+func registerTestUser(t *testing.T, router http.Handler, deps handlers.Deps) int64 {
+	t.Helper()
+	h := fnv.New32a()
+	h.Write([]byte(t.Name()))
+	username := "inbox" + strconv.FormatUint(uint64(h.Sum32()), 36)
+	email := username + "@example.com"
+	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+
+	tok := csrfTokenFor(t, router)
+	form := url.Values{
+		"name": {"Inbox Test"}, "email": {email}, "username": {username},
+		"password": {"s3cret-pass"}, "password_confirm": {"s3cret-pass"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	withCSRF(req, tok)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("register %s: expected 200, got %d: %s", email, rec.Code, rec.Body.String())
+	}
+
+	user, err := deps.Queries.GetUserByEmail(context.Background(), email)
+	if err != nil {
+		t.Fatalf("GetUserByEmail(%q) error = %v", email, err)
+	}
+	return user.ID
 }
 
 // csrfTokenFor issues a GET request to obtain a fresh csrf_token cookie.

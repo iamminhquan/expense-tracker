@@ -311,3 +311,41 @@ function updateFilterBadge(evt) {
     }
   });
 })();
+
+// The inbox card's "Copy" button (settings_inbox.html): copies the
+// forwarding address next to it. The address is a 52-character random
+// token the owner has to retype by hand into Gmail's forwarding settings --
+// one mistyped character means mail silently never arrives anywhere the
+// owner can see, so this exists to remove that transcription step rather
+// than as a convenience.
+document.addEventListener('click', function (evt) {
+  var trigger = evt.target.closest && evt.target.closest('[data-copy-trigger]');
+  if (!trigger) return;
+  var source = trigger.parentElement && trigger.parentElement.querySelector('[data-copy-value]');
+  if (!source) return;
+
+  var selectSourceText = function () {
+    if (!window.getSelection || !document.createRange) return;
+    var range = document.createRange();
+    range.selectNodeContents(source);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  var label = trigger.textContent;
+  var confirmCopied = function () {
+    trigger.textContent = 'Copied';
+    setTimeout(function () { trigger.textContent = label; }, 1500);
+  };
+
+  // navigator.clipboard is missing outright in a non-secure context, and its
+  // write can still reject (permission denied, etc.) even when present --
+  // either way the fallback is the same: select the address so the owner can
+  // still copy it themselves instead of the button doing nothing unexplained.
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    selectSourceText();
+    return;
+  }
+  navigator.clipboard.writeText(source.getAttribute('data-copy-value')).then(confirmCopied, selectSourceText);
+});

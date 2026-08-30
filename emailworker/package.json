@@ -1,11 +1,16 @@
 {
   "name": "email-inbox",
   "private": true,
+  "type": "module",
   "scripts": {
     "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "test": "node --test test/*.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.127.1"
+  },
+  "dependencies": {
+    "postal-mime": "3.0.0"
   }
 }

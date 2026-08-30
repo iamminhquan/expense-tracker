@@ -126,7 +126,7 @@ func (q *Queries) CountTransactionsForMonth(ctx context.Context, arg CountTransa
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO transactions (user_id, category_id, amount, type, description, occurred_on)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at
+RETURNING id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at, source, bank_email_id
 `
 
 type CreateTransactionParams struct {
@@ -158,6 +158,8 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.OccurredOn,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Source,
+		&i.BankEmailID,
 	)
 	return i, err
 }
@@ -192,7 +194,7 @@ func (q *Queries) DeleteTransactionsForUser(ctx context.Context, userID int64) e
 }
 
 const getTransaction = `-- name: GetTransaction :one
-SELECT id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at FROM transactions WHERE id = $1 AND user_id = $2
+SELECT id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at, source, bank_email_id FROM transactions WHERE id = $1 AND user_id = $2
 `
 
 type GetTransactionParams struct {
@@ -213,12 +215,14 @@ func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) 
 		&i.OccurredOn,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Source,
+		&i.BankEmailID,
 	)
 	return i, err
 }
 
 const getTransactionWithCategory = `-- name: GetTransactionWithCategory :one
-SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
+SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, t.source, t.bank_email_id, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.id = $1 AND t.user_id = $2
@@ -239,6 +243,8 @@ type GetTransactionWithCategoryRow struct {
 	OccurredOn    pgtype.Date        `json:"occurred_on"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Source        string             `json:"source"`
+	BankEmailID   pgtype.Int8        `json:"bank_email_id"`
 	CategorySlug  pgtype.Text        `json:"category_slug"`
 	CategoryName  string             `json:"category_name"`
 	CategoryColor string             `json:"category_color"`
@@ -257,6 +263,8 @@ func (q *Queries) GetTransactionWithCategory(ctx context.Context, arg GetTransac
 		&i.OccurredOn,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Source,
+		&i.BankEmailID,
 		&i.CategorySlug,
 		&i.CategoryName,
 		&i.CategoryColor,
@@ -292,7 +300,7 @@ func (q *Queries) ListDistinctTransactionMonths(ctx context.Context, userID int6
 }
 
 const listTransactionsForMonth = `-- name: ListTransactionsForMonth :many
-SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
+SELECT t.id, t.user_id, t.category_id, t.amount, t.type, t.description, t.occurred_on, t.created_at, t.updated_at, t.source, t.bank_email_id, c.slug AS category_slug, c.name AS category_name, c.color AS category_color
 FROM transactions t
 JOIN categories c ON c.id = t.category_id
 WHERE t.user_id = $1 AND t.occurred_on >= $2 AND t.occurred_on < $3
@@ -336,6 +344,8 @@ type ListTransactionsForMonthRow struct {
 	OccurredOn    pgtype.Date        `json:"occurred_on"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Source        string             `json:"source"`
+	BankEmailID   pgtype.Int8        `json:"bank_email_id"`
 	CategorySlug  pgtype.Text        `json:"category_slug"`
 	CategoryName  string             `json:"category_name"`
 	CategoryColor string             `json:"category_color"`
@@ -416,6 +426,8 @@ func (q *Queries) ListTransactionsForMonth(ctx context.Context, arg ListTransact
 			&i.OccurredOn,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Source,
+			&i.BankEmailID,
 			&i.CategorySlug,
 			&i.CategoryName,
 			&i.CategoryColor,
@@ -540,7 +552,7 @@ const updateTransaction = `-- name: UpdateTransaction :one
 UPDATE transactions
 SET category_id = $3, amount = $4, type = $5, description = $6, occurred_on = $7, updated_at = now()
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at
+RETURNING id, user_id, category_id, amount, type, description, occurred_on, created_at, updated_at, source, bank_email_id
 `
 
 type UpdateTransactionParams struct {
@@ -574,6 +586,8 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		&i.OccurredOn,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Source,
+		&i.BankEmailID,
 	)
 	return i, err
 }
