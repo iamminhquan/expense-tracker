@@ -70,3 +70,10 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
+      # Set by hand in the Render dashboard alongside the Cloudflare Worker's
+      # own secret -- the two must be the same string or every email is
+      # rejected with 403.
+      - key: INBOUND_WEBHOOK_SECRET
+        sync: false
+      - key: INBOUND_DOMAIN
+        sync: false

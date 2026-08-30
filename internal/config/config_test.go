@@ -60,3 +60,34 @@ func TestLoadKeepsTheNonSecretDefaults(t *testing.T) {
 		t.Error("SecureCookies = true, want false by default")
 	}
 }
+
+func TestLoadReadsInboundSettings(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("INBOUND_DOMAIN", "in.example.site")
+	t.Setenv("INBOUND_WEBHOOK_SECRET", "shh")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+	if cfg.InboundDomain != "in.example.site" {
+		t.Errorf("InboundDomain = %q, want %q", cfg.InboundDomain, "in.example.site")
+	}
+	if cfg.InboundWebhookSecret != "shh" {
+		t.Errorf("InboundWebhookSecret = %q, want %q", cfg.InboundWebhookSecret, "shh")
+	}
+}
+
+func TestLoadLeavesInboundSettingsEmptyWhenUnset(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("INBOUND_DOMAIN", "")
+	t.Setenv("INBOUND_WEBHOOK_SECRET", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+	if cfg.InboundDomain != "" || cfg.InboundWebhookSecret != "" {
+		t.Errorf("inbound settings = %q/%q, want both empty", cfg.InboundDomain, cfg.InboundWebhookSecret)
+	}
+}
