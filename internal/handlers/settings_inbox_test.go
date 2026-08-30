@@ -50,7 +50,7 @@ func markFailedBankEmail(t *testing.T, deps handlers.Deps, userID int64) {
 	_, err := deps.Queries.CreateBankEmail(context.Background(), sqlcgen.CreateBankEmailParams{
 		UserID:        userID,
 		MessageID:     "<" + t.Name() + "-failed@mail>",
-		FromAddress:   "no-reply@mb.com.vn",
+		FromAddress:   "no-reply@mbbank.com.vn",
 		Subject:       "Bien dong so du",
 		Body:          "could not be parsed",
 		Status:        "failed",
@@ -69,7 +69,7 @@ func markPendingBankEmail(t *testing.T, deps handlers.Deps, userID int64, subjec
 	_, err := deps.Queries.CreateBankEmail(context.Background(), sqlcgen.CreateBankEmailParams{
 		UserID:      userID,
 		MessageID:   "<" + t.Name() + "-pending@mail>",
-		FromAddress: "no-reply@mb.com.vn",
+		FromAddress: "no-reply@mbbank.com.vn",
 		Subject:     subject,
 		Body:        "-50,000 VND",
 		Status:      "pending",

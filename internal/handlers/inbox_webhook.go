@@ -19,7 +19,14 @@ import (
 // without it, anyone who learns a forwarding address could post invented
 // email and put invented transactions straight into someone's books.
 var bankSenders = []string{
-	"@mb.com.vn",
+	// Confirmed against a real notice: MB sends from mbebanking@mbbank.com.vn.
+	// The first guess here was @mb.com.vn, which matched nothing -- a real
+	// transfer was what settled it, which is why ingestion shipped before the
+	// parser.
+	"@mbbank.com.vn",
+	// Still guesses. No TPBank notice has arrived yet, so whichever of these
+	// is wrong will show up the same way MB's did: the message lands with
+	// status 'ignored' and its real from_address readable in bank_emails.
 	"@tpb.com.vn",
 	"@tpbank.com.vn",
 }
