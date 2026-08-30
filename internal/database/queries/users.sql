@@ -61,3 +61,13 @@ UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1;
 -- just asked to be rid of.
 -- name: DeleteUser :exec
 DELETE FROM users WHERE id = $1;
+
+-- SetInboxToken bật hoặc tắt địa chỉ nhận email của tài khoản. NULL = tắt, và
+-- tắt rồi bật lại sinh token khác, nên đây cũng là đường thu hồi.
+-- name: SetInboxToken :exec
+UPDATE users SET inbox_token = $2 WHERE id = $1;
+
+-- GetUserByInboxToken là lớp xác thực thứ nhất của webhook: token trong địa chỉ
+-- phải map ra đúng một tài khoản.
+-- name: GetUserByInboxToken :one
+SELECT * FROM users WHERE inbox_token = $1;

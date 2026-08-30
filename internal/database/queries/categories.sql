@@ -45,7 +45,7 @@ WHERE c.id = $1 AND (c.user_id = $2 OR c.user_id IS NULL)
 GROUP BY c.id;
 
 -- DeletePersonalCategoriesForUser removes only the categories an account
--- created for itself. The 9 shared defaults carry a NULL user_id and belong
+-- created for itself. The 10 shared defaults carry a NULL user_id and belong
 -- to no one, so this predicate can never reach them.
 -- name: DeletePersonalCategoriesForUser :exec
 DELETE FROM categories WHERE user_id = $1;

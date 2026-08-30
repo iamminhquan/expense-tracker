@@ -45,7 +45,7 @@ func (q *Queries) ClearFailedLogins(ctx context.Context, id int64) error {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, name, username)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email
+RETURNING id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email, inbox_token
 `
 
 type CreateUserParams struct {
@@ -75,6 +75,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.LockedUntil,
 		&i.EmailVerified,
 		&i.PendingEmail,
+		&i.InboxToken,
 	)
 	return i, err
 }
@@ -94,7 +95,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email FROM users WHERE email = $1
+SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email, inbox_token FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -112,12 +113,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.LockedUntil,
 		&i.EmailVerified,
 		&i.PendingEmail,
+		&i.InboxToken,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email FROM users WHERE id = $1
+SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email, inbox_token FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -135,6 +137,33 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.LockedUntil,
 		&i.EmailVerified,
 		&i.PendingEmail,
+		&i.InboxToken,
+	)
+	return i, err
+}
+
+const getUserByInboxToken = `-- name: GetUserByInboxToken :one
+SELECT id, email, password_hash, name, created_at, theme, username, failed_login_attempts, locked_until, email_verified, pending_email, inbox_token FROM users WHERE inbox_token = $1
+`
+
+// GetUserByInboxToken là lớp xác thực thứ nhất của webhook: token trong địa chỉ
+// phải map ra đúng một tài khoản.
+func (q *Queries) GetUserByInboxToken(ctx context.Context, inboxToken pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByInboxToken, inboxToken)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Name,
+		&i.CreatedAt,
+		&i.Theme,
+		&i.Username,
+		&i.FailedLoginAttempts,
+		&i.LockedUntil,
+		&i.EmailVerified,
+		&i.PendingEmail,
+		&i.InboxToken,
 	)
 	return i, err
 }
@@ -171,6 +200,22 @@ func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginPa
 	var i RecordFailedLoginRow
 	err := row.Scan(&i.FailedLoginAttempts, &i.LockedUntil)
 	return i, err
+}
+
+const setInboxToken = `-- name: SetInboxToken :exec
+UPDATE users SET inbox_token = $2 WHERE id = $1
+`
+
+type SetInboxTokenParams struct {
+	ID         int64       `json:"id"`
+	InboxToken pgtype.Text `json:"inbox_token"`
+}
+
+// SetInboxToken bật hoặc tắt địa chỉ nhận email của tài khoản. NULL = tắt, và
+// tắt rồi bật lại sinh token khác, nên đây cũng là đường thu hồi.
+func (q *Queries) SetInboxToken(ctx context.Context, arg SetInboxTokenParams) error {
+	_, err := q.db.Exec(ctx, setInboxToken, arg.ID, arg.InboxToken)
+	return err
 }
 
 const setPendingEmail = `-- name: SetPendingEmail :exec

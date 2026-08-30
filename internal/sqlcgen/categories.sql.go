@@ -66,7 +66,7 @@ DELETE FROM categories WHERE user_id = $1
 `
 
 // DeletePersonalCategoriesForUser removes only the categories an account
-// created for itself. The 9 shared defaults carry a NULL user_id and belong
+// created for itself. The 10 shared defaults carry a NULL user_id and belong
 // to no one, so this predicate can never reach them.
 func (q *Queries) DeletePersonalCategoriesForUser(ctx context.Context, userID pgtype.Int8) error {
 	_, err := q.db.Exec(ctx, deletePersonalCategoriesForUser, userID)

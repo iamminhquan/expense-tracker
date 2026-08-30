@@ -104,9 +104,11 @@ func TestMigrationsApplyCleanly(t *testing.T) {
 	}
 	// A from-scratch migrate-up has no transactions referencing the legacy
 	// "Thu nhập khác" default, so 000006's conditional DELETE removes it,
-	// leaving exactly the 9 shared defaults 000006 seeds.
-	if count != 9 {
-		t.Fatalf("expected 9 default categories, got %d", count)
+	// leaving the 9 shared defaults 000006 seeds. 000014 then adds a 10th,
+	// "Other income" (slug other_income), unconditionally on a fresh
+	// install since nothing with that slug exists yet.
+	if count != 10 {
+		t.Fatalf("expected 10 default categories, got %d", count)
 	}
 
 	var thuNhapKhacCount int
