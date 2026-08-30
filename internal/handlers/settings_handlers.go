@@ -390,6 +390,16 @@ func deleteAccount(ctx context.Context, deps Deps, userID int64) error {
 	if err := qtx.DeleteBankEmailsForUser(ctx, userID); err != nil {
 		return fmt.Errorf("delete bank emails: %w", err)
 	}
+	// category_hints.user_id also already carries ON DELETE CASCADE from
+	// users, and a hint pointing at one of the personal categories the next
+	// call removes would cascade away from category_id too -- same reasoning
+	// as the bank_emails delete just above: spelled out on purpose rather
+	// than left to either cascade, which is invisible here and one
+	// constraint change away from not being true. Ahead of the categories
+	// delete rather than after, so nothing here depends on cascade order.
+	if err := qtx.DeleteCategoryHintsForUser(ctx, userID); err != nil {
+		return fmt.Errorf("delete category hints: %w", err)
+	}
 	if err := qtx.DeletePersonalCategoriesForUser(ctx, pgInt64(userID)); err != nil {
 		return fmt.Errorf("delete categories: %w", err)
 	}
