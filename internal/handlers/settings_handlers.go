@@ -44,6 +44,9 @@ var savedMessages = map[string]string{
 	"password":          "Password updated.",
 	"session-revoked":   "Signed out of that session.",
 	"sessions-revoked":  "Signed out of every other session.",
+	"inbox-enabled":     "Email tracking is on. Forward your bank email to the address below.",
+	"inbox-disabled":    "Email tracking is off. The old address no longer accepts mail.",
+	"inbox-retried":     "Those emails are set back to pending.",
 }
 
 // sessionView is what the settings template shows for one row of the
@@ -83,14 +86,24 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 		})
 	}
 
-	return map[string]any{
+	data := map[string]any{
 		"ProfileName":     user.Name,
 		"ProfileUsername": user.Username,
 		"ProfileEmail":    user.Email,
 		"PendingEmail":    user.PendingEmail.String,
 		"Sessions":        views,
 		"Saved":           savedMessages[r.URL.Query().Get("saved")],
-	}, nil
+	}
+
+	inboxData, err := inboxSettingsData(r, deps, userID, user.InboxToken)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range inboxData {
+		data[k] = v
+	}
+
+	return data, nil
 }
 
 // renderSettingsError re-renders the whole settings page with one form's

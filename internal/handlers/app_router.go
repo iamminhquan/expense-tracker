@@ -81,6 +81,9 @@ func NewRouter(deps Deps) http.Handler {
 		pr.Post("/settings/delete", deleteAccountHandler(deps))
 		pr.Post("/settings/sessions/revoke", revokeSessionHandler(deps))
 		pr.Post("/settings/sessions/revoke-others", revokeOtherSessionsHandler(deps))
+		pr.Post("/settings/inbox/enable", enableInboxHandler(deps))
+		pr.Post("/settings/inbox/disable", disableInboxHandler(deps))
+		pr.Post("/settings/inbox/retry", retryFailedEmailsHandler(deps))
 		pr.Put("/settings/theme", updateThemeHandler(deps))
 	})
 
