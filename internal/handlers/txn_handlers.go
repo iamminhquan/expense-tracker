@@ -28,18 +28,59 @@ func categoriesOfType(categories []sqlcgen.Category, typ string) []sqlcgen.Categ
 }
 
 // txnRow is one row of the list as the template sees it: the query's own row
-// plus the one thing that depends on the view rather than on the transaction
-// -- whether the date has to name its year. transactions.html hands each row
-// to the row template on its own, so a page-level flag would not be visible
-// from inside it; embedding leaves every existing field reference working and
-// adds the one that was missing.
+// plus the things that depend on the view rather than on the transaction --
+// whether the date has to name its year, and whether another row on this
+// same page looks like the same transaction. transactions.html hands each
+// row to the row template on its own, so a page-level flag would not be
+// visible from inside it; embedding leaves every existing field reference
+// working and adds the ones that were missing.
 type txnRow struct {
 	sqlcgen.ListTransactionsForMonthRow
-	showYear bool
+	showYear  bool
+	duplicate bool
 }
 
 // Date is what the row prints in its date column.
 func (r txnRow) Date() string { return rowDate(r.OccurredOn, r.showYear) }
+
+// IsDuplicate reports whether another row on this same rendered page shares
+// this row's date, amount and type -- see markDuplicates for why it is set
+// once while the page's rows are built rather than computed here from a
+// query. The single-row fragments handleCreateTransaction, updateTransaction
+// and viewTransactionRowHandler build (a create, an edit, a cancelled edit)
+// have no sibling rows to compare against, so their "transaction_row" data
+// never carries this at all; the template's missing-key lookup then reads as
+// false, which is the right answer for a row rendered in isolation.
+func (r txnRow) IsDuplicate() bool { return r.duplicate }
+
+// markDuplicates flags every row that shares its date, amount and type with
+// another row in the same slice -- the case this exists for is someone
+// typing a transaction by hand and the bank email creating it again. It only
+// ever compares the rows it is handed, which are deliberately just the ones
+// already loaded for one rendered page: reaching further would mean a second
+// query for a hint the owner still has to judge for themselves, so two
+// duplicates split across different pages go unmarked. That is the accepted
+// trade, not a bug -- see Task 5 of the bank-email-slice-2 plan.
+func markDuplicates(rows []txnRow) {
+	type key struct {
+		date   string
+		amount int64
+		typ    string
+	}
+	byKey := make(map[key][]int, len(rows))
+	for i, r := range rows {
+		k := key{date: r.OccurredOn.Time.Format("2006-01-02"), amount: r.Amount, typ: r.Type}
+		byKey[k] = append(byKey[k], i)
+	}
+	for _, idxs := range byKey {
+		if len(idxs) < 2 {
+			continue
+		}
+		for _, i := range idxs {
+			rows[i].duplicate = true
+		}
+	}
+}
 
 // rowDate is the single rule for that column, kept out of the template
 // because which format applies is the view's business, not the markup's.
@@ -164,6 +205,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 	for i, t := range transactions {
 		rows[i] = txnRow{ListTransactionsForMonthRow: t, showYear: scope.All}
 	}
+	markDuplicates(rows)
 
 	months, err := deps.Queries.ListDistinctTransactionMonths(r.Context(), userID)
 	if err != nil {
@@ -340,7 +382,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		"Row": map[string]any{
 			"ID": created.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 			"Description": created.Description, "OccurredOn": created.OccurredOn,
-			"Amount": created.Amount, "Type": created.Type,
+			"Amount": created.Amount, "Type": created.Type, "Source": created.Source,
 			"Date": rowDate(created.OccurredOn, scopeFromRequest(r).All),
 		},
 		"Totals": totals,
@@ -440,7 +482,8 @@ func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 		renderNamed(w, r, deps, "transactions", "transaction_row", "", map[string]any{
 			"ID": txn.ID, "CategorySlug": txn.CategorySlug, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
 			"Description": txn.Description, "OccurredOn": txn.OccurredOn, "Amount": txn.Amount, "Type": txn.Type,
-			"Date": rowDate(txn.OccurredOn, scopeFromRequest(r).All),
+			"Source": txn.Source,
+			"Date":   rowDate(txn.OccurredOn, scopeFromRequest(r).All),
 		})
 	}
 }
@@ -538,7 +581,11 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			"Row": map[string]any{
 				"ID": updated.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
 				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
-				"Amount": updated.Amount, "Type": updated.Type,
+				// Source rides through unchanged from the row UpdateTransaction
+				// returns -- editing a category or amount does not turn an
+				// email-sourced row into a manual one, so its "auto" label must
+				// survive the swap.
+				"Amount": updated.Amount, "Type": updated.Type, "Source": updated.Source,
 				"Date": rowDate(updated.OccurredOn, scopeFromRequest(r).All),
 			},
 			"Totals": totals,

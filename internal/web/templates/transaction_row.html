@@ -6,10 +6,26 @@
     <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.CategoryColor}}"></span>
     <span class="truncate">{{catName .CategorySlug .CategoryName}}</span>
   </span>
-  <span class="flex-1 min-w-0 hidden md:block text-[13px] text-ink-faint truncate">{{.Description}}</span>
+  {{/* auto: source='email' means the bank-email worker created this row, not
+       the owner -- see internal/bankmail. possible duplicate: another row on
+       this same rendered page shares this one's date, amount and type, which
+       is the case where a hand-typed entry and its later bank-email copy
+       both landed in the list. Both badges get shrink-0 so a long
+       description truncates around them instead of squeezing them away. */}}
+  <span class="flex-1 min-w-0 hidden md:flex items-center gap-1.5 text-[13px] text-ink-faint">
+    <span class="truncate">{{.Description}}</span>
+    {{if eq .Source "email"}}<span class="shrink-0 px-1.5 py-[1px] rounded text-[10px] font-semibold uppercase tracking-wide bg-track text-ink-faint">auto</span>{{end}}
+    {{if .IsDuplicate}}<span class="shrink-0 px-1.5 py-[1px] rounded text-[10px] font-semibold uppercase tracking-wide bg-danger-bg text-expense border border-danger-border">possible duplicate</span>{{end}}
+  </span>
   <span data-longpress-target="mobile-actions-{{.ID}}" class="flex-1 min-w-0 md:hidden flex flex-col">
-    <span class="text-[14px] font-medium text-ink truncate">{{catName .CategorySlug .CategoryName}}</span>
-    <span class="text-[12px] text-ink-faintest truncate">{{.Date}}{{if .Description}} · {{.Description}}{{end}}</span>
+    <span class="flex items-center gap-1.5 min-w-0">
+      <span class="text-[14px] font-medium text-ink truncate">{{catName .CategorySlug .CategoryName}}</span>
+      {{if eq .Source "email"}}<span class="shrink-0 px-1.5 py-[1px] rounded text-[10px] font-semibold uppercase tracking-wide bg-track text-ink-faint">auto</span>{{end}}
+    </span>
+    <span class="flex items-center gap-1.5 min-w-0">
+      <span class="text-[12px] text-ink-faintest truncate">{{.Date}}{{if .Description}} · {{.Description}}{{end}}</span>
+      {{if .IsDuplicate}}<span class="shrink-0 px-1.5 py-[1px] rounded text-[10px] font-semibold uppercase tracking-wide bg-danger-bg text-expense border border-danger-border">possible duplicate</span>{{end}}
+    </span>
   </span>
   <span class="hidden md:flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
     <button type="button" hx-get="/transactions/{{.ID}}/edit" hx-target="#transaction-row-{{.ID}}" hx-swap="outerHTML" class="text-[12px] text-ink-faint border border-border-card rounded-md px-[7px] py-[3px]">Edit</button>
