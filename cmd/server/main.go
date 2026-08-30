@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/classify"
 	"expensetracker/internal/config"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
@@ -102,6 +103,10 @@ func main() {
 		Mailer: mailer.New(mailer.Config{
 			APIKey: cfg.BrevoAPIKey,
 			From:   cfg.MailFrom,
+		}),
+		Classifier: classify.New(classify.Config{
+			APIKey: cfg.AnthropicAPIKey,
+			Model:  cfg.AnthropicModel,
 		}),
 		Templates:            templates,
 		CookieName:           cfg.SessionCookieName,
