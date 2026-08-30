@@ -222,6 +222,46 @@ func sharedDefaultCategory(t *testing.T, deps handlers.Deps, userID int64) sqlcg
 	return sqlcgen.Category{}
 }
 
+// TestDeleteAccountRemovesStoredBankEmails guards that a deleted account's
+// bank_emails rows are gone too, one hop further out than the categories and
+// sessions covered above. Ordering is not what makes this safe:
+// transactions.bank_email_id is ON DELETE SET NULL, so nothing blocks the
+// account delete either way -- this just confirms the rows are actually
+// removed rather than left behind as orphans.
+func TestDeleteAccountRemovesStoredBankEmails(t *testing.T) {
+	deps := newTestDeps(t)
+	deps.InboundWebhookSecret = "s3cret"
+	router := handlers.NewRouter(deps)
+	ctx := context.Background()
+	email := "delete-bank-email@example.com"
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	user, err := deps.Queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	token := enableInbox(t, deps, user.ID)
+	body := inboxPayload("no-reply@mb.com.vn", token+"@in.example.site", "s", "<del@mail>", "x")
+	if rec := postInbox(t, router, "s3cret", token, body); rec.Code != http.StatusOK {
+		t.Fatalf("seed email: POST /inbox = %d, want 200", rec.Code)
+	}
+
+	rec := postSettings(t, router, cookie, "/settings/delete", url.Values{
+		"current_password": {"s3cret-pass"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST /settings/delete = %d, want %d: %s", rec.Code, http.StatusSeeOther, rec.Body.String())
+	}
+
+	n, err := deps.Queries.CountBankEmailsForUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("CountBankEmailsForUser() error = %v", err)
+	}
+	if n != 0 {
+		t.Errorf("bank_emails after account delete = %d, want 0", n)
+	}
+}
+
 // TestDeletedEmailCanRegisterAgainAsAFreshAccount is the deliberate answer to
 // "should the address be reserved". It is not: $pend shares no data between
 // accounts, so the new one starts empty, and holding the address back would
