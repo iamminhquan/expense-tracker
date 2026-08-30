@@ -12,3 +12,10 @@ compatibility_date = "2026-08-28"
 
 # Worker nay chi chay qua email handler, khong can route HTTP cong khai.
 workers_dev = false
+
+# URL cua app tren Render. Khong phai bi mat -- de o day de cau hinh Worker
+# luon khop voi thu dang chay, thay vi nam roi trong dashboard. Secret
+# INBOUND_WEBHOOK_SECRET thi nguoc lai: dat bang `wrangler secret put`,
+# khong bao gio vao repo.
+[vars]
+APP_BASE_URL = "https://expense-tracker-qorv.onrender.com"
