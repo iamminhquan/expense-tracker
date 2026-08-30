@@ -14,7 +14,7 @@ import (
 const claimPendingBankEmail = `-- name: ClaimPendingBankEmail :one
 UPDATE bank_emails SET status = 'processing'
 WHERE id = $1 AND status = 'pending'
-RETURNING id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at
+RETURNING id, user_id, message_id, from_address, subject, body, received_at, occurred_at, status, failure_reason, processed_at, raw_body
 `
 
 // ClaimPendingBankEmail giành một email pending cho đúng một goroutine: chỉ
@@ -37,6 +37,7 @@ func (q *Queries) ClaimPendingBankEmail(ctx context.Context, id int64) (BankEmai
 		&i.Status,
 		&i.FailureReason,
 		&i.ProcessedAt,
+		&i.RawBody,
 	)
 	return i, err
 }

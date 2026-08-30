@@ -33,6 +33,14 @@ type Category struct {
 	Slug      pgtype.Text        `json:"slug"`
 }
 
+type CategoryHint struct {
+	ID         int64              `json:"id"`
+	UserID     int64              `json:"user_id"`
+	NoteKey    string             `json:"note_key"`
+	CategoryID int64              `json:"category_id"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type EmailVerificationToken struct {
 	Token     string             `json:"token"`
 	UserID    int64              `json:"user_id"`
