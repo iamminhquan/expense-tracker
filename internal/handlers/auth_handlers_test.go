@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/classify"
 	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
@@ -47,6 +48,7 @@ func newTestDeps(t *testing.T) handlers.Deps {
 		PasswordResets:     auth.NewPasswordResetManager(sqlcgen.New(pool)),
 		EmailVerifications: auth.NewEmailVerificationManager(sqlcgen.New(pool)),
 		Mailer:             mailer.New(mailer.Config{}),
+		Classifier:         classify.New(classify.Config{}),
 		Templates:          templates,
 		CookieName:         "session_id",
 		SecureCookies:      false,

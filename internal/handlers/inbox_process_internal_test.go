@@ -10,10 +10,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/bankmail"
+	"expensetracker/internal/classify"
 	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
 	"expensetracker/internal/mailer"
@@ -53,6 +55,7 @@ func processTestDeps(t *testing.T) Deps {
 		PasswordResets:     auth.NewPasswordResetManager(sqlcgen.New(pool)),
 		EmailVerifications: auth.NewEmailVerificationManager(sqlcgen.New(pool)),
 		Mailer:             mailer.New(mailer.Config{}),
+		Classifier:         classify.New(classify.Config{}),
 		Templates:          templates,
 		CookieName:         "session_id",
 	}
@@ -62,12 +65,26 @@ func processTestDeps(t *testing.T) Deps {
 // Queries.CreateUser rather than the /register handler: this suite never
 // drives a request, it calls processPendingEmails straight, so all it needs
 // is a row to hang bank_emails and transactions off of. Named deterministically
-// after the running test so parallel tests never collide on the unique
-// email/username, mirroring registerTestUser in auth_handlers_test.go.
-func createProcessTestUser(t *testing.T, deps Deps) int64 {
+// after the running test (hashing t.Name()) so parallel tests never collide
+// on the unique email/username, mirroring registerTestUser in
+// auth_handlers_test.go.
+//
+// suffix is optional and exists only for a test that needs two distinct
+// accounts of its own, such as classify falling back on an id belonging to
+// someone else's category: t.Name() alone is the same string on every call
+// within one test, and each call opens by deleting any row already at the
+// email it computes, so a second plain call would delete the first user's
+// row out from under it (a real bug this suite hit once). Passing a second
+// call site's own suffix -- e.g. "-other" -- folds a second value into the
+// hash so the two calls land on different emails and neither is at risk of
+// deleting the other's row.
+func createProcessTestUser(t *testing.T, deps Deps, suffix ...string) int64 {
 	t.Helper()
 	h := fnv.New32a()
 	h.Write([]byte(t.Name()))
+	for _, s := range suffix {
+		h.Write([]byte(s))
+	}
 	username := "inboxproc" + strconv.FormatUint(uint64(h.Sum32()), 36)
 	email := username + "@example.com"
 	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
@@ -637,5 +654,267 @@ func TestProcessPendingEmailsSurvivesACategoryHintLookupError(t *testing.T) {
 	status, _ := bankEmailStatus(t, deps, email.ID)
 	if status != "imported" {
 		t.Errorf("bank email status after a category_hints lookup error = %q, want %q (not 'failed')", status, "imported")
+	}
+}
+
+// classifyAnswerJSON builds a fake /v1/messages response whose only text
+// block is the structured-output JSON {"category_id": id} -- the shape
+// classify.Classifier expects back, real or faked.
+func classifyAnswerJSON(id int64) string {
+	return fmt.Sprintf(`{
+		"id": "msg_test",
+		"type": "message",
+		"role": "assistant",
+		"model": "claude-opus-5",
+		"stop_reason": "end_turn",
+		"stop_sequence": null,
+		"usage": {"input_tokens": 10, "output_tokens": 5},
+		"content": [{"type": "text", "text": %q}]
+	}`, fmt.Sprintf(`{"category_id":%d}`, id))
+}
+
+// fakeClassifyServer stands in for the Anthropic API: every request
+// increments the returned counter and gets handler's response. deps'
+// Classifier must be pointed at it (via classify.NewWithEndpoint) by the
+// caller -- this alone does not wire anything into a Deps.
+func fakeClassifyServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *int32) {
+	t.Helper()
+	var requests int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&requests, 1)
+		handler(w, r)
+	}))
+	t.Cleanup(server.Close)
+	return server, &requests
+}
+
+// fakeClassifyAnswering always answers with categoryID.
+func fakeClassifyAnswering(categoryID int64) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, classifyAnswerJSON(categoryID))
+	}
+}
+
+// fakeClassifyFailingWith always answers with the given non-2xx status.
+func fakeClassifyFailingWith(status int) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		fmt.Fprint(w, `{"type":"error","error":{"type":"api_error","message":"boom"}}`)
+	}
+}
+
+// TestProcessPendingEmailsUsesTheClassifierWhenHintMisses is the slice 4
+// straight-line path: no category_hints row exists yet, so the miss branch
+// of resolveCategoryForNotice calls out to classify.Classifier, and the
+// category it answers with -- not Other -- is what the transaction and the
+// newly written hint both land on.
+func TestProcessPendingEmailsUsesTheClassifierWhenHintMisses(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+	picked := processTestCategory(t, deps, userID, "AI Picked Category", "expense")
+
+	server, requests := fakeClassifyServer(t, fakeClassifyAnswering(picked.ID))
+	deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+
+	email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	processPendingEmails(deps, userID)
+
+	if got := atomic.LoadInt32(requests); got != 1 {
+		t.Errorf("fake classify server received %d requests, want 1", got)
+	}
+
+	var categoryID int64
+	if err := deps.DB.QueryRow(context.Background(),
+		"SELECT category_id FROM transactions WHERE bank_email_id = $1", email.ID,
+	).Scan(&categoryID); err != nil {
+		t.Fatalf("query created transaction's category: %v", err)
+	}
+	if categoryID != picked.ID {
+		t.Errorf("transaction category_id = %d, want %d (the classifier's answer)", categoryID, picked.ID)
+	}
+
+	notice, err := bankmail.Parse("mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	if err != nil {
+		t.Fatalf("bankmail.Parse() error = %v", err)
+	}
+	hint, err := deps.Queries.GetCategoryHint(context.Background(), sqlcgen.GetCategoryHintParams{
+		UserID: userID, NoteKey: bankmail.NoteKey(notice.Description),
+	})
+	if err != nil {
+		t.Fatalf("GetCategoryHint() error = %v, want the hint the classification just wrote", err)
+	}
+	if hint.CategoryID != picked.ID {
+		t.Errorf("written hint category_id = %d, want %d", hint.CategoryID, picked.ID)
+	}
+}
+
+// TestProcessPendingEmailsHintFromClassifyStopsASecondCall is the test that
+// proves the whole design pays for itself: a second email sharing the
+// first's note key (a different reference number, same transfer text) must
+// be decided from the hint the first call's classification wrote, not by
+// asking Claude again.
+func TestProcessPendingEmailsHintFromClassifyStopsASecondCall(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+	picked := processTestCategory(t, deps, userID, "AI Picked Category", "expense")
+
+	server, requests := fakeClassifyServer(t, fakeClassifyAnswering(picked.ID))
+	deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+
+	createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	processPendingEmails(deps, userID)
+	if got := atomic.LoadInt32(requests); got != 1 {
+		t.Fatalf("fake classify server received %d requests after the first email, want 1", got)
+	}
+
+	secondBody := strings.Replace(mbNotice, "26083101055223730", "26083101099999999", 1)
+	secondEmail, err := deps.Queries.CreateBankEmail(context.Background(), sqlcgen.CreateBankEmailParams{
+		UserID: userID, MessageID: "<" + t.Name() + "-2@mail>",
+		FromAddress: "mbebanking@mbbank.com.vn", Subject: "Thong bao giao dich",
+		Body: secondBody, Status: "pending",
+	})
+	if err != nil {
+		t.Fatalf("CreateBankEmail() (second) error = %v", err)
+	}
+	processPendingEmails(deps, userID)
+
+	if got := atomic.LoadInt32(requests); got != 1 {
+		t.Errorf("fake classify server received %d requests after a second, same-note-key email, want 1 (the hint should have answered it)", got)
+	}
+	var secondCategoryID int64
+	if err := deps.DB.QueryRow(context.Background(),
+		"SELECT category_id FROM transactions WHERE bank_email_id = $1", secondEmail.ID,
+	).Scan(&secondCategoryID); err != nil {
+		t.Fatalf("query second transaction's category: %v", err)
+	}
+	if secondCategoryID != picked.ID {
+		t.Errorf("second email's transaction category_id = %d, want %d (from the hint, not a fresh classification)", secondCategoryID, picked.ID)
+	}
+}
+
+// TestProcessPendingEmailsFallsBackWhenClassifierFails covers the rule that
+// outranks the rest of slice 4: a classification failure must never cost a
+// transaction. 429 and 500 are each exercised as subtests of the same
+// shape -- both must still create the transaction, filed under the
+// Other/Other income fallback, and processOneBankEmail must not panic.
+func TestProcessPendingEmailsFallsBackWhenClassifierFails(t *testing.T) {
+	for _, status := range []int{http.StatusTooManyRequests, http.StatusInternalServerError} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			deps := processTestDeps(t)
+			userID := createProcessTestUser(t, deps)
+			server, requests := fakeClassifyServer(t, fakeClassifyFailingWith(status))
+			deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+
+			email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+			processPendingEmails(deps, userID)
+
+			if got := atomic.LoadInt32(requests); got == 0 {
+				t.Error("fake classify server received 0 requests, want at least 1 -- the classifier should have been called")
+			}
+			if n := countTransactionsForUser(t, deps, userID); n != 1 {
+				t.Fatalf("transactions after a %d classify response = %d, want 1 (a classification failure must never cost a transaction)", status, n)
+			}
+			otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+			if err != nil {
+				t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
+			}
+			var categoryID int64
+			if err := deps.DB.QueryRow(context.Background(),
+				"SELECT category_id FROM transactions WHERE bank_email_id = $1", email.ID,
+			).Scan(&categoryID); err != nil {
+				t.Fatalf("query created transaction's category: %v", err)
+			}
+			if categoryID != otherCategory.ID {
+				t.Errorf("transaction category_id = %d, want the Other fallback %d", categoryID, otherCategory.ID)
+			}
+			status, _ := bankEmailStatus(t, deps, email.ID)
+			if status != "imported" {
+				t.Errorf("bank email status = %q, want %q (not 'failed')", status, "imported")
+			}
+		})
+	}
+}
+
+// TestProcessPendingEmailsFallsBackWhenClassifierAnswerIsUntrustworthy
+// covers the two shapes of a malformed answer that must never be trusted
+// onto a transaction: an id that matches nothing at all, and an id that is
+// real but belongs to a category this account was never offered (modeled
+// here as a category owned outright by a different user). Both must fall
+// back exactly like an API failure would.
+func TestProcessPendingEmailsFallsBackWhenClassifierAnswerIsUntrustworthy(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+	otherUserID := createProcessTestUser(t, deps, "-other")
+	othersCategory := processTestCategory(t, deps, otherUserID, "Someone Else's Category", "expense")
+
+	tests := map[string]int64{
+		"no category has this id":           999_999_999,
+		"id belongs to a different account": othersCategory.ID,
+	}
+	for name, answerID := range tests {
+		t.Run(name, func(t *testing.T) {
+			deps := deps
+			server, requests := fakeClassifyServer(t, fakeClassifyAnswering(answerID))
+			deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+
+			email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+			processPendingEmails(deps, userID)
+
+			if got := atomic.LoadInt32(requests); got == 0 {
+				t.Error("fake classify server received 0 requests, want at least 1")
+			}
+			otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+			if err != nil {
+				t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
+			}
+			var categoryID int64
+			if err := deps.DB.QueryRow(context.Background(),
+				"SELECT category_id FROM transactions WHERE bank_email_id = $1", email.ID,
+			).Scan(&categoryID); err != nil {
+				t.Fatalf("query created transaction's category: %v", err)
+			}
+			if categoryID != otherCategory.ID {
+				t.Errorf("transaction category_id = %d, want the Other fallback %d", categoryID, otherCategory.ID)
+			}
+		})
+	}
+}
+
+// TestProcessPendingEmailsSkipsAnUnconfiguredClassifier is the last leg of
+// the fallback contract: an unconfigured Classifier must not attempt a call
+// at all (Configured() gates it before any network round trip), yet the
+// transaction is still created under the Other fallback exactly as if
+// classify.Classifier didn't exist.
+func TestProcessPendingEmailsSkipsAnUnconfiguredClassifier(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+	server, requests := fakeClassifyServer(t, fakeClassifyAnswering(1))
+	// Deliberately no APIKey: Configured() must be false, and the fake
+	// server above exists only to prove nothing ever reaches it.
+	deps.Classifier = classify.NewWithEndpoint(classify.Config{}, server.URL)
+
+	email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	processPendingEmails(deps, userID)
+
+	if got := atomic.LoadInt32(requests); got != 0 {
+		t.Errorf("fake classify server received %d requests, want 0 -- an unconfigured Classifier must never call out", got)
+	}
+	if n := countTransactionsForUser(t, deps, userID); n != 1 {
+		t.Fatalf("transactions after processing with an unconfigured classifier = %d, want 1", n)
+	}
+	otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+	if err != nil {
+		t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
+	}
+	var categoryID int64
+	if err := deps.DB.QueryRow(context.Background(),
+		"SELECT category_id FROM transactions WHERE bank_email_id = $1", email.ID,
+	).Scan(&categoryID); err != nil {
+		t.Fatalf("query created transaction's category: %v", err)
+	}
+	if categoryID != otherCategory.ID {
+		t.Errorf("transaction category_id = %d, want the Other fallback %d", categoryID, otherCategory.ID)
 	}
 }
