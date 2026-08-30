@@ -35,3 +35,43 @@ SELECT count(*) FROM bank_emails WHERE user_id = $1;
 
 -- name: DeleteBankEmailsForUser :exec
 DELETE FROM bank_emails WHERE user_id = $1;
+
+-- ClaimPendingBankEmail giành một email pending cho đúng một goroutine: chỉ
+-- goroutine nào UPDATE trúng dòng còn 'pending' mới nhận được nó về, mọi
+-- goroutine khác chạy cùng lúc nhận không hàng nào (pgx.ErrNoRows) và phải bỏ
+-- qua email này. Đọc rồi mới ghi sẽ để hai goroutine cùng xử lý một email và
+-- tạo hai transaction từ một thư.
+-- name: ClaimPendingBankEmail :one
+UPDATE bank_emails SET status = 'processing'
+WHERE id = $1 AND status = 'pending'
+RETURNING *;
+
+-- ListPendingBankEmailIDs is what the processing loop walks: every pending
+-- email for the user, not just the one that just arrived, so a Render
+-- restart that left one mid-flight gets swept up by whichever email
+-- processes next instead of needing a cron job of its own.
+-- name: ListPendingBankEmailIDs :many
+SELECT id FROM bank_emails
+WHERE user_id = $1 AND status = 'pending'
+ORDER BY received_at;
+
+-- MarkBankEmailImported closes an email that became a transaction. occurred_at
+-- keeps the full Notice.OccurredAt timestamp; transactions.occurred_on only
+-- ever holds the date part of it.
+-- name: MarkBankEmailImported :exec
+UPDATE bank_emails SET status = 'imported', occurred_at = $2, processed_at = now()
+WHERE id = $1;
+
+-- MarkBankEmailFailed is the "needs fixing" list: our own error, not the
+-- sender's mail. failure_reason is what the retry button on /settings reads
+-- back, and processed_at records when the read was found bad.
+-- name: MarkBankEmailFailed :exec
+UPDATE bank_emails SET status = 'failed', failure_reason = $2, processed_at = now()
+WHERE id = $1;
+
+-- MarkBankEmailIgnored covers an unknown sender or a body that parses to no
+-- transaction (OTP, ad, a failed transfer). Kept separate from 'failed' so
+-- that list stays a to-do rather than filling with ordinary bank mail.
+-- name: MarkBankEmailIgnored :exec
+UPDATE bank_emails SET status = 'ignored', failure_reason = $2, processed_at = now()
+WHERE id = $1;
