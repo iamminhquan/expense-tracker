@@ -40,13 +40,6 @@ func render(w http.ResponseWriter, r *http.Request, deps Deps, page string, acti
 // of always "layout", for fragment responses (a swapped-in row, a
 // tab-switch card body, etc.) that must not re-render the full page shell.
 func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string, tmplName string, active string, data map[string]any) {
-	tmpl, ok := deps.Templates[page]
-	if !ok {
-		log.Printf("render: no template registered for page %q", page)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-
 	if data == nil {
 		data = map[string]any{}
 	}
@@ -69,6 +62,33 @@ func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string,
 		}
 	}
 
+	renderFragment(w, r, deps, page, tmplName, data)
+}
+
+// renderFragment executes tmplName against data exactly as it stands: no
+// CSRF token, no theme, no nav fields are added to it.
+//
+// That is what lets a fragment hand its template a typed struct rather than
+// the map renderNamed has to be able to write those fields into -- and a
+// struct is what turns a field the response forgot into a compile error
+// instead of a silently empty column. Use it for the fragments whose
+// templates need nothing from the page shell: a swapped-in row, an inline
+// edit form, a confirm prompt.
+//
+// A fragment whose template does reach for {{.CSRFToken}} -- the settings
+// and import forms do, since they post as plain forms rather than through
+// htmx's header -- belongs on renderNamed instead.
+func renderFragment(w http.ResponseWriter, r *http.Request, deps Deps, page, tmplName string, data any) {
+	tmpl, ok := deps.Templates[page]
+	if !ok {
+		log.Printf("render: no template registered for page %q", page)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	// Buffered rather than written straight to w: a template that fails
+	// halfway has already written a broken page otherwise, and the 500
+	// below could not be sent at all.
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, tmplName, data); err != nil {
 		log.Printf("render: execute template %q (block %q): %v", page, tmplName, err)

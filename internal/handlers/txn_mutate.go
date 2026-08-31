@@ -21,14 +21,30 @@ import (
 // browsing an older one, because that is what the widget in the layout
 // reports -- which is why it arrives as its own argument rather than being
 // derived from anything scoped to the browsed month.
-func totalsOOBData(header balanceSummary, count int64, scope txnScope, p pager) map[string]any {
-	return map[string]any{
-		"HeaderBalance":   header,
-		"Count":           count,
-		"MonthLabelLower": scope.LabelLower(),
-		"AllMonths":       scope.All,
-		"Pager":           p,
+func totalsOOBData(header balanceSummary, count int64, scope txnScope, p pager) totalsView {
+	return totalsView{
+		HeaderBalance:   header,
+		Count:           count,
+		MonthLabelLower: scope.LabelLower(),
+		AllMonths:       scope.All,
+		Pager:           p,
 	}
+}
+
+// totalsView is what the "totals_oob" fragment reads.
+type totalsView struct {
+	HeaderBalance   balanceSummary
+	Count           int64
+	MonthLabelLower string
+	AllMonths       bool
+	Pager           pager
+}
+
+// rowResponse is a mutation's whole answer: the row that changed, and the
+// out-of-band totals every such answer carries alongside it.
+type rowResponse struct {
+	Row    singleRow
+	Totals totalsView
 }
 
 // freshTotals re-reads what every mutation response has to refresh besides
@@ -40,13 +56,13 @@ func totalsOOBData(header balanceSummary, count int64, scope txnScope, p pager) 
 // month picker; the count belongs to whichever month the page was browsing,
 // which is why the window comes from HX-Current-URL rather than from today.
 // On failure it writes the 500 itself and reports false.
-func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) (map[string]any, bool) {
+func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) (totalsView, bool) {
 	scope := scopeFromRequest(r)
 	from, to := scope.Bounds()
 	header, err := currentHeaderBalance(r, deps, userID)
 	if err != nil {
 		http.Error(w, "could not load totals", http.StatusInternalServerError)
-		return nil, false
+		return totalsView{}, false
 	}
 	// The count is scoped to the filters the originating page had on as well
 	// as to its month: it feeds the chip above the list and the pager below
@@ -55,7 +71,7 @@ func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64
 	count, err := deps.Queries.CountTransactionsForMonth(r.Context(), filters.countParams(userID, from, to))
 	if err != nil {
 		http.Error(w, "could not load transactions", http.StatusInternalServerError)
-		return nil, false
+		return totalsView{}, false
 	}
 	return totalsOOBData(header, count, scope, newPager(pageFromRequest(r), count, scope.Value)), true
 }
@@ -150,14 +166,9 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		return
 	}
 
-	renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
-		"Row": map[string]any{
-			"ID": created.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
-			"Description": created.Description, "OccurredOn": created.OccurredOn,
-			"Amount": created.Amount, "Type": created.Type, "Source": created.Source,
-			"Date": rowDate(created.OccurredOn, scopeFromRequest(r).All),
-		},
-		"Totals": totals,
+	renderFragment(w, r, deps, "transactions", "transaction_create_response", rowResponse{
+		Row:    singleRowOf(created, category, scopeFromRequest(r).All),
+		Totals: totals,
 	})
 }
 
@@ -172,12 +183,29 @@ func renderQuickAddForm(w http.ResponseWriter, r *http.Request, deps Deps, userI
 		http.Error(w, "could not load categories", http.StatusInternalServerError)
 		return
 	}
-	renderNamed(w, r, deps, "transactions", fragment, "", map[string]any{
-		"Categories":    categoriesOfType(allCategories, selectedType),
-		"SelectedType":  selectedType,
-		"Today":         time.Now().In(vietnamLocation).Format("2006-01-02"),
-		"QuickAddError": errMsg,
+	renderFragment(w, r, deps, "transactions", fragment, quickAddForm{
+		Categories:    categoriesOfType(allCategories, selectedType),
+		SelectedType:  selectedType,
+		Today:         time.Now().In(vietnamLocation).Format("2006-01-02"),
+		QuickAddError: errMsg,
 	})
+}
+
+// quickAddForm is the add-transaction form's own state, which both the
+// desktop form and the mobile sheet render from. The transactions page
+// itself carries these same four under the same names, since the form is
+// part of the page as well as an answer to a rejected submit.
+type quickAddForm struct {
+	Categories    []sqlcgen.Category
+	SelectedType  string
+	Today         string
+	QuickAddError string
+}
+
+// categoryPicker is the category control on its own -- the <select> or the
+// row of chips the Expense/Income toggle swaps in.
+type categoryPicker struct {
+	Categories []sqlcgen.Category
 }
 
 // categoryPickerHandler answers the hx-get the Expense/Income toggle fires
@@ -197,8 +225,8 @@ func categoryPickerHandler(deps Deps, fragment string) http.HandlerFunc {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return
 		}
-		renderNamed(w, r, deps, "transactions", fragment, "", map[string]any{
-			"Categories": categoriesOfType(categories, typ),
+		renderFragment(w, r, deps, "transactions", fragment, categoryPicker{
+			Categories: categoriesOfType(categories, typ),
 		})
 	}
 }
@@ -233,10 +261,14 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// created with, so it is existing.Type the category has to match.
 		if formErr := form.violation(category.Type, existing.Type); formErr != "" {
 			allCategories, _ := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
-			renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
-				"ID": id, "CategoryID": form.CategoryID, "Description": form.Description, "Amount": form.Amount,
-				"OccurredOnValue": r.FormValue("occurred_on"),
-				"CategoryOptions": categoriesOfType(allCategories, existing.Type), "Error": formErr,
+			renderFragment(w, r, deps, "transactions", "transaction_row_edit", editRow{
+				ID:              id,
+				CategoryID:      form.CategoryID,
+				Description:     form.Description,
+				Amount:          form.Amount,
+				OccurredOnValue: r.FormValue("occurred_on"),
+				CategoryOptions: categoriesOfType(allCategories, existing.Type),
+				Error:           formErr,
 			})
 			return
 		}
@@ -292,18 +324,13 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// transaction_create_response despite this being an edit: the
 		// fragment is just "a row plus the OOB totals", which is exactly
 		// what a successful edit returns too.
-		renderNamed(w, r, deps, "transactions", "transaction_create_response", "", map[string]any{
-			"Row": map[string]any{
-				"ID": updated.ID, "CategorySlug": category.Slug, "CategoryName": category.Name, "CategoryColor": category.Color,
-				"Description": updated.Description, "OccurredOn": updated.OccurredOn,
-				// Source rides through unchanged from the row UpdateTransaction
-				// returns -- editing a category or amount does not turn an
-				// email-sourced row into a manual one, so its "auto" label must
-				// survive the swap.
-				"Amount": updated.Amount, "Type": updated.Type, "Source": updated.Source,
-				"Date": rowDate(updated.OccurredOn, scopeFromRequest(r).All),
-			},
-			"Totals": totals,
+		// Source rides through unchanged from the row UpdateTransaction
+		// returns -- editing a category or amount does not turn an
+		// email-sourced row into a manual one, so its "auto" label must
+		// survive the swap.
+		renderFragment(w, r, deps, "transactions", "transaction_create_response", rowResponse{
+			Row:    singleRowOf(updated, category, scopeFromRequest(r).All),
+			Totals: totals,
 		})
 	}
 }
@@ -326,6 +353,6 @@ func deleteTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		renderNamed(w, r, deps, "transactions", "totals_oob", "", totals)
+		renderFragment(w, r, deps, "transactions", "totals_oob", totals)
 	}
 }

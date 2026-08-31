@@ -68,13 +68,70 @@ func markDuplicates(rows []txnRow) {
 
 // rowDate is the single rule for that column, kept out of the template
 // because which format applies is the view's business, not the markup's.
-// The three handlers that answer with one row rather than a list build a map
-// instead of a txnRow, and call this directly.
+// The three handlers that answer with one row rather than a list build a
+// singleRow instead of a txnRow, and call this directly.
 func rowDate(d pgtype.Date, showYear bool) string {
 	if showYear {
 		return format.DateLong(d)
 	}
 	return format.DateShort(d)
+}
+
+// singleRow is one transaction as the "transaction_row" template sees it
+// when it is rendered on its own: the answer to a create, an edit, or a
+// cancelled edit, none of which re-render the list around them.
+//
+// It is a struct rather than the map these three responses each built by
+// hand, because the map made a forgotten field invisible: html/template
+// prints nothing for a key that is not there, so a response that dropped
+// the date shipped an empty column and no error. A missing field here does
+// not compile.
+type singleRow struct {
+	ID            int64
+	CategorySlug  pgtype.Text
+	CategoryName  string
+	CategoryColor string
+	Description   string
+	Amount        int64
+	Type          string
+	Source        string
+	Date          string
+}
+
+// IsDuplicate is always false on a row rendered alone. The badge marks a row
+// that shares its date, amount and type with another row on the same
+// rendered page, and a single-row response has no siblings to compare
+// against -- the list's own rows carry the real answer, see txnRow.
+func (r singleRow) IsDuplicate() bool { return false }
+
+// singleRowOf is the row a create or an edit answers with: the transaction
+// the write returned, plus the category it was checked against, which the
+// same handler has already loaded to validate the write.
+func singleRowOf(t sqlcgen.Transaction, c sqlcgen.Category, showYear bool) singleRow {
+	return singleRow{
+		ID:            t.ID,
+		CategorySlug:  c.Slug,
+		CategoryName:  c.Name,
+		CategoryColor: c.Color,
+		Description:   t.Description,
+		Amount:        t.Amount,
+		Type:          t.Type,
+		Source:        t.Source,
+		Date:          rowDate(t.OccurredOn, showYear),
+	}
+}
+
+// editRow is the inline edit form's own state: the values its inputs are
+// filled with, the categories its <select> offers, and the message a
+// rejected save puts beside them.
+type editRow struct {
+	ID              int64
+	CategoryID      int64
+	Description     string
+	Amount          int64
+	OccurredOnValue string
+	CategoryOptions []sqlcgen.Category
+	Error           string
 }
 
 // dateInputValue formats a DATE column for an <input type="date"> value
@@ -103,10 +160,13 @@ func editTransactionRowHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return
 		}
-		renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
-			"ID": txn.ID, "CategoryID": txn.CategoryID, "Description": txn.Description,
-			"Amount": txn.Amount, "OccurredOnValue": dateInputValue(txn.OccurredOn),
-			"CategoryOptions": categoriesOfType(allCategories, txn.Type),
+		renderFragment(w, r, deps, "transactions", "transaction_row_edit", editRow{
+			ID:              txn.ID,
+			CategoryID:      txn.CategoryID,
+			Description:     txn.Description,
+			Amount:          txn.Amount,
+			OccurredOnValue: dateInputValue(txn.OccurredOn),
+			CategoryOptions: categoriesOfType(allCategories, txn.Type),
 		})
 	}
 }
@@ -125,11 +185,16 @@ func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		renderNamed(w, r, deps, "transactions", "transaction_row", "", map[string]any{
-			"ID": txn.ID, "CategorySlug": txn.CategorySlug, "CategoryName": txn.CategoryName, "CategoryColor": txn.CategoryColor,
-			"Description": txn.Description, "OccurredOn": txn.OccurredOn, "Amount": txn.Amount, "Type": txn.Type,
-			"Source": txn.Source,
-			"Date":   rowDate(txn.OccurredOn, scopeFromRequest(r).All),
+		renderFragment(w, r, deps, "transactions", "transaction_row", singleRow{
+			ID:            txn.ID,
+			CategorySlug:  txn.CategorySlug,
+			CategoryName:  txn.CategoryName,
+			CategoryColor: txn.CategoryColor,
+			Description:   txn.Description,
+			Amount:        txn.Amount,
+			Type:          txn.Type,
+			Source:        txn.Source,
+			Date:          rowDate(txn.OccurredOn, scopeFromRequest(r).All),
 		})
 	}
 }
@@ -145,6 +210,6 @@ func deleteConfirmTransactionHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "transaction not found", http.StatusNotFound)
 			return
 		}
-		renderNamed(w, r, deps, "transactions", "transaction_row_delete_confirm", "", map[string]any{"ID": id})
+		renderFragment(w, r, deps, "transactions", "transaction_row_delete_confirm", editRow{ID: id})
 	}
 }
