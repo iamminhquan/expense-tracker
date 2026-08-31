@@ -39,8 +39,7 @@ func monthOptions(months []pgtype.Date, current pgtype.Date) []monthOption {
 	return options
 }
 
-func monthLabel(t time.Time) string      { return t.Format("January 2006") }
-func monthLabelLower(t time.Time) string { return t.Format("January") }
+func monthLabel(t time.Time) string { return t.Format("January 2006") }
 
 // monthRangeFor returns the [from, to) bounds for the "YYYY-MM" value the
 // month dropdown sends via ?month=, falling back to the current Vietnam-
@@ -148,4 +147,4 @@ func (s txnScope) Bounds() (from, to pgtype.Date) { return s.from, s.to }
 // LabelLower is the bare month name the month-scoped empty states read
 // ("No transactions in august"). It is meaningless for the all-time scope,
 // which those templates branch away from before reaching it.
-func (s txnScope) LabelLower() string { return monthLabelLower(s.from.Time) }
+func (s txnScope) LabelLower() string { return s.from.Time.Format("January") }

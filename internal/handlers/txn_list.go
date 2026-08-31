@@ -143,7 +143,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		FilterCount:       filters.ActiveCount(),
 		Filtering:         filters.Any(),
 		AllCategories:     allCategories,
-		ExportURL:         exportURL(scope.Value, pgr.Page, filters),
+		ExportURL:         exportURL(scope.Value, filters),
 		MonthValue:        scope.Value,
 		MonthLabel:        scope.Label,
 		MonthLabelLower:   scope.LabelLower(),

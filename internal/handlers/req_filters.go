@@ -183,13 +183,9 @@ func transactionsURL(month string, page int, f txnFilters) string {
 
 // exportURL renders the address the Export link points at: the same month
 // and the same filters, so the CSV is what is on screen. The page is
-// deliberately dropped -- the export is not paginated, and a link that
+// deliberately left out -- the export is not paginated, and a link that
 // carried "page=3" would quietly hand back a third of the month.
-//
-// It takes the page anyway, so that every caller can pass the view it is
-// rendering without having to remember which parts of that view the export
-// ignores.
-func exportURL(month string, page int, f txnFilters) string {
+func exportURL(month string, f txnFilters) string {
 	return "/transactions/export?" + filterQuery(month, f).Encode()
 }
 

@@ -222,7 +222,7 @@ func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart t
 	for i := months - 1; i >= 0; i-- {
 		m := currentMonthStart.AddDate(0, -i, 0)
 		key := m.Format("2006-01")
-		labels = append(labels, shortMonthLabel(m))
+		labels = append(labels, m.Format("Jan"))
 		if row, ok := byMonth[key]; ok {
 			expense = append(expense, row.TotalExpense)
 			income = append(income, row.TotalIncome)
@@ -232,10 +232,6 @@ func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart t
 		}
 	}
 	return
-}
-
-func shortMonthLabel(t time.Time) string {
-	return t.Format("Jan")
 }
 
 // comparisonText builds the "Last month X · up/down Y%" line under each

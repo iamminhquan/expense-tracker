@@ -55,10 +55,13 @@ type categoryRow struct {
 	Error string
 }
 
-// categoryRowData builds the row every category response renders through.
-func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, color string, txnCount int64) categoryRow {
+// categoryRowOf is the row a create, a rename or a recolour answers with:
+// the category the write returned, plus the count that write did not load.
+// The queries that do return a count hand back a row of their own shape, and
+// those call sites build the struct directly.
+func categoryRowOf(c sqlcgen.Category, txnCount int64) categoryRow {
 	return categoryRow{
-		ID: id, UserID: userID, Slug: slug, Name: name, Type: typ, Color: color,
+		ID: c.ID, UserID: c.UserID, Slug: c.Slug, Name: c.Name, Type: c.Type, Color: c.Color,
 		TransactionCount: txnCount,
 	}
 }
@@ -122,7 +125,10 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 		var expense, income []categoryRow
 		hasCustom := false
 		for _, row := range rows {
-			data := categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount)
+			data := categoryRow{
+				ID: row.ID, UserID: row.UserID, Slug: row.Slug, Name: row.Name, Type: row.Type,
+				Color: row.Color, TransactionCount: row.TransactionCount,
+			}
 			if row.Type == "expense" {
 				expense = append(expense, data)
 			} else {
@@ -187,7 +193,7 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	}
 
 	renderFragment(w, r, deps, "categories", "category_create_response", categoryCreateResponse{
-		Row:       categoryRowData(created.ID, created.UserID, created.Slug, created.Name, created.Type, created.Color, 0),
+		Row:       categoryRowOf(created, 0),
 		OOBTarget: "#category-list-" + created.Type,
 		// Creating a category always means the user now has at least one
 		// custom category, so the "no custom categories yet" empty state
@@ -227,7 +233,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category color: count transactions: %v", err)
 		}
-		renderFragment(w, r, deps, "categories", "category_row", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
+		renderFragment(w, r, deps, "categories", "category_row", categoryRowOf(updated, count))
 	}
 }
 
@@ -249,7 +255,10 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "default categories cannot be renamed", http.StatusForbidden)
 			return
 		}
-		renderFragment(w, r, deps, "categories", "category_row_edit", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
+		renderFragment(w, r, deps, "categories", "category_row_edit", categoryRow{
+			ID: row.ID, UserID: row.UserID, Slug: row.Slug, Name: row.Name, Type: row.Type,
+			Color: row.Color, TransactionCount: row.TransactionCount,
+		})
 	}
 }
 
@@ -266,7 +275,10 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
 		}
-		renderFragment(w, r, deps, "categories", "category_row", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
+		renderFragment(w, r, deps, "categories", "category_row", categoryRow{
+			ID: row.ID, UserID: row.UserID, Slug: row.Slug, Name: row.Name, Type: row.Type,
+			Color: row.Color, TransactionCount: row.TransactionCount,
+		})
 	}
 }
 
@@ -291,7 +303,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 
 		name := strings.TrimSpace(r.FormValue("name"))
 		if name == "" {
-			row := categoryRowData(existing.ID, existing.UserID, existing.Slug, existing.Name, existing.Type, existing.Color, 0)
+			row := categoryRowOf(existing, 0)
 			row.Error = "Please enter a category name."
 			renderFragment(w, r, deps, "categories", "category_row_edit", row)
 			return
@@ -301,7 +313,10 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				row := categoryRowData(existing.ID, existing.UserID, existing.Slug, name, existing.Type, existing.Color, 0)
+				// The rejected name, not the stored one: the input keeps what
+				// the user typed so they can fix it rather than retype it.
+				row := categoryRowOf(existing, 0)
+				row.Name = name
 				row.Error = "You already have a category with that name."
 				renderFragment(w, r, deps, "categories", "category_row_edit", row)
 				return
@@ -315,7 +330,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category name: count transactions: %v", err)
 		}
-		renderFragment(w, r, deps, "categories", "category_row", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
+		renderFragment(w, r, deps, "categories", "category_row", categoryRowOf(updated, count))
 	}
 }
 
