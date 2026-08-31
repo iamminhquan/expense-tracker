@@ -13,6 +13,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csvimport"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -208,7 +209,7 @@ func importFailed(w http.ResponseWriter, r *http.Request, deps Deps, msg string)
 // importCatalog is the account's categories as csvimport sees them: ids,
 // names, slugs and types, and nothing about pgtype.
 func importCatalog(ctx context.Context, deps Deps, userID int64) ([]csvimport.Category, error) {
-	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgInt64(userID))
+	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgval.Int64(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +245,7 @@ func countImportDuplicates(ctx context.Context, deps Deps, userID int64, plan *c
 	}
 
 	existing, err := deps.Queries.ListTransactionsForMonth(ctx,
-		txnFilters{}.exportParams(userID, pgDate(first), pgDate(last.AddDate(0, 0, 1))))
+		txnFilters{}.exportParams(userID, pgval.Date(first), pgval.Date(last.AddDate(0, 0, 1))))
 	if err != nil {
 		return 0, err
 	}
@@ -290,7 +291,7 @@ func applyImport(ctx context.Context, deps Deps, userID int64, plan *csvimport.I
 		// interchangeable, and a file's categories at least come out
 		// distinguishable from each other.
 		category, err := qtx.CreateCategory(ctx, sqlcgen.CreateCategoryParams{
-			UserID: pgInt64(userID), Name: c.Name, Type: c.Type,
+			UserID: pgval.Int64(userID), Name: c.Name, Type: c.Type,
 			Color: categorySwatches[i%len(categorySwatches)],
 		})
 		if err != nil {
@@ -306,7 +307,7 @@ func applyImport(ctx context.Context, deps Deps, userID int64, plan *csvimport.I
 		}
 		if _, err := qtx.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
 			UserID: userID, CategoryID: categoryID, Amount: row.Amount, Type: row.Type,
-			Description: row.Note, OccurredOn: pgDate(row.Date),
+			Description: row.Note, OccurredOn: pgval.Date(row.Date),
 		}); err != nil {
 			return fmt.Errorf("create transaction from line %d: %w", row.Line, err)
 		}

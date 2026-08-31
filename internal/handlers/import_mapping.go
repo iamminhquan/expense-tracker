@@ -9,6 +9,7 @@ import (
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csvimport"
 	"expensetracker/internal/i18n"
+	"expensetracker/internal/pgval"
 )
 
 // mappingFields names the form control behind each column role. The names
@@ -141,7 +142,7 @@ func importMapping(w http.ResponseWriter, r *http.Request, deps Deps, sheet *csv
 // displayed, which is what the fallback picker offers and what csvimport
 // matches a name against.
 func categoryNamesForUser(ctx context.Context, deps Deps, userID int64) ([]string, error) {
-	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgInt64(userID))
+	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgval.Int64(userID))
 	if err != nil {
 		return nil, err
 	}

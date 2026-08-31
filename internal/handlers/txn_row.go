@@ -5,6 +5,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/format"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -97,7 +98,7 @@ func editTransactionRowHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+		allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 		if err != nil {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return

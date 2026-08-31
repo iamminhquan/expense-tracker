@@ -9,6 +9,7 @@ import (
 	"expensetracker/internal/bankmail"
 	"expensetracker/internal/classify"
 	"expensetracker/internal/i18n"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5"
@@ -208,8 +209,8 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 		Amount:      notice.Amount,
 		Type:        notice.Direction,
 		Description: description,
-		OccurredOn:  pgDate(notice.OccurredAt),
-		BankEmailID: pgInt64(email.ID),
+		OccurredOn:  pgval.Date(notice.OccurredAt),
+		BankEmailID: pgval.Int64(email.ID),
 	})
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
@@ -262,7 +263,7 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 		// guard failing falls through to the fallback below rather than
 		// erroring: a hint that doesn't fit is exactly a miss, not a bug.
 		category, err := deps.Queries.GetCategoryForUser(ctx, sqlcgen.GetCategoryForUserParams{
-			ID: hint.CategoryID, UserID: pgInt64(userID),
+			ID: hint.CategoryID, UserID: pgval.Int64(userID),
 		})
 		if err == nil && category.Type == notice.Direction {
 			return category, nil
@@ -291,7 +292,7 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 	if notice.Direction == "income" {
 		slug = otherIncomeSlug
 	}
-	category, err := deps.Queries.GetCategoryBySlug(ctx, pgText(slug))
+	category, err := deps.Queries.GetCategoryBySlug(ctx, pgval.Text(slug))
 	if err != nil {
 		return sqlcgen.Category{}, fmt.Errorf("look up category %q: %w", slug, err)
 	}
@@ -318,7 +319,7 @@ func classifyAndRememberCategory(ctx context.Context, deps Deps, userID int64, n
 		return sqlcgen.Category{}, classify.ErrNotConfigured
 	}
 
-	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgInt64(userID))
+	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgval.Int64(userID))
 	if err != nil {
 		return sqlcgen.Category{}, fmt.Errorf("list categories for user %d: %w", userID, err)
 	}

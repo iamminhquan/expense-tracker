@@ -5,20 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
-
-// pgInt64 converts a plain int64 (e.g. an authenticated user's ID) into the
-// pgtype.Int8 that sqlc generates for a nullable *_id column.
-func pgInt64(v int64) pgtype.Int8 {
-	return pgtype.Int8{Int64: v, Valid: true}
-}
-
-// pgText wraps a string as the nullable text sqlc generates for a nullable
-// column. An empty string is still a valid, non-NULL value here.
-func pgText(v string) pgtype.Text {
-	return pgtype.Text{String: v, Valid: true}
-}
 
 // idParam reads the {id} route parameter as an int64. Every row-scoped
 // handler starts with it, and every one of them answers a malformed id the

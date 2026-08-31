@@ -11,6 +11,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/format"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -388,7 +389,7 @@ func deleteAccount(ctx context.Context, deps Deps, userID int64) error {
 	if err := qtx.DeleteCategoryHintsForUser(ctx, userID); err != nil {
 		return fmt.Errorf("delete category hints: %w", err)
 	}
-	if err := qtx.DeletePersonalCategoriesForUser(ctx, pgInt64(userID)); err != nil {
+	if err := qtx.DeletePersonalCategoriesForUser(ctx, pgval.Int64(userID)); err != nil {
 		return fmt.Errorf("delete categories: %w", err)
 	}
 	if err := qtx.DeleteUser(ctx, userID); err != nil {

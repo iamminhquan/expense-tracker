@@ -19,6 +19,7 @@ import (
 	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
 	"expensetracker/internal/mailer"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 	"expensetracker/internal/web"
 
@@ -297,7 +298,7 @@ func TestProcessPendingEmailsCreatesATransactionFromAValidMBNotice(t *testing.T)
 		t.Errorf("transaction bank_email_id = %v, want %d", bankEmailID, email.ID)
 	}
 
-	category, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+	category, err := deps.Queries.GetCategoryBySlug(context.Background(), pgval.Text(otherExpenseSlug))
 	if err != nil {
 		t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
 	}
@@ -547,7 +548,7 @@ func TestProcessPendingEmailsCorrectingCategoryTeachesTheNextEmail(t *testing.T)
 	firstEmail := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
 	processPendingEmails(deps, userID)
 
-	otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+	otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgval.Text(otherExpenseSlug))
 	if err != nil {
 		t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
 	}
@@ -640,7 +641,7 @@ func TestProcessPendingEmailsSurvivesACategoryHintLookupError(t *testing.T) {
 		t.Fatalf("transactions after a category_hints lookup error = %d, want 1 (a classification failure must never cost a transaction)", n)
 	}
 
-	otherCategory, err := deps.Queries.GetCategoryBySlug(ctx, pgText(otherExpenseSlug))
+	otherCategory, err := deps.Queries.GetCategoryBySlug(ctx, pgval.Text(otherExpenseSlug))
 	if err != nil {
 		t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
 	}
@@ -819,7 +820,7 @@ func TestProcessPendingEmailsFallsBackWhenClassifierFails(t *testing.T) {
 			if n := countTransactionsForUser(t, deps, userID); n != 1 {
 				t.Fatalf("transactions after a %d classify response = %d, want 1 (a classification failure must never cost a transaction)", status, n)
 			}
-			otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+			otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgval.Text(otherExpenseSlug))
 			if err != nil {
 				t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
 			}
@@ -868,7 +869,7 @@ func TestProcessPendingEmailsFallsBackWhenClassifierAnswerIsUntrustworthy(t *tes
 			if got := atomic.LoadInt32(requests); got == 0 {
 				t.Error("fake classify server received 0 requests, want at least 1")
 			}
-			otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+			otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgval.Text(otherExpenseSlug))
 			if err != nil {
 				t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
 			}
@@ -907,7 +908,7 @@ func TestProcessPendingEmailsSkipsAnUnconfiguredClassifier(t *testing.T) {
 	if n := countTransactionsForUser(t, deps, userID); n != 1 {
 		t.Fatalf("transactions after processing with an unconfigured classifier = %d, want 1", n)
 	}
-	otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+	otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgval.Text(otherExpenseSlug))
 	if err != nil {
 		t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
 	}

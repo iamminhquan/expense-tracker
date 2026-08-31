@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -98,7 +99,7 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		})
 	}
 
-	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 	if err != nil {
 		return nil, err
 	}

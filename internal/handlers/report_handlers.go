@@ -11,6 +11,7 @@ import (
 	"expensetracker/internal/auth"
 	"expensetracker/internal/format"
 	"expensetracker/internal/i18n"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -54,7 +55,7 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 		return nil, err
 	}
 
-	prevFrom := pgDate(from.Time.AddDate(0, -1, 0))
+	prevFrom := pgval.Date(from.Time.AddDate(0, -1, 0))
 	prevTotals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: prevFrom, OccurredOn_2: from})
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 	}
 	pieLabels, pieValues, pieColors, legend := buildPieData(breakdown, totals.TotalExpense)
 
-	seriesFrom := pgDate(from.Time.AddDate(0, -(barMonths - 1), 0))
+	seriesFrom := pgval.Date(from.Time.AddDate(0, -(barMonths - 1), 0))
 	series, err := deps.Queries.MonthlyTotalsSeries(r.Context(), sqlcgen.MonthlyTotalsSeriesParams{UserID: userID, OccurredOn: seriesFrom, OccurredOn_2: to})
 	if err != nil {
 		return nil, err

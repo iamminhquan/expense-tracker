@@ -6,18 +6,14 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"expensetracker/internal/pgval"
 )
 
 // Everything that answers "which month is this page showing?". The app is
 // month-scoped throughout -- the transactions list, the dashboard totals and
 // the balance widget all take a [from, to) window -- so these live together
 // rather than beside whichever handler happened to need one first.
-
-// pgDate converts a parsed calendar date into the pgtype.Date that sqlc
-// generates for a DATE column.
-func pgDate(t time.Time) pgtype.Date {
-	return pgtype.Date{Time: t, Valid: true}
-}
 
 func monthLabel(t time.Time) string      { return t.Format("January 2006") }
 func monthLabelLower(t time.Time) string { return t.Format("January") }
@@ -31,7 +27,7 @@ func monthRangeFor(param string) (from, to pgtype.Date) {
 		return currentMonthRange()
 	}
 	fromTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, vietnamLocation)
-	return pgDate(fromTime), pgDate(fromTime.AddDate(0, 1, 0))
+	return pgval.Date(fromTime), pgval.Date(fromTime.AddDate(0, 1, 0))
 }
 
 // monthRangeFromRequest determines which month a mutation response's OOB
@@ -91,7 +87,7 @@ func currentMonthRange() (from, to pgtype.Date) {
 	now := time.Now().In(vietnamLocation)
 	fromTime := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, vietnamLocation)
 	toTime := fromTime.AddDate(0, 1, 0)
-	return pgDate(fromTime), pgDate(toTime)
+	return pgval.Date(fromTime), pgval.Date(toTime)
 }
 
 // allMonths is what ?month= carries when the transactions page is showing a
@@ -108,8 +104,8 @@ const allMonths = "all"
 // the one query they already run instead of growing a second, month-less
 // variant of each.
 var (
-	allTimeFrom = pgDate(time.Date(1, 1, 1, 0, 0, 0, 0, vietnamLocation))
-	allTimeTo   = pgDate(time.Date(9999, 12, 31, 0, 0, 0, 0, vietnamLocation))
+	allTimeFrom = pgval.Date(time.Date(1, 1, 1, 0, 0, 0, 0, vietnamLocation))
+	allTimeTo   = pgval.Date(time.Date(9999, 12, 31, 0, 0, 0, 0, vietnamLocation))
 )
 
 // txnScope is which slice of time the transactions page is showing: one

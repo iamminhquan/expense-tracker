@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -118,7 +119,7 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	}
 
 	created, err := deps.Queries.CreateCategory(r.Context(), sqlcgen.CreateCategoryParams{
-		UserID: pgInt64(userID),
+		UserID: pgval.Int64(userID),
 		Name:   name,
 		Type:   typ,
 		Color:  color,
@@ -164,7 +165,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		// is allowed for everyone, unlike rename/delete, which carve
 		// defaults out.
 		updated, err := deps.Queries.UpdateCategoryColor(r.Context(), sqlcgen.UpdateCategoryColorParams{
-			ID: id, UserID: pgInt64(userID), Color: color,
+			ID: id, UserID: pgval.Int64(userID), Color: color,
 		})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
@@ -227,7 +228,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		existing, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgInt64(userID)})
+		existing, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgval.Int64(userID)})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
@@ -245,7 +246,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		updated, err := deps.Queries.UpdateCategoryName(r.Context(), sqlcgen.UpdateCategoryNameParams{ID: id, UserID: pgInt64(userID), Name: name})
+		updated, err := deps.Queries.UpdateCategoryName(r.Context(), sqlcgen.UpdateCategoryNameParams{ID: id, UserID: pgval.Int64(userID), Name: name})
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -276,7 +277,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 // so that row is simply removed from the DOM -- mirroring the previous
 // empty-body-means-"remove the row" behavior.
 func respondCategoryDeleted(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
-	all, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+	all, err := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 	if err != nil {
 		log.Printf("delete category: list categories for empty-state check: %v", err)
 		w.WriteHeader(http.StatusOK)
@@ -300,7 +301,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgInt64(userID)})
+		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgval.Int64(userID)})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
@@ -347,7 +348,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
 			}
-			if _, err := qtx.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgInt64(userID)}); err != nil {
+			if _, err := qtx.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgval.Int64(userID)}); err != nil {
 				log.Printf("delete category: %v", err)
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
@@ -361,7 +362,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.Queries.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgInt64(userID)}); err != nil {
+		if _, err := deps.Queries.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgval.Int64(userID)}); err != nil {
 			log.Printf("delete category: %v", err)
 			http.Error(w, "could not delete category", http.StatusInternalServerError)
 			return

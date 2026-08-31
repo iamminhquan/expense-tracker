@@ -7,6 +7,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/bankmail"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -83,7 +84,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	}
 
 	category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{
-		ID: form.CategoryID, UserID: pgInt64(userID),
+		ID: form.CategoryID, UserID: pgval.Int64(userID),
 	})
 	if err != nil {
 		http.Error(w, "category not found", http.StatusForbidden)
@@ -97,7 +98,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 
 	created, err := deps.Queries.CreateTransaction(r.Context(), sqlcgen.CreateTransactionParams{
 		UserID: userID, CategoryID: form.CategoryID, Amount: form.Amount, Type: txnType,
-		Description: form.Description, OccurredOn: pgDate(form.OccurredOn),
+		Description: form.Description, OccurredOn: pgval.Date(form.OccurredOn),
 	})
 	if err != nil {
 		retarget("Could not add the transaction, please try again.")
@@ -166,7 +167,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 // picks the fragment from ui_source and retargets htmx at the matching
 // element, since the desktop form and the mobile sheet are both in the DOM.
 func renderQuickAddForm(w http.ResponseWriter, r *http.Request, deps Deps, userID int64, fragment, errMsg, selectedType string) {
-	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 	if err != nil {
 		http.Error(w, "could not load categories", http.StatusInternalServerError)
 		return
@@ -191,7 +192,7 @@ func categoryPickerHandler(deps Deps, fragment string) http.HandlerFunc {
 		if typ != "income" {
 			typ = "expense"
 		}
-		categories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+		categories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 		if err != nil {
 			http.Error(w, "could not load categories", http.StatusInternalServerError)
 			return
@@ -222,7 +223,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: form.CategoryID, UserID: pgInt64(userID)})
+		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: form.CategoryID, UserID: pgval.Int64(userID)})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusForbidden)
 			return
@@ -231,7 +232,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// An edit never changes the type: the row keeps the one it was
 		// created with, so it is existing.Type the category has to match.
 		if formErr := form.violation(category.Type, existing.Type); formErr != "" {
-			allCategories, _ := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+			allCategories, _ := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 			renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
 				"ID": id, "CategoryID": form.CategoryID, "Description": form.Description, "Amount": form.Amount,
 				"OccurredOnValue": r.FormValue("occurred_on"),
@@ -242,7 +243,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 
 		updated, err := deps.Queries.UpdateTransaction(r.Context(), sqlcgen.UpdateTransactionParams{
 			ID: id, UserID: userID, CategoryID: form.CategoryID, Amount: form.Amount, Type: existing.Type,
-			Description: form.Description, OccurredOn: pgDate(form.OccurredOn),
+			Description: form.Description, OccurredOn: pgval.Date(form.OccurredOn),
 		})
 		if err != nil {
 			log.Printf("update transaction: %v", err)

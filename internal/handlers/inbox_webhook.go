@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"expensetracker/internal/inbound"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/go-chi/chi/v5"
@@ -83,7 +84,7 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		user, err := deps.Queries.GetUserByInboxToken(r.Context(), pgText(chi.URLParam(r, "token")))
+		user, err := deps.Queries.GetUserByInboxToken(r.Context(), pgval.Text(chi.URLParam(r, "token")))
 		if errors.Is(err, pgx.ErrNoRows) {
 			// No account owns this address -- most likely one whose owner
 			// turned tracking off and regenerated their token.
