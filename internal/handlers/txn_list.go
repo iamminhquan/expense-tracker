@@ -49,10 +49,10 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			// filtered -- and makes it the same URL a bookmark or a reload
 			// would produce.
 			w.Header().Set("HX-Push-Url", transactionsURL(data.MonthValue, data.Pager.Page, filters))
-			renderViewNamed(w, r, deps, "transactions", "transactions_month_section", "transactions", data)
+			renderNamed(w, r, deps, "transactions", "transactions_month_section", "transactions", data)
 			return
 		}
-		renderView(w, r, deps, "transactions", "transactions", data)
+		render(w, r, deps, "transactions", "transactions", data)
 	}
 }
 

@@ -122,20 +122,45 @@ func importMapping(w http.ResponseWriter, r *http.Request, deps Deps, sheet *csv
 		return
 	}
 
-	renderNamed(w, r, deps, "import", "import_mapping", "", map[string]any{
-		"Columns":           sheet.Columns,
-		"Sample":            sheet.Sample,
-		"Rows":              sheet.Rows,
-		"Roles":             roles,
-		"DateFormats":       csvimport.DateFormats,
-		"DateLayout":        m.DateLayout,
-		"NegativeIsExpense": m.NegativeIsExpense,
-		"FallbackCategory":  m.FallbackCategory,
-		"AmbiguousDate":     sheet.AmbiguousDate,
-		"CategoryNames":     names,
-		"Fingerprint":       sheet.Fingerprint,
-		"Error":             errMsg,
+	renderNamed(w, r, deps, "import", "import_mapping", "", &importMappingView{
+		Columns:           sheet.Columns,
+		Sample:            sheet.Sample,
+		Rows:              sheet.Rows,
+		Roles:             roles,
+		DateFormats:       csvimport.DateFormats,
+		DateLayout:        m.DateLayout,
+		NegativeIsExpense: m.NegativeIsExpense,
+		FallbackCategory:  m.FallbackCategory,
+		AmbiguousDate:     sheet.AmbiguousDate,
+		CategoryNames:     names,
+		Fingerprint:       sheet.Fingerprint,
+		Error:             errMsg,
 	})
+}
+
+// importMappingView is the screen that asks how to read a file the app did
+// not write: the first rows as read, one control per role, and the date
+// orders on offer.
+//
+// AmbiguousDate is the one guess worth saying out loud -- a column whose
+// days never pass the 12th fits both day-first and month-first, and picking
+// wrong still produces rows that look right.
+type importMappingView struct {
+	viewData
+
+	Columns []string
+	Sample  [][]string
+	Rows    int
+
+	Roles             []mappingRole
+	DateFormats       []csvimport.DateFormat
+	DateLayout        string
+	NegativeIsExpense bool
+	FallbackCategory  string
+	AmbiguousDate     bool
+	CategoryNames     []string
+	Fingerprint       string
+	Error             string
 }
 
 // categoryNamesForUser lists the account's categories the way they are

@@ -29,7 +29,7 @@ const importMaxBytes = 1 << 20
 // that has neither a month nor a list.
 func importPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		render(w, r, deps, "import", "transactions", map[string]any{})
+		render(w, r, deps, "import", "transactions", &importView{})
 	}
 }
 
@@ -151,22 +151,49 @@ const maxShownErrors = 20
 // rather than handed over whole, so the template neither reaches into
 // another package's struct nor has to do the arithmetic of trimming a long
 // error list.
-func previewData(plan *csvimport.Import, m csvimport.Mapping, duplicates int) map[string]any {
+// importView is the import page and the preview it swaps in -- one struct
+// for both, because the page is the preview's empty state: it renders the
+// zero value until a file has been read.
+//
+// FatalError is the file the importer could not read at all, and replaces
+// everything below it. Every other field describes a file that was read,
+// whether or not it can be applied.
+type importView struct {
+	viewData
+
+	FatalError string
+
+	RowCount      int
+	NewCategories []csvimport.NewCategory
+	Errors        []csvimport.RowError
+	MoreErrors    int
+	Rounded       int
+	Duplicates    int
+	Fingerprint   string
+	Importable    bool
+	DateSuspect   bool
+	// Mapping is the mapping as hidden form fields, keyed by input name --
+	// a genuine bag of form values rather than a set of view fields, which
+	// is why it stays a map.
+	Mapping map[string]string
+}
+
+func previewData(plan *csvimport.Import, m csvimport.Mapping, duplicates int) *importView {
 	shown, more := plan.Errors, 0
 	if len(shown) > maxShownErrors {
 		shown, more = shown[:maxShownErrors], len(plan.Errors)-maxShownErrors
 	}
-	return map[string]any{
-		"RowCount":      len(plan.Rows),
-		"NewCategories": plan.NewCategories,
-		"Errors":        shown,
-		"MoreErrors":    more,
-		"Rounded":       plan.Rounded,
-		"Duplicates":    duplicates,
-		"Fingerprint":   plan.Fingerprint,
-		"Importable":    importable(plan),
-		"DateSuspect":   mostlyDateErrors(plan.Errors),
-		"Mapping":       mappingFieldValues(m),
+	return &importView{
+		RowCount:      len(plan.Rows),
+		NewCategories: plan.NewCategories,
+		Errors:        shown,
+		MoreErrors:    more,
+		Rounded:       plan.Rounded,
+		Duplicates:    duplicates,
+		Fingerprint:   plan.Fingerprint,
+		Importable:    importable(plan),
+		DateSuspect:   mostlyDateErrors(plan.Errors),
+		Mapping:       mappingFieldValues(m),
 	}
 }
 
@@ -203,7 +230,7 @@ func planFailureMessage(err error) string {
 }
 
 func importFailed(w http.ResponseWriter, r *http.Request, deps Deps, msg string) {
-	renderNamed(w, r, deps, "import", "import_preview", "", map[string]any{"FatalError": msg})
+	renderNamed(w, r, deps, "import", "import_preview", "", &importView{FatalError: msg})
 }
 
 // importCatalog is the account's categories as csvimport sees them: ids,

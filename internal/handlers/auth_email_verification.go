@@ -60,7 +60,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 
 		userID, email, err := deps.EmailVerifications.ValidateVerificationToken(r.Context(), token)
 		if err != nil {
-			renderView(w, r, deps, "verify_email", "", &verifyEmailView{})
+			render(w, r, deps, "verify_email", "", &verifyEmailView{})
 			return
 		}
 
@@ -69,7 +69,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 		}); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				renderView(w, r, deps, "verify_email", "", &verifyEmailView{Conflict: true})
+				render(w, r, deps, "verify_email", "", &verifyEmailView{Conflict: true})
 				return
 			}
 			serverError(w, "verify email: apply", err)
@@ -79,7 +79,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 			log.Printf("verify email: consume token: %v", err)
 		}
 
-		renderView(w, r, deps, "verify_email", "", &verifyEmailView{Verified: true})
+		render(w, r, deps, "verify_email", "", &verifyEmailView{Verified: true})
 	}
 }
 

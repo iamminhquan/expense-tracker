@@ -58,61 +58,24 @@ type pageView interface {
 
 func (v *viewData) view() *viewData { return v }
 
-// render executes page's "layout" template. It always injects CSRFToken; if
-// active is non-empty it also injects the ShowNav/ActiveNav/UserName/
-// UserInitial/HeaderBalance/EmailVerified fields layout.html's nav blocks
-// need, by loading the authenticated user via deps.Queries. Pre-auth pages
-// (login/register) pass active="" so nav data is skipped entirely and
-// layout.html's {{if .ShowNav}} blocks correctly stay hidden -- a missing
-// map key evaluates falsy in html/template's {{if}}, so no explicit false
-// is needed.
-func render(w http.ResponseWriter, r *http.Request, deps Deps, page string, active string, data map[string]any) {
+// render executes page's "layout" template against data, which is that
+// page's own struct.
+//
+// Pre-auth pages (login, register) pass active="" so no nav data is loaded
+// and layout.html's {{if .ShowNav}} blocks stay hidden on viewData's zero
+// value.
+func render(w http.ResponseWriter, r *http.Request, deps Deps, page string, active string, data pageView) {
 	renderNamed(w, r, deps, page, "layout", active, data)
 }
 
 // renderNamed is render's more general form: it executes tmplName instead
-// of always "layout", for fragment responses (a swapped-in row, a
-// tab-switch card body, etc.) that must not re-render the full page shell.
-func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string, tmplName string, active string, data map[string]any) {
-	if data == nil {
-		data = map[string]any{}
-	}
-	data["CSRFToken"] = csrf.TokenFromRequest(r)
-	// Every page must carry a theme, including the pre-auth ones that have
-	// no user to read a preference from: html/template renders a missing map
-	// key as the literal "<no value>", which would otherwise land inside
-	// layout.html's class attribute. authPageData overwrites this with the
-	// stored preference for authenticated pages.
-	data["Theme"] = defaultTheme
-
-	if active != "" {
-		navData, err := authPageData(r, deps, active)
-		if err != nil {
-			serverError(w, "render: load nav data", err)
-			return
-		}
-		for k, v := range navData {
-			data[k] = v
-		}
-	}
-
-	renderFragment(w, r, deps, page, tmplName, data)
-}
-
-// renderView is render's typed form: the same full-page render, for a page
-// whose data is its own struct rather than a map.
-func renderView(w http.ResponseWriter, r *http.Request, deps Deps, page string, active string, data pageView) {
-	renderViewNamed(w, r, deps, page, "layout", active, data)
-}
-
-// renderViewNamed fills in the fields every template shares -- the CSRF
-// token, the theme, and the nav data when active is non-empty -- and
-// renders tmplName against data.
+// of always "layout", for the fragment responses that must not re-render
+// the page shell but still need what every template shares -- the CSRF
+// token, the theme, and the nav data when active is non-empty.
 //
-// It is renderNamed with a struct in place of the map. The map version
-// still serves the pages that have not been converted; when the last one
-// has, these two names take over.
-func renderViewNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string, tmplName string, active string, data pageView) {
+// A fragment that needs none of those has renderFragment, which takes its
+// data as it stands.
+func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string, tmplName string, active string, data pageView) {
 	v := data.view()
 	v.CSRFToken = csrf.TokenFromRequest(r)
 	// Every page carries a theme, including the pre-auth ones with no user
@@ -126,6 +89,11 @@ func renderViewNamed(w http.ResponseWriter, r *http.Request, deps Deps, page str
 			serverError(w, "render: load nav data", err)
 			return
 		}
+		// Replaces the whole thing rather than merging field by field: nav
+		// carries the user's stored theme, which has to win over the
+		// default set above, and every other field it holds is one only it
+		// can fill. The token is the one value that came from the request
+		// rather than from the account, so it is carried across.
 		nav.CSRFToken = v.CSRFToken
 		*v = nav
 	}
@@ -136,12 +104,10 @@ func renderViewNamed(w http.ResponseWriter, r *http.Request, deps Deps, page str
 // renderFragment executes tmplName against data exactly as it stands: no
 // CSRF token, no theme, no nav fields are added to it.
 //
-// That is what lets a fragment hand its template a typed struct rather than
-// the map renderNamed has to be able to write those fields into -- and a
-// struct is what turns a field the response forgot into a compile error
-// instead of a silently empty column. Use it for the fragments whose
-// templates need nothing from the page shell: a swapped-in row, an inline
-// edit form, a confirm prompt.
+// That is what lets a fragment hand its template a plain struct, with no
+// viewData embedded in it and nothing to fill in. Use it for the fragments
+// whose templates need nothing from the page shell: a swapped-in row, an
+// inline edit form, a confirm prompt.
 //
 // A fragment whose template does reach for {{.CSRFToken}} -- the settings
 // and import forms do, since they post as plain forms rather than through
@@ -227,25 +193,6 @@ func authPageView(r *http.Request, deps Deps, active string) (viewData, error) {
 		Theme:         user.Theme,
 		HeaderBalance: headerBalance,
 		EmailVerified: user.EmailVerified,
-	}, nil
-}
-
-// authPageData is authPageView spread back into the map the pages that
-// still render from one expect. It goes when the last of them is converted.
-func authPageData(r *http.Request, deps Deps, active string) (map[string]any, error) {
-	v, err := authPageView(r, deps, active)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		"ShowNav":       v.ShowNav,
-		"ActiveNav":     v.ActiveNav,
-		"UserName":      v.UserName,
-		"UserInitial":   v.UserInitial,
-		"Greeting":      v.Greeting,
-		"Theme":         v.Theme,
-		"HeaderBalance": v.HeaderBalance,
-		"EmailVerified": v.EmailVerified,
 	}, nil
 }
 

@@ -29,7 +29,7 @@ func settingsPage(deps Deps) http.HandlerFunc {
 			serverError(w, "settings: load user", err)
 			return
 		}
-		renderView(w, r, deps, "settings", "settings", data)
+		render(w, r, deps, "settings", "settings", data)
 	}
 }
 
@@ -163,7 +163,7 @@ func renderSettingsError(w http.ResponseWriter, r *http.Request, deps Deps, form
 	case deleteForm:
 		data.DeleteError = msg
 	}
-	renderView(w, r, deps, "settings", "settings", data)
+	render(w, r, deps, "settings", "settings", data)
 }
 
 // updatePasswordHandler changes the account password and signs out every

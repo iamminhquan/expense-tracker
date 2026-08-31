@@ -153,7 +153,7 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 		w.Header().Set("HX-Retarget", "#transactions-month-section")
 		w.Header().Set("HX-Reswap", "outerHTML")
 		w.Header().Set("HX-Push-Url", transactionsURL(month, 1, filters))
-		renderViewNamed(w, r, deps, "transactions", "transactions_first_page_response", "transactions", data)
+		renderNamed(w, r, deps, "transactions", "transactions_first_page_response", "transactions", data)
 		return
 	}
 

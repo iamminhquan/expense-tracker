@@ -82,6 +82,23 @@ type categoriesEmptyState struct {
 	HasCustomCategories bool
 }
 
+// categoriesView is the categories page: the two lists, and whether the
+// account has a category of its own yet -- which is what decides between
+// the list and the "you haven't created any categories" panel.
+type categoriesView struct {
+	viewData
+	// The page renders the create form inline, so it has to carry the
+	// form's own fields too -- embedded rather than restated, which is what
+	// keeps the two renders of that form asking for the same set. The page
+	// leaves them zero; only a rejected submit fills any of them in, and it
+	// re-renders the form on its own through addCategoryForm.
+	addCategoryForm
+
+	ExpenseCategories   []categoryRow
+	IncomeCategories    []categoryRow
+	HasCustomCategories bool
+}
+
 // addCategoryForm is the create form's own state, re-rendered in place when
 // a submission is rejected.
 type addCategoryForm struct {
@@ -120,10 +137,10 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 			}
 		}
 
-		render(w, r, deps, "categories", "categories", map[string]any{
-			"ExpenseCategories":   expense,
-			"IncomeCategories":    income,
-			"HasCustomCategories": hasCustom,
+		render(w, r, deps, "categories", "categories", &categoriesView{
+			ExpenseCategories:   expense,
+			IncomeCategories:    income,
+			HasCustomCategories: hasCustom,
 		})
 	}
 }

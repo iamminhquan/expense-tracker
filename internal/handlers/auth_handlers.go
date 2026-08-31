@@ -33,10 +33,10 @@ var usernamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
 // shell on a direct navigation/refresh/bookmark.
 func renderAuthFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data *authView) {
 	if isFragmentRequest(r) {
-		renderViewNamed(w, r, deps, "auth", "auth_card_body", "", data)
+		renderNamed(w, r, deps, "auth", "auth_card_body", "", data)
 		return
 	}
-	renderView(w, r, deps, "auth", "", data)
+	render(w, r, deps, "auth", "", data)
 }
 
 // authView is the login/register card: which of the two tabs is showing,
@@ -77,7 +77,7 @@ func loginPage(deps Deps) http.HandlerFunc {
 		password := r.FormValue("password")
 
 		fail := func(msg string) {
-			renderViewNamed(w, r, deps, "auth", "auth_card_body", "", &authView{
+			renderNamed(w, r, deps, "auth", "auth_card_body", "", &authView{
 				Tab: "login", Error: msg, Email: email,
 			})
 		}
@@ -182,7 +182,7 @@ func registerPage(deps Deps) http.HandlerFunc {
 		passwordConfirm := r.FormValue("password_confirm")
 
 		fail := func(msg string) {
-			renderViewNamed(w, r, deps, "auth", "auth_card_body", "", &authView{
+			renderNamed(w, r, deps, "auth", "auth_card_body", "", &authView{
 				Tab: "register", Error: msg, Name: name, Email: email, Username: username,
 			})
 		}

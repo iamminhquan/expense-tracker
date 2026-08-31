@@ -40,10 +40,10 @@ func dashboardPage(deps Deps) http.HandlerFunc {
 		}
 
 		if isFragmentRequest(r) {
-			renderViewNamed(w, r, deps, "dashboard", "dashboard_month_section", "dashboard", data)
+			renderNamed(w, r, deps, "dashboard", "dashboard_month_section", "dashboard", data)
 			return
 		}
-		renderView(w, r, deps, "dashboard", "dashboard", data)
+		render(w, r, deps, "dashboard", "dashboard", data)
 	}
 }
 

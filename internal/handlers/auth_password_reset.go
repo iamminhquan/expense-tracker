@@ -21,10 +21,10 @@ const sendTimeout = 10 * time.Second
 // a direct navigation gets the full page shell.
 func renderForgotPasswordFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data *forgotPasswordView) {
 	if isFragmentRequest(r) {
-		renderViewNamed(w, r, deps, "forgot_password", "forgot_password_card_body", "", data)
+		renderNamed(w, r, deps, "forgot_password", "forgot_password_card_body", "", data)
 		return
 	}
-	renderView(w, r, deps, "forgot_password", "", data)
+	render(w, r, deps, "forgot_password", "", data)
 }
 
 // forgotPasswordView is the request-a-link card before and after the ask.
@@ -99,10 +99,10 @@ func queueResetEmail(ctx context.Context, deps Deps, user sqlcgen.User) {
 // for the /reset-password card.
 func renderResetPasswordFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data *resetPasswordView) {
 	if isFragmentRequest(r) {
-		renderViewNamed(w, r, deps, "reset_password", "reset_password_card_body", "", data)
+		renderNamed(w, r, deps, "reset_password", "reset_password_card_body", "", data)
 		return
 	}
-	renderView(w, r, deps, "reset_password", "", data)
+	render(w, r, deps, "reset_password", "", data)
 }
 
 // resetPasswordView is the set-a-new-password card. Invalid replaces the
