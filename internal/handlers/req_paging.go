@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"net/url"
 	"strconv"
 )
 
@@ -72,17 +71,9 @@ func pageParam(raw string) int {
 }
 
 // pageFromRequest reports which page the page that issued this request was
-// showing. Like monthRangeFromRequest, it reads HX-Current-URL rather than
-// r.URL: a create POST carries no "?page=" of its own, but htmx sends the
-// originating page's full URL on every request it issues.
+// showing, read off HX-Current-URL rather than r.URL -- see currentURLQuery.
+// No header means 0 rather than 1, which newPager clamps to the first page
+// anyway, and which the "past page 1?" check below reads the same way.
 func pageFromRequest(r *http.Request) int {
-	raw := r.Header.Get("HX-Current-URL")
-	if raw == "" {
-		return 1
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return 1
-	}
-	return pageParam(u.Query().Get("page"))
+	return pageParam(currentURLQuery(r).Get("page"))
 }

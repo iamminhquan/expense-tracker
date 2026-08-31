@@ -74,29 +74,14 @@ func positiveInt(raw string) int64 {
 	return n
 }
 
-// filtersFromRequest reads the filters the request's own URL carries, for
-// the list page itself.
-func filtersFromRequest(r *http.Request) txnFilters {
-	return filtersFromQuery(r.URL.Query())
-}
-
 // filtersFromHXCurrentURL reads the filters the page that issued this
-// request was showing. The mutation handlers need this for the same reason
-// monthRangeFromRequest exists: a create/update/delete carries no query
-// string of its own, but htmx sends the originating page's full URL on every
-// request it issues. Without it, the count chip and the pager returned
+// request was showing. The mutation handlers need it because a
+// create/update/delete carries no query string of its own -- see
+// currentURLQuery. Without it, the count chip and the pager returned
 // alongside a mutated row would describe the unfiltered month and disagree
 // with the rows actually on screen.
 func filtersFromHXCurrentURL(r *http.Request) txnFilters {
-	raw := r.Header.Get("HX-Current-URL")
-	if raw == "" {
-		return txnFilters{}
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return txnFilters{}
-	}
-	return filtersFromQuery(u.Query())
+	return filtersFromQuery(currentURLQuery(r))
 }
 
 // Any reports whether anything is being filtered at all. The list's empty

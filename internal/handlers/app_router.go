@@ -21,7 +21,16 @@ func NewRouter(deps Deps) http.Handler {
 	// has no cookie to double-submit and csrf.Middleware would reject every
 	// email with 403. The exemption is expressed here, in the router, rather
 	// than inside internal/csrf, which has no business knowing route paths.
-	r.Use(csrfExcept(csrf.Middleware(deps.SecureCookies), isInboxWebhookRequest))
+	r.Use(func(next http.Handler) http.Handler {
+		guarded := csrf.Middleware(deps.SecureCookies)(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if isInboxWebhookRequest(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			guarded.ServeHTTP(w, r)
+		})
+	})
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -88,21 +97,6 @@ func NewRouter(deps Deps) http.Handler {
 	})
 
 	return r
-}
-
-// csrfExcept applies mw to every request except those for which except
-// reports true.
-func csrfExcept(mw func(http.Handler) http.Handler, except func(*http.Request) bool) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		guarded := mw(next)
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if except(r) {
-				next.ServeHTTP(w, r)
-				return
-			}
-			guarded.ServeHTTP(w, r)
-		})
-	}
 }
 
 // isInboxWebhookRequest reports whether r is exactly POST /inbox/{token} --
