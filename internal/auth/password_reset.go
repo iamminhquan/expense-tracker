@@ -16,24 +16,16 @@ import (
 // for days the way a signed-in session does.
 const resetTokenTTL = 1 * time.Hour
 
-// PasswordResetManager issues and validates one-time password-reset tokens.
-// It mirrors Manager's session lifecycle (generateToken, expiry check,
-// delete-on-consume) against its own table, so a leaked reset link can
-// never be replayed as a session token or vice versa.
-type PasswordResetManager struct {
-	queries *sqlcgen.Queries
-}
-
-// NewPasswordResetManager constructs a password reset manager backed by the given query executor.
-func NewPasswordResetManager(q *sqlcgen.Queries) *PasswordResetManager {
-	return &PasswordResetManager{queries: q}
-}
+// One-time password-reset tokens. They mirror the session lifecycle in
+// session.go (generateToken, expiry check, delete-on-consume) against a table
+// of their own, so a leaked reset link can never be replayed as a session
+// token or vice versa.
 
 // CreateResetToken invalidates any reset tokens already issued to userID --
 // so an old, possibly-leaked link stops working the moment a new one is
 // requested -- and issues a fresh one.
-func (m *PasswordResetManager) CreateResetToken(ctx context.Context, userID int64) (string, time.Time, error) {
-	if err := m.queries.DeletePasswordResetTokensForUser(ctx, userID); err != nil {
+func CreateResetToken(ctx context.Context, q *sqlcgen.Queries, userID int64) (string, time.Time, error) {
+	if err := q.DeletePasswordResetTokensForUser(ctx, userID); err != nil {
 		return "", time.Time{}, err
 	}
 
@@ -43,7 +35,7 @@ func (m *PasswordResetManager) CreateResetToken(ctx context.Context, userID int6
 	}
 	expiresAt := time.Now().Add(resetTokenTTL)
 
-	row, err := m.queries.CreatePasswordResetToken(ctx, sqlcgen.CreatePasswordResetTokenParams{
+	row, err := q.CreatePasswordResetToken(ctx, sqlcgen.CreatePasswordResetTokenParams{
 		Token:     token,
 		UserID:    userID,
 		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
@@ -57,8 +49,8 @@ func (m *PasswordResetManager) CreateResetToken(ctx context.Context, userID int6
 // ValidateResetToken reports which user token belongs to, without consuming
 // it. The reset-password page calls this on the initial GET so a dead link
 // shows as invalid immediately, before the visitor has typed anything.
-func (m *PasswordResetManager) ValidateResetToken(ctx context.Context, token string) (int64, error) {
-	row, err := m.queries.GetPasswordResetToken(ctx, token)
+func ValidateResetToken(ctx context.Context, q *sqlcgen.Queries, token string) (int64, error) {
+	row, err := q.GetPasswordResetToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, errors.New("reset token not found")
@@ -66,7 +58,7 @@ func (m *PasswordResetManager) ValidateResetToken(ctx context.Context, token str
 		return 0, err
 	}
 	if time.Now().After(row.ExpiresAt.Time) {
-		_ = m.queries.DeletePasswordResetToken(ctx, token)
+		_ = q.DeletePasswordResetToken(ctx, token)
 		return 0, errors.New("reset token expired")
 	}
 	return row.UserID, nil
@@ -74,6 +66,6 @@ func (m *PasswordResetManager) ValidateResetToken(ctx context.Context, token str
 
 // ConsumeResetToken deletes token so it cannot be replayed once the
 // password it authorized has already been changed.
-func (m *PasswordResetManager) ConsumeResetToken(ctx context.Context, token string) error {
-	return m.queries.DeletePasswordResetToken(ctx, token)
+func ConsumeResetToken(ctx context.Context, q *sqlcgen.Queries, token string) error {
+	return q.DeletePasswordResetToken(ctx, token)
 }

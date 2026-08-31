@@ -61,7 +61,7 @@ func NewRouter(deps Deps) http.Handler {
 	r.Get("/verify-email", verifyEmailPage(deps))
 
 	r.Group(func(pr chi.Router) {
-		pr.Use(auth.RequireAuth(deps.Sessions, deps.CookieName))
+		pr.Use(auth.RequireAuth(deps.Queries, deps.CookieName))
 		pr.Get("/categories", categoriesPage(deps))
 		pr.Post("/categories", categoriesPage(deps))
 		pr.Patch("/categories/{id}/color", updateCategoryColorHandler(deps))

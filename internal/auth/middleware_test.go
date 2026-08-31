@@ -14,9 +14,8 @@ import (
 func TestRequireAuthRejectsMissingCookie(t *testing.T) {
 	pool := testPool(t)
 	q := sqlcgen.New(pool)
-	mgr := auth.NewManager(q)
 
-	handler := auth.RequireAuth(mgr, "session_id")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireAuth(q, "session_id")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called without a valid session")
 	}))
 
@@ -43,9 +42,8 @@ func TestRequireAuthRejectsMissingCookie(t *testing.T) {
 func TestRequireAuthHtmxRequestGetsHXRedirect(t *testing.T) {
 	pool := testPool(t)
 	q := sqlcgen.New(pool)
-	mgr := auth.NewManager(q)
 
-	handler := auth.RequireAuth(mgr, "session_id")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireAuth(q, "session_id")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called without a valid session")
 	}))
 
@@ -69,15 +67,14 @@ func TestRequireAuthAcceptsValidSession(t *testing.T) {
 	pool := testPool(t)
 	q := sqlcgen.New(pool)
 	userID := setupTestUser(t, q)
-	mgr := auth.NewManager(q)
 	ctx := context.Background()
-	token, _, err := mgr.CreateSession(ctx, userID, "test-agent/1.0")
+	token, _, err := auth.CreateSession(ctx, q, userID, "test-agent/1.0")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 
 	called := false
-	handler := auth.RequireAuth(mgr, "session_id")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireAuth(q, "session_id")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		gotID, ok := auth.UserIDFromContext(r.Context())
 		if !ok || gotID != userID {

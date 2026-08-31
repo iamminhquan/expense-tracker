@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"expensetracker/internal/auth"
 	"expensetracker/internal/classify"
 	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
@@ -42,17 +41,14 @@ func newTestDeps(t *testing.T) handlers.Deps {
 	}
 
 	return handlers.Deps{
-		DB:                 pool,
-		Queries:            sqlcgen.New(pool),
-		Sessions:           auth.NewManager(sqlcgen.New(pool)),
-		PasswordResets:     auth.NewPasswordResetManager(sqlcgen.New(pool)),
-		EmailVerifications: auth.NewEmailVerificationManager(sqlcgen.New(pool)),
-		Mailer:             mailer.New(mailer.Config{}),
-		Classifier:         classify.New(classify.Config{}),
-		Templates:          templates,
-		CookieName:         "session_id",
-		SecureCookies:      false,
-		BaseURL:            "http://localhost:8080",
+		DB:            pool,
+		Queries:       sqlcgen.New(pool),
+		Mailer:        mailer.New(mailer.Config{}),
+		Classifier:    classify.New(classify.Config{}),
+		Templates:     templates,
+		CookieName:    "session_id",
+		SecureCookies: false,
+		BaseURL:       "http://localhost:8080",
 	}
 }
 

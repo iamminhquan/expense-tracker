@@ -245,7 +245,7 @@ func registerPage(deps Deps) http.HandlerFunc {
 func logoutHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if cookie, err := r.Cookie(deps.CookieName); err == nil {
-			deps.Sessions.DeleteSession(r.Context(), cookie.Value)
+			auth.DeleteSession(r.Context(), deps.Queries, cookie.Value)
 		}
 		clearSessionCookie(w, deps)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -268,7 +268,7 @@ func clearSessionCookie(w http.ResponseWriter, deps Deps) {
 }
 
 func startSession(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
-	token, expiresAt, err := deps.Sessions.CreateSession(r.Context(), userID, r.UserAgent())
+	token, expiresAt, err := auth.CreateSession(r.Context(), deps.Queries, userID, r.UserAgent())
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
