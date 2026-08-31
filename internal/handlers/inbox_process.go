@@ -206,7 +206,7 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 		log.Printf("look up category hint for user %d: %v", userID, err)
 	}
 
-	// No hint fit. Ask Claude before falling back to Other/Other income --
+	// No hint fit. Ask Gemini before falling back to Other/Other income --
 	// but only when it has something to say: an unconfigured classifier is
 	// the ordinary state for an account that never set GEMINI_API_KEY,
 	// not a failure worth logging on every single miss.
