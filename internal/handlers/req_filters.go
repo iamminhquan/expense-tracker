@@ -114,16 +114,6 @@ func (f txnFilters) ActiveCount() int {
 	return n
 }
 
-// searchParam renders the search term for the query's ILIKE. sqlc gives a
-// nullable text parameter as pgtype.Text; an invalid one is SQL NULL, which
-// is what switches the predicate off.
-func (f txnFilters) searchParam() pgtype.Text {
-	if f.Search == "" {
-		return pgtype.Text{}
-	}
-	return pgtype.Text{String: f.Search, Valid: true}
-}
-
 // searchSlugs is the other half of the search: the default categories whose
 // displayed label contains the term. Their labels live in internal/i18n
 // rather than in the database, so the term is resolved into slugs here and
@@ -141,20 +131,16 @@ func (f txnFilters) searchSlugs() []string {
 	return slugs
 }
 
-func (f txnFilters) typeParam() pgtype.Text {
-	if f.Type == "" {
+// nullableText turns an unset filter into SQL NULL and anything else into a
+// set parameter. sqlc renders a nullable text parameter as pgtype.Text, and
+// the NULL is what switches its predicate off: an empty search matches every
+// row, an empty type narrows neither way, and an empty sort matches neither
+// of the ORDER BY's CASEs, which leaves the list newest-first.
+func nullableText(v string) pgtype.Text {
+	if v == "" {
 		return pgtype.Text{}
 	}
-	return pgtype.Text{String: f.Type, Valid: true}
-}
-
-// sortParam renders the order for the query's ORDER BY. An unset one is SQL
-// NULL, which matches neither CASE and so leaves the list newest-first.
-func (f txnFilters) sortParam() pgtype.Text {
-	if f.Sort == "" {
-		return pgtype.Text{}
-	}
-	return pgtype.Text{String: f.Sort, Valid: true}
+	return pgtype.Text{String: v, Valid: true}
 }
 
 // nullableInt turns a 0 sentinel into SQL NULL and anything else into a set
@@ -227,10 +213,10 @@ func filterQuery(month string, f txnFilters) url.Values {
 func (f txnFilters) exportParams(userID int64, from, to pgtype.Date) sqlcgen.ListTransactionsForMonthParams {
 	return sqlcgen.ListTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
+		Search: nullableText(f.Search), SearchSlugs: f.searchSlugs(), Type: nullableText(f.Type),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
-		Sort: f.sortParam(),
+		Sort: nullableText(f.Sort),
 	}
 }
 
@@ -245,7 +231,7 @@ func (f txnFilters) listParams(userID int64, from, to pgtype.Date, offset int32)
 func (f txnFilters) countParams(userID int64, from, to pgtype.Date) sqlcgen.CountTransactionsForMonthParams {
 	return sqlcgen.CountTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
+		Search: nullableText(f.Search), SearchSlugs: f.searchSlugs(), Type: nullableText(f.Type),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
 	}

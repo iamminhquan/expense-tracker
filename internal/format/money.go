@@ -7,10 +7,7 @@
 // place and testable without either.
 package format
 
-import (
-	"strconv"
-	"strings"
-)
+import "strconv"
 
 // VND formats the magnitude of n as comma-separated đồng, e.g.
 // 50000 -> "50,000₫". The sign is never shown here; callers needing a sign
@@ -49,14 +46,8 @@ func VNDBalance(n int64) string {
 
 func thousands(n int64) string {
 	s := strconv.FormatInt(n, 10)
-	if len(s) <= 3 {
-		return s
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
 	}
-	var parts []string
-	for len(s) > 3 {
-		parts = append([]string{s[len(s)-3:]}, parts...)
-		s = s[:len(s)-3]
-	}
-	parts = append([]string{s}, parts...)
-	return strings.Join(parts, ",")
+	return s
 }

@@ -54,14 +54,14 @@ func newBalanceSummary(expense, income, carriedOver int64) balanceSummary {
 		return summary
 	}
 
-	pct := int(expense * 100 / income)
-	switch {
-	case expense > income:
+	if expense > income {
 		summary.SpentPct = 100
 		summary.RatioLabel = "Over this month's income"
-	default:
-		summary.SpentPct = pct
-		summary.RatioLabel = fmt.Sprintf("Spent %d%% of this month's income", pct)
+		return summary
 	}
+
+	pct := int(expense * 100 / income)
+	summary.SpentPct = pct
+	summary.RatioLabel = fmt.Sprintf("Spent %d%% of this month's income", pct)
 	return summary
 }

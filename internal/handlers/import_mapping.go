@@ -87,8 +87,7 @@ func validateMapping(m csvimport.Mapping, columns int) string {
 
 	used := map[int]string{}
 	for _, f := range mappingFields {
-		copied := m
-		i := *f.get(&copied)
+		i := *f.get(&m)
 		if i == csvimport.NoColumn {
 			continue
 		}
@@ -110,9 +109,8 @@ func importMapping(w http.ResponseWriter, r *http.Request, deps Deps, sheet *csv
 
 	roles := make([]mappingRole, 0, len(mappingFields))
 	for _, f := range mappingFields {
-		copied := m
 		roles = append(roles, mappingRole{
-			Label: f.Label, Field: f.Field, Optional: f.Optional, Selected: *f.get(&copied),
+			Label: f.Label, Field: f.Field, Optional: f.Optional, Selected: *f.get(&m),
 		})
 	}
 
@@ -190,8 +188,7 @@ func mappingFieldValues(m csvimport.Mapping) map[string]string {
 		values["negative_is_expense"] = "1"
 	}
 	for _, f := range mappingFields {
-		copied := m
-		values[f.Field] = strconv.Itoa(*f.get(&copied))
+		values[f.Field] = strconv.Itoa(*f.get(&m))
 	}
 	return values
 }

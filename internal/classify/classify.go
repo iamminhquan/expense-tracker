@@ -312,16 +312,13 @@ func answerText(body []byte) (string, error) {
 }
 
 // statusError turns a non-2xx response into an error carrying the API's own
-// status string, which is what makes a 429 read differently from a 500 in a
-// log line without the caller string-matching anything. Every status still
-// becomes a plain error a caller treats identically (fall back); the
-// distinction exists for a clearer message, not different handling.
+// code and status string, which is what makes a 429 read differently from a
+// 500 in a log line without the caller string-matching anything. Every status
+// becomes a plain error a caller treats identically (fall back), so the code
+// travels in the message rather than in a branch.
 func statusError(code int, body []byte) error {
 	var apiErr apiErrorResponse
 	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
-		if code == http.StatusTooManyRequests {
-			return fmt.Errorf("classify: rate limited (429): %s", apiErr.Error.Message)
-		}
 		return fmt.Errorf("classify: gemini api error (%d %s): %s", code, apiErr.Error.Status, apiErr.Error.Message)
 	}
 	return fmt.Errorf("classify: gemini api error (%d): %s", code, body)

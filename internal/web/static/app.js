@@ -34,7 +34,8 @@ function formatAmountInputsIn(root) {
   root.querySelectorAll('input[name="amount"]').forEach(formatAmountInput);
 }
 document.addEventListener('DOMContentLoaded', function () { formatAmountInputsIn(document); });
-document.addEventListener('htmx:afterSwap', function () { formatAmountInputsIn(document); });
+// afterSettle rather than afterSwap: it fires after every swap, once the
+// swapped-in nodes have settled, so one listener covers both.
 document.addEventListener('htmx:afterSettle', function () { formatAmountInputsIn(document); });
 
 // Long-press (~500ms) on any element carrying data-longpress-target opens
