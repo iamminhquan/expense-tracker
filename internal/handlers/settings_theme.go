@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 
 	"expensetracker/internal/auth"
@@ -48,8 +47,7 @@ func updateThemeHandler(deps Deps) http.HandlerFunc {
 			ID: userID, Theme: theme,
 		})
 		if err != nil {
-			log.Printf("update theme: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "update theme", err)
 			return
 		}
 

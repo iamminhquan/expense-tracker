@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"expensetracker/internal/pgval"
 )
 
 // Everything that answers "which month is this page showing?". The app is
@@ -13,10 +15,29 @@ import (
 // the balance widget all take a [from, to) window -- so these live together
 // rather than beside whichever handler happened to need one first.
 
-// pgDate converts a parsed calendar date into the pgtype.Date that sqlc
-// generates for a DATE column.
-func pgDate(t time.Time) pgtype.Date {
-	return pgtype.Date{Time: t, Valid: true}
+// monthOption is one entry in the month picker's dropdown: the "YYYY-MM" a
+// link carries, and the "August 2026" it reads as.
+type monthOption struct {
+	Value string
+	Label string
+}
+
+// monthOptions turns the months an account has transactions in into the
+// picker's entries. The current month is left out on purpose: both pages
+// that render the picker pin it as their own "This month" entry above the
+// list, so including it here would offer the same month twice.
+func monthOptions(months []pgtype.Date, current pgtype.Date) []monthOption {
+	var options []monthOption
+	for _, m := range months {
+		if m.Time.Year() == current.Time.Year() && m.Time.Month() == current.Time.Month() {
+			continue
+		}
+		options = append(options, monthOption{
+			Value: m.Time.Format("2006-01"),
+			Label: monthLabel(m.Time),
+		})
+	}
+	return options
 }
 
 func monthLabel(t time.Time) string      { return t.Format("January 2006") }
@@ -31,7 +52,7 @@ func monthRangeFor(param string) (from, to pgtype.Date) {
 		return currentMonthRange()
 	}
 	fromTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, vietnamLocation)
-	return pgDate(fromTime), pgDate(fromTime.AddDate(0, 1, 0))
+	return pgval.Date(fromTime), pgval.Date(fromTime.AddDate(0, 1, 0))
 }
 
 // monthRangeFromRequest determines which month a mutation response's OOB
@@ -91,7 +112,7 @@ func currentMonthRange() (from, to pgtype.Date) {
 	now := time.Now().In(vietnamLocation)
 	fromTime := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, vietnamLocation)
 	toTime := fromTime.AddDate(0, 1, 0)
-	return pgDate(fromTime), pgDate(toTime)
+	return pgval.Date(fromTime), pgval.Date(toTime)
 }
 
 // allMonths is what ?month= carries when the transactions page is showing a
@@ -108,8 +129,8 @@ const allMonths = "all"
 // the one query they already run instead of growing a second, month-less
 // variant of each.
 var (
-	allTimeFrom = pgDate(time.Date(1, 1, 1, 0, 0, 0, 0, vietnamLocation))
-	allTimeTo   = pgDate(time.Date(9999, 12, 31, 0, 0, 0, 0, vietnamLocation))
+	allTimeFrom = pgval.Date(time.Date(1, 1, 1, 0, 0, 0, 0, vietnamLocation))
+	allTimeTo   = pgval.Date(time.Date(9999, 12, 31, 0, 0, 0, 0, vietnamLocation))
 )
 
 // txnScope is which slice of time the transactions page is showing: one

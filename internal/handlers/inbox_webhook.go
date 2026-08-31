@@ -3,11 +3,12 @@ package handlers
 import (
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
 	"expensetracker/internal/inbound"
+	"expensetracker/internal/inboxproc"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/go-chi/chi/v5"
@@ -84,7 +85,7 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		user, err := deps.Queries.GetUserByInboxToken(r.Context(), pgText(chi.URLParam(r, "token")))
+		user, err := deps.Queries.GetUserByInboxToken(r.Context(), pgval.Text(chi.URLParam(r, "token")))
 		if errors.Is(err, pgx.ErrNoRows) {
 			// No account owns this address -- most likely one whose owner
 			// turned tracking off and regenerated their token.
@@ -92,8 +93,7 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Printf("inbox webhook: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "inbox webhook: load user", err)
 			return
 		}
 
@@ -129,20 +129,19 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 		// message already arrived once. That is a success, not a failure --
 		// answering anything else would make the Worker retry forever.
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("inbox webhook: store email: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "inbox webhook: store email", err)
 			return
 		}
 
 		// Kicked off after the response is decided, not awaited: the Worker
 		// is waiting on this request, and parsing/DB work has no business
 		// making it wait longer. Runs against context.Background() inside
-		// processPendingEmails rather than r.Context(), which is canceled
+		// ProcessPending rather than r.Context(), which is canceled
 		// the moment this handler returns. Walks the user's whole pending
 		// backlog, not just the email this request just stored, so a
 		// message left mid-flight by an earlier restart still gets picked
 		// up.
-		go processPendingEmails(deps, user.ID)
+		go inboxproc.New(deps.Queries, deps.Classifier).ProcessPending(user.ID)
 
 		w.WriteHeader(http.StatusOK)
 	}

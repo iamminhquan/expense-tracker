@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -17,7 +18,7 @@ func duplicateTestRow(id int64, date string, amount int64, typ string) txnRow {
 		panic(err) // test fixture only ever gets a literal in the caller
 	}
 	return txnRow{ListTransactionsForMonthRow: sqlcgen.ListTransactionsForMonthRow{
-		ID: id, OccurredOn: pgDate(d), Amount: amount, Type: typ,
+		ID: id, OccurredOn: pgval.Date(d), Amount: amount, Type: typ,
 	}}
 }
 

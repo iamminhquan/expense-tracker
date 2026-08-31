@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -31,24 +32,79 @@ func isValidSwatch(color string) bool {
 	return false
 }
 
-// categoryRowData builds the flat map category_row.html and
-// category_row_edit.html both expect. Every response path that renders a
-// row goes through this so the template never has to distinguish a raw
-// sqlc struct from a hand-built one.
+// categoryRow is one category as category_row.html and
+// category_row_edit.html both see it. Every response path that renders a
+// row builds one, so the template never has to distinguish a raw sqlc
+// struct from a hand-built one.
 //
-// The out-of-band target of a newly created row is deliberately not in here:
-// it belongs to the wrapper category_create_response puts *around* the row,
-// never to the row itself -- see the comment there.
+// The out-of-band target of a newly created row is deliberately not a field
+// here: it belongs to the wrapper category_create_response puts *around*
+// the row, never to the row itself -- see the comment there.
 //
-// slug is what tells a shared default apart from a category the user made:
-// the template resolves the display name through catName, which needs it,
-// and a map key that is simply absent makes html/template fail the whole
-// categoryRowData builds the template data for rendering a category row.
-func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, color string, txnCount int64) map[string]any {
-	return map[string]any{
-		"ID": id, "UserID": userID, "Slug": slug, "Name": name, "Type": typ, "Color": color,
-		"TransactionCount": txnCount,
+// Slug is what tells a shared default apart from a category the user made,
+// and the template resolves the display name through catName, which needs
+// it. It was the argument for making this a struct: as a map, a response
+// path that left the key out rendered a nameless row and reported nothing,
+// because html/template prints nothing at all for a key its map lacks.
+type categoryRow struct {
+	ID               int64
+	UserID           pgtype.Int8
+	Slug             pgtype.Text
+	Name             string
+	Type             string
+	Color            string
+	TransactionCount int64
+	// Error is the message a rejected rename shows beside the input. Only
+	// category_row_edit reads it; the read-only row leaves it empty.
+	Error string
+}
+
+// categoryRowData builds the row every category response renders through.
+func categoryRowData(id int64, userID pgtype.Int8, slug pgtype.Text, name, typ, color string, txnCount int64) categoryRow {
+	return categoryRow{
+		ID: id, UserID: userID, Slug: slug, Name: name, Type: typ, Color: color,
+		TransactionCount: txnCount,
 	}
+}
+
+// categoryCreateResponse is what a successful create answers with: the new
+// row, the list it is prepended into, and the empty state that has to
+// disappear now that the account has a category of its own.
+type categoryCreateResponse struct {
+	Row                 categoryRow
+	OOBTarget           string
+	HasCustomCategories bool
+}
+
+// categoriesEmptyState is the out-of-band swap that brings the "you have no
+// custom categories yet" panel back, or keeps it hidden.
+type categoriesEmptyState struct {
+	HasCustomCategories bool
+}
+
+// categoriesView is the categories page: the two lists, and whether the
+// account has a category of its own yet -- which is what decides between
+// the list and the "you haven't created any categories" panel.
+type categoriesView struct {
+	viewData
+	// The page renders the create form inline, so it has to carry the
+	// form's own fields too -- embedded rather than restated, which is what
+	// keeps the two renders of that form asking for the same set. The page
+	// leaves them zero; only a rejected submit fills any of them in, and it
+	// re-renders the form on its own through addCategoryForm.
+	addCategoryForm
+
+	ExpenseCategories   []categoryRow
+	IncomeCategories    []categoryRow
+	HasCustomCategories bool
+}
+
+// addCategoryForm is the create form's own state, re-rendered in place when
+// a submission is rejected.
+type addCategoryForm struct {
+	CategoryError string
+	CategoryName  string
+	CategoryType  string
 }
 
 // categoriesPage returns an HTTP handler that creates categories for POST requests and renders expense and income categories for other requests.
@@ -67,7 +123,7 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		var expense, income []map[string]any
+		var expense, income []categoryRow
 		hasCustom := false
 		for _, row := range rows {
 			data := categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount)
@@ -81,10 +137,10 @@ func categoriesPage(deps Deps) http.HandlerFunc {
 			}
 		}
 
-		render(w, r, deps, "categories", "categories", map[string]any{
-			"ExpenseCategories":   expense,
-			"IncomeCategories":    income,
-			"HasCustomCategories": hasCustom,
+		render(w, r, deps, "categories", "categories", &categoriesView{
+			ExpenseCategories:   expense,
+			IncomeCategories:    income,
+			HasCustomCategories: hasCustom,
 		})
 	}
 }
@@ -99,8 +155,8 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	fail := func(msg string) {
 		w.Header().Set("HX-Retarget", "#add-category-form")
 		w.Header().Set("HX-Reswap", "outerHTML")
-		renderNamed(w, r, deps, "categories", "add_category_form", "", map[string]any{
-			"CategoryError": msg, "CategoryName": name, "CategoryType": typ,
+		renderFragment(w, r, deps, "categories", "add_category_form", addCategoryForm{
+			CategoryError: msg, CategoryName: name, CategoryType: typ,
 		})
 	}
 
@@ -118,7 +174,7 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 	}
 
 	created, err := deps.Queries.CreateCategory(r.Context(), sqlcgen.CreateCategoryParams{
-		UserID: pgInt64(userID),
+		UserID: pgval.Int64(userID),
 		Name:   name,
 		Type:   typ,
 		Color:  color,
@@ -134,13 +190,13 @@ func handleCreateCategory(w http.ResponseWriter, r *http.Request, deps Deps, use
 		return
 	}
 
-	renderNamed(w, r, deps, "categories", "category_create_response", "", map[string]any{
-		"Row":       categoryRowData(created.ID, created.UserID, created.Slug, created.Name, created.Type, created.Color, 0),
-		"OOBTarget": "#category-list-" + created.Type,
+	renderFragment(w, r, deps, "categories", "category_create_response", categoryCreateResponse{
+		Row:       categoryRowData(created.ID, created.UserID, created.Slug, created.Name, created.Type, created.Color, 0),
+		OOBTarget: "#category-list-" + created.Type,
 		// Creating a category always means the user now has at least one
 		// custom category, so the "no custom categories yet" empty state
 		// (see categories.html/#categories-empty) must be hidden.
-		"HasCustomCategories": true,
+		HasCustomCategories: true,
 	})
 }
 
@@ -164,7 +220,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		// is allowed for everyone, unlike rename/delete, which carve
 		// defaults out.
 		updated, err := deps.Queries.UpdateCategoryColor(r.Context(), sqlcgen.UpdateCategoryColorParams{
-			ID: id, UserID: pgInt64(userID), Color: color,
+			ID: id, UserID: pgval.Int64(userID), Color: color,
 		})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
@@ -175,7 +231,7 @@ func updateCategoryColorHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category color: count transactions: %v", err)
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
+		renderFragment(w, r, deps, "categories", "category_row", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
 	}
 }
 
@@ -197,7 +253,7 @@ func editCategoryHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "default categories cannot be renamed", http.StatusForbidden)
 			return
 		}
-		renderNamed(w, r, deps, "categories", "category_row_edit", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
+		renderFragment(w, r, deps, "categories", "category_row_edit", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
 	}
 }
 
@@ -214,7 +270,7 @@ func viewCategoryRowHandler(deps Deps) http.HandlerFunc {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
+		renderFragment(w, r, deps, "categories", "category_row", categoryRowData(row.ID, row.UserID, row.Slug, row.Name, row.Type, row.Color, row.TransactionCount))
 	}
 }
 
@@ -227,7 +283,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		existing, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgInt64(userID)})
+		existing, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgval.Int64(userID)})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
@@ -239,19 +295,19 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 
 		name := strings.TrimSpace(r.FormValue("name"))
 		if name == "" {
-			data := categoryRowData(existing.ID, existing.UserID, existing.Slug, existing.Name, existing.Type, existing.Color, 0)
-			data["Error"] = "Please enter a category name."
-			renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
+			row := categoryRowData(existing.ID, existing.UserID, existing.Slug, existing.Name, existing.Type, existing.Color, 0)
+			row.Error = "Please enter a category name."
+			renderFragment(w, r, deps, "categories", "category_row_edit", row)
 			return
 		}
 
-		updated, err := deps.Queries.UpdateCategoryName(r.Context(), sqlcgen.UpdateCategoryNameParams{ID: id, UserID: pgInt64(userID), Name: name})
+		updated, err := deps.Queries.UpdateCategoryName(r.Context(), sqlcgen.UpdateCategoryNameParams{ID: id, UserID: pgval.Int64(userID), Name: name})
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				data := categoryRowData(existing.ID, existing.UserID, existing.Slug, name, existing.Type, existing.Color, 0)
-				data["Error"] = "You already have a category with that name."
-				renderNamed(w, r, deps, "categories", "category_row_edit", "", data)
+				row := categoryRowData(existing.ID, existing.UserID, existing.Slug, name, existing.Type, existing.Color, 0)
+				row.Error = "You already have a category with that name."
+				renderFragment(w, r, deps, "categories", "category_row_edit", row)
 				return
 			}
 			log.Printf("update category name: %v", err)
@@ -263,7 +319,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			log.Printf("update category name: count transactions: %v", err)
 		}
-		renderNamed(w, r, deps, "categories", "category_row", "", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
+		renderFragment(w, r, deps, "categories", "category_row", categoryRowData(updated.ID, updated.UserID, updated.Slug, updated.Name, updated.Type, updated.Color, count))
 	}
 }
 
@@ -276,7 +332,7 @@ func updateCategoryNameHandler(deps Deps) http.HandlerFunc {
 // so that row is simply removed from the DOM -- mirroring the previous
 // empty-body-means-"remove the row" behavior.
 func respondCategoryDeleted(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
-	all, err := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
+	all, err := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 	if err != nil {
 		log.Printf("delete category: list categories for empty-state check: %v", err)
 		w.WriteHeader(http.StatusOK)
@@ -289,7 +345,7 @@ func respondCategoryDeleted(w http.ResponseWriter, r *http.Request, deps Deps, u
 			break
 		}
 	}
-	renderNamed(w, r, deps, "categories", "categories_empty_oob", "", map[string]any{"HasCustomCategories": hasCustom})
+	renderFragment(w, r, deps, "categories", "categories_empty_oob", categoriesEmptyState{HasCustomCategories: hasCustom})
 }
 
 func deleteCategoryHandler(deps Deps) http.HandlerFunc {
@@ -300,7 +356,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgInt64(userID)})
+		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgval.Int64(userID)})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusNotFound)
 			return
@@ -347,7 +403,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
 			}
-			if _, err := qtx.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgInt64(userID)}); err != nil {
+			if _, err := qtx.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgval.Int64(userID)}); err != nil {
 				log.Printf("delete category: %v", err)
 				http.Error(w, "could not delete category", http.StatusInternalServerError)
 				return
@@ -361,7 +417,7 @@ func deleteCategoryHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.Queries.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgInt64(userID)}); err != nil {
+		if _, err := deps.Queries.DeleteCategory(r.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgval.Int64(userID)}); err != nil {
 			log.Printf("delete category: %v", err)
 			http.Error(w, "could not delete category", http.StatusInternalServerError)
 			return

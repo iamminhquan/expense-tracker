@@ -13,6 +13,7 @@ import (
 
 	"expensetracker/internal/auth"
 	"expensetracker/internal/csvimport"
+	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 )
 
@@ -28,7 +29,7 @@ const importMaxBytes = 1 << 20
 // that has neither a month nor a list.
 func importPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		render(w, r, deps, "import", "transactions", map[string]any{})
+		render(w, r, deps, "import", "transactions", &importView{})
 	}
 }
 
@@ -65,8 +66,7 @@ func importHandler(deps Deps) http.HandlerFunc {
 
 		catalog, err := importCatalog(r.Context(), deps, userID)
 		if err != nil {
-			log.Printf("import: load categories: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "import: load categories", err)
 			return
 		}
 
@@ -96,8 +96,7 @@ func importHandler(deps Deps) http.HandlerFunc {
 
 		// Sniff read the file to the end; Plan needs the same bytes again.
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
-			log.Printf("import: rewind upload: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "import: rewind upload", err)
 			return
 		}
 		plan, err := csvimport.Plan(file, mapping, catalog, time.Now().In(vietnamLocation))
@@ -108,8 +107,7 @@ func importHandler(deps Deps) http.HandlerFunc {
 
 		duplicates, err := countImportDuplicates(r.Context(), deps, userID, plan)
 		if err != nil {
-			log.Printf("import: count duplicates: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "import: count duplicates", err)
 			return
 		}
 
@@ -153,22 +151,49 @@ const maxShownErrors = 20
 // rather than handed over whole, so the template neither reaches into
 // another package's struct nor has to do the arithmetic of trimming a long
 // error list.
-func previewData(plan *csvimport.Import, m csvimport.Mapping, duplicates int) map[string]any {
+// importView is the import page and the preview it swaps in -- one struct
+// for both, because the page is the preview's empty state: it renders the
+// zero value until a file has been read.
+//
+// FatalError is the file the importer could not read at all, and replaces
+// everything below it. Every other field describes a file that was read,
+// whether or not it can be applied.
+type importView struct {
+	viewData
+
+	FatalError string
+
+	RowCount      int
+	NewCategories []csvimport.NewCategory
+	Errors        []csvimport.RowError
+	MoreErrors    int
+	Rounded       int
+	Duplicates    int
+	Fingerprint   string
+	Importable    bool
+	DateSuspect   bool
+	// Mapping is the mapping as hidden form fields, keyed by input name --
+	// a genuine bag of form values rather than a set of view fields, which
+	// is why it stays a map.
+	Mapping map[string]string
+}
+
+func previewData(plan *csvimport.Import, m csvimport.Mapping, duplicates int) *importView {
 	shown, more := plan.Errors, 0
 	if len(shown) > maxShownErrors {
 		shown, more = shown[:maxShownErrors], len(plan.Errors)-maxShownErrors
 	}
-	return map[string]any{
-		"RowCount":      len(plan.Rows),
-		"NewCategories": plan.NewCategories,
-		"Errors":        shown,
-		"MoreErrors":    more,
-		"Rounded":       plan.Rounded,
-		"Duplicates":    duplicates,
-		"Fingerprint":   plan.Fingerprint,
-		"Importable":    importable(plan),
-		"DateSuspect":   mostlyDateErrors(plan.Errors),
-		"Mapping":       mappingFieldValues(m),
+	return &importView{
+		RowCount:      len(plan.Rows),
+		NewCategories: plan.NewCategories,
+		Errors:        shown,
+		MoreErrors:    more,
+		Rounded:       plan.Rounded,
+		Duplicates:    duplicates,
+		Fingerprint:   plan.Fingerprint,
+		Importable:    importable(plan),
+		DateSuspect:   mostlyDateErrors(plan.Errors),
+		Mapping:       mappingFieldValues(m),
 	}
 }
 
@@ -205,13 +230,13 @@ func planFailureMessage(err error) string {
 }
 
 func importFailed(w http.ResponseWriter, r *http.Request, deps Deps, msg string) {
-	renderNamed(w, r, deps, "import", "import_preview", "", map[string]any{"FatalError": msg})
+	renderNamed(w, r, deps, "import", "import_preview", "", &importView{FatalError: msg})
 }
 
 // importCatalog is the account's categories as csvimport sees them: ids,
 // names, slugs and types, and nothing about pgtype.
 func importCatalog(ctx context.Context, deps Deps, userID int64) ([]csvimport.Category, error) {
-	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgInt64(userID))
+	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgval.Int64(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +272,7 @@ func countImportDuplicates(ctx context.Context, deps Deps, userID int64, plan *c
 	}
 
 	existing, err := deps.Queries.ListTransactionsForMonth(ctx,
-		txnFilters{}.exportParams(userID, pgDate(first), pgDate(last.AddDate(0, 0, 1))))
+		txnFilters{}.exportParams(userID, pgval.Date(first), pgval.Date(last.AddDate(0, 0, 1))))
 	if err != nil {
 		return 0, err
 	}
@@ -293,7 +318,7 @@ func applyImport(ctx context.Context, deps Deps, userID int64, plan *csvimport.I
 		// interchangeable, and a file's categories at least come out
 		// distinguishable from each other.
 		category, err := qtx.CreateCategory(ctx, sqlcgen.CreateCategoryParams{
-			UserID: pgInt64(userID), Name: c.Name, Type: c.Type,
+			UserID: pgval.Int64(userID), Name: c.Name, Type: c.Type,
 			Color: categorySwatches[i%len(categorySwatches)],
 		})
 		if err != nil {
@@ -309,7 +334,7 @@ func applyImport(ctx context.Context, deps Deps, userID int64, plan *csvimport.I
 		}
 		if _, err := qtx.CreateTransaction(ctx, sqlcgen.CreateTransactionParams{
 			UserID: userID, CategoryID: categoryID, Amount: row.Amount, Type: row.Type,
-			Description: row.Note, OccurredOn: pgDate(row.Date),
+			Description: row.Note, OccurredOn: pgval.Date(row.Date),
 		}); err != nil {
 			return fmt.Errorf("create transaction from line %d: %w", row.Line, err)
 		}

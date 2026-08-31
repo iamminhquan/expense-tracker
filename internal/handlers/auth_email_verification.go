@@ -60,7 +60,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 
 		userID, email, err := deps.EmailVerifications.ValidateVerificationToken(r.Context(), token)
 		if err != nil {
-			render(w, r, deps, "verify_email", "", map[string]any{"Invalid": true})
+			render(w, r, deps, "verify_email", "", &verifyEmailView{})
 			return
 		}
 
@@ -69,18 +69,17 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 		}); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				render(w, r, deps, "verify_email", "", map[string]any{"Conflict": true})
+				render(w, r, deps, "verify_email", "", &verifyEmailView{Conflict: true})
 				return
 			}
-			log.Printf("verify email: apply: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "verify email: apply", err)
 			return
 		}
 		if err := deps.EmailVerifications.ConsumeVerificationToken(r.Context(), token); err != nil {
 			log.Printf("verify email: consume token: %v", err)
 		}
 
-		render(w, r, deps, "verify_email", "", map[string]any{"Verified": true})
+		render(w, r, deps, "verify_email", "", &verifyEmailView{Verified: true})
 	}
 }
 
@@ -93,8 +92,7 @@ func resendVerificationHandler(deps Deps) http.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByID(r.Context(), userID)
 		if err != nil {
-			log.Printf("resend verification: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "resend verification: load user", err)
 			return
 		}
 
@@ -106,4 +104,14 @@ func resendVerificationHandler(deps Deps) http.HandlerFunc {
 
 		http.Redirect(w, r, "/settings?saved=verification-sent", http.StatusSeeOther)
 	}
+}
+
+// verifyEmailView is the landing page a verification link opens. The three
+// outcomes it reports are a success, an address claimed by another account
+// in the meantime, and -- the zero value, which the template's {{else}}
+// branch covers -- a link that was expired, spent or never ours.
+type verifyEmailView struct {
+	viewData
+	Verified bool
+	Conflict bool
 }
