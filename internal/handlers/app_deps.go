@@ -30,7 +30,7 @@ type Deps struct {
 	Mailer             *mailer.Mailer
 	// Classifier resolves a category for a bank-email transaction when no
 	// category_hints row fits (see resolveCategoryForNotice in
-	// inbox_process.go). Nil is treated the same as an unconfigured
+	// internal/inboxproc). Nil is treated the same as an unconfigured
 	// Classifier -- see that function's own guard -- but every real
 	// construction path (main.go, and the handler test helpers that
 	// exercise email processing) sets it via classify.New, the same way

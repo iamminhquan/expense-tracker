@@ -267,7 +267,7 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// the processor never used.
 		//
 		// existing.Description is already the truncated string
-		// inbox_process.go's createTransactionFromNotice stored (its own
+		// internal/inboxproc's createTransactionFromNotice stored (its own
 		// NoteKey call runs on that same truncated string, never on the raw
 		// notice.Description) -- this side must keep deriving its key from
 		// whatever is actually stored on the row, not re-truncate or

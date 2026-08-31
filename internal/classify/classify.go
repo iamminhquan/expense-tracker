@@ -13,7 +13,7 @@
 // Callers must treat every error this package returns -- not configured, a
 // network failure, a 429/500, a malformed or out-of-candidate answer -- as
 // equivalent to "could not classify" and fall back accordingly. See
-// internal/handlers/inbox_process.go's resolveCategoryForNotice for why: a
+// internal/inboxproc's resolveCategoryForNotice for why: a
 // classification failure is allowed to cost a wrong category, never a whole
 // transaction.
 package classify
