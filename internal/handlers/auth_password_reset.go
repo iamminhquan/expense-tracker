@@ -136,15 +136,13 @@ func resetPasswordPage(deps Deps) http.HandlerFunc {
 
 		hash, err := auth.HashPassword(next)
 		if err != nil {
-			log.Printf("reset password: hash: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "reset password: hash", err)
 			return
 		}
 		if err := deps.Queries.UpdateUserPassword(r.Context(), sqlcgen.UpdateUserPasswordParams{
 			ID: userID, PasswordHash: hash,
 		}); err != nil {
-			log.Printf("reset password: update: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "reset password: update", err)
 			return
 		}
 		// The reset is the way out of a login lock that doesn't involve

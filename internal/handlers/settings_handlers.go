@@ -25,8 +25,7 @@ func settingsPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := settingsData(r, deps)
 		if err != nil {
-			log.Printf("settings: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "settings: load user", err)
 			return
 		}
 		render(w, r, deps, "settings", "settings", data)
@@ -113,8 +112,7 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 func renderSettingsError(w http.ResponseWriter, r *http.Request, deps Deps, field, msg string) {
 	data, err := settingsData(r, deps)
 	if err != nil {
-		log.Printf("settings: load user: %v", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		serverError(w, "settings: load user", err)
 		return
 	}
 	data[field] = msg
@@ -135,8 +133,7 @@ func updatePasswordHandler(deps Deps) http.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByID(r.Context(), userID)
 		if err != nil {
-			log.Printf("update password: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "update password: load user", err)
 			return
 		}
 
@@ -159,15 +156,13 @@ func updatePasswordHandler(deps Deps) http.HandlerFunc {
 
 		hash, err := auth.HashPassword(next)
 		if err != nil {
-			log.Printf("update password: hash: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "update password: hash", err)
 			return
 		}
 		if err := deps.Queries.UpdateUserPassword(r.Context(), sqlcgen.UpdateUserPasswordParams{
 			ID: userID, PasswordHash: hash,
 		}); err != nil {
-			log.Printf("update password: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "update password", err)
 			return
 		}
 
@@ -216,8 +211,7 @@ func updateProfileHandler(deps Deps) http.HandlerFunc {
 				renderSettingsError(w, r, deps, "ProfileError", "That username is already taken.")
 				return
 			}
-			log.Printf("update profile: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "update profile", err)
 			return
 		}
 
@@ -241,8 +235,7 @@ func updateEmailHandler(deps Deps) http.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByID(r.Context(), userID)
 		if err != nil {
-			log.Printf("update email: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "update email: load user", err)
 			return
 		}
 
@@ -271,8 +264,7 @@ func updateEmailHandler(deps Deps) http.HandlerFunc {
 		if err := deps.Queries.SetPendingEmail(r.Context(), sqlcgen.SetPendingEmailParams{
 			ID: userID, PendingEmail: pgtype.Text{String: email, Valid: true},
 		}); err != nil {
-			log.Printf("update email: set pending: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "update email: set pending", err)
 			return
 		}
 
@@ -293,8 +285,7 @@ func revokeSessionHandler(deps Deps) http.HandlerFunc {
 		if err := deps.Queries.DeleteSessionForUser(r.Context(), sqlcgen.DeleteSessionForUserParams{
 			ID: sessionID, UserID: userID,
 		}); err != nil {
-			log.Printf("revoke session: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "revoke session", err)
 			return
 		}
 
@@ -317,8 +308,7 @@ func revokeOtherSessionsHandler(deps Deps) http.HandlerFunc {
 		if err := deps.Queries.DeleteOtherSessionsForUser(r.Context(), sqlcgen.DeleteOtherSessionsForUserParams{
 			UserID: userID, ID: cookie.Value,
 		}); err != nil {
-			log.Printf("revoke other sessions: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "revoke other sessions", err)
 			return
 		}
 
@@ -336,8 +326,7 @@ func deleteAccountHandler(deps Deps) http.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByID(r.Context(), userID)
 		if err != nil {
-			log.Printf("delete account: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "delete account: load user", err)
 			return
 		}
 		if !auth.VerifyPassword(user.PasswordHash, r.FormValue("current_password")) {
@@ -346,8 +335,7 @@ func deleteAccountHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if err := deleteAccount(r.Context(), deps, userID); err != nil {
-			log.Printf("delete account: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "delete account", err)
 			return
 		}
 

@@ -72,8 +72,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 				render(w, r, deps, "verify_email", "", map[string]any{"Conflict": true})
 				return
 			}
-			log.Printf("verify email: apply: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "verify email: apply", err)
 			return
 		}
 		if err := deps.EmailVerifications.ConsumeVerificationToken(r.Context(), token); err != nil {
@@ -93,8 +92,7 @@ func resendVerificationHandler(deps Deps) http.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByID(r.Context(), userID)
 		if err != nil {
-			log.Printf("resend verification: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "resend verification: load user", err)
 			return
 		}
 

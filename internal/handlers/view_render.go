@@ -61,8 +61,7 @@ func renderNamed(w http.ResponseWriter, r *http.Request, deps Deps, page string,
 	if active != "" {
 		navData, err := authPageData(r, deps, active)
 		if err != nil {
-			log.Printf("render: load nav data: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "render: load nav data", err)
 			return
 		}
 		for k, v := range navData {
@@ -141,4 +140,16 @@ func authPageData(r *http.Request, deps Deps, active string) (map[string]any, er
 		"HeaderBalance": headerBalance,
 		"EmailVerified": user.EmailVerified,
 	}, nil
+}
+
+// serverError is the answer to a failure that is ours rather than the
+// caller's: it records what was being attempted and answers a bare 500.
+//
+// The client message is deliberately fixed and says nothing. Which query
+// failed is a fact about our schema, and the person who can act on it is
+// reading the log, not the page -- so what varies between call sites is the
+// line in the log, and only that.
+func serverError(w http.ResponseWriter, attempted string, err error) {
+	log.Printf("%s: %v", attempted, err)
+	http.Error(w, "internal error", http.StatusInternalServerError)
 }

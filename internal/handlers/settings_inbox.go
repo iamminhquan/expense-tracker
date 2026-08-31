@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 
 	"expensetracker/internal/auth"
@@ -40,15 +39,13 @@ func enableInboxHandler(deps Deps) http.HandlerFunc {
 
 		token, err := inbound.NewToken()
 		if err != nil {
-			log.Printf("enable inbox: new token: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "enable inbox: new token", err)
 			return
 		}
 		if err := deps.Queries.SetInboxToken(r.Context(), sqlcgen.SetInboxTokenParams{
 			ID: userID, InboxToken: pgtype.Text{String: token, Valid: true},
 		}); err != nil {
-			log.Printf("enable inbox: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "enable inbox", err)
 			return
 		}
 		http.Redirect(w, r, "/settings?saved=inbox-enabled", http.StatusSeeOther)
@@ -64,8 +61,7 @@ func disableInboxHandler(deps Deps) http.HandlerFunc {
 		if err := deps.Queries.SetInboxToken(r.Context(), sqlcgen.SetInboxTokenParams{
 			ID: userID, InboxToken: pgtype.Text{},
 		}); err != nil {
-			log.Printf("disable inbox: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "disable inbox", err)
 			return
 		}
 		http.Redirect(w, r, "/settings?saved=inbox-disabled", http.StatusSeeOther)
@@ -79,8 +75,7 @@ func retryFailedEmailsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := auth.UserIDFromContext(r.Context())
 		if err := deps.Queries.RequeueFailedBankEmails(r.Context(), userID); err != nil {
-			log.Printf("retry failed emails: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "retry failed emails", err)
 			return
 		}
 		http.Redirect(w, r, "/settings?saved=inbox-retried", http.StatusSeeOther)

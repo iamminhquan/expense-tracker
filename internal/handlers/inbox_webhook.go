@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
@@ -92,8 +91,7 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Printf("inbox webhook: load user: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "inbox webhook: load user", err)
 			return
 		}
 
@@ -129,8 +127,7 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 		// message already arrived once. That is a success, not a failure --
 		// answering anything else would make the Worker retry forever.
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("inbox webhook: store email: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "inbox webhook: store email", err)
 			return
 		}
 

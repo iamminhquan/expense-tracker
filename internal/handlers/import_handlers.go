@@ -65,8 +65,7 @@ func importHandler(deps Deps) http.HandlerFunc {
 
 		catalog, err := importCatalog(r.Context(), deps, userID)
 		if err != nil {
-			log.Printf("import: load categories: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "import: load categories", err)
 			return
 		}
 
@@ -96,8 +95,7 @@ func importHandler(deps Deps) http.HandlerFunc {
 
 		// Sniff read the file to the end; Plan needs the same bytes again.
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
-			log.Printf("import: rewind upload: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "import: rewind upload", err)
 			return
 		}
 		plan, err := csvimport.Plan(file, mapping, catalog, time.Now().In(vietnamLocation))
@@ -108,8 +106,7 @@ func importHandler(deps Deps) http.HandlerFunc {
 
 		duplicates, err := countImportDuplicates(r.Context(), deps, userID, plan)
 		if err != nil {
-			log.Printf("import: count duplicates: %v", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			serverError(w, "import: count duplicates", err)
 			return
 		}
 
