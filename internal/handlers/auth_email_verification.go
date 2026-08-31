@@ -60,7 +60,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 
 		userID, email, err := deps.EmailVerifications.ValidateVerificationToken(r.Context(), token)
 		if err != nil {
-			render(w, r, deps, "verify_email", "", map[string]any{"Invalid": true})
+			renderView(w, r, deps, "verify_email", "", &verifyEmailView{})
 			return
 		}
 
@@ -69,7 +69,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 		}); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				render(w, r, deps, "verify_email", "", map[string]any{"Conflict": true})
+				renderView(w, r, deps, "verify_email", "", &verifyEmailView{Conflict: true})
 				return
 			}
 			serverError(w, "verify email: apply", err)
@@ -79,7 +79,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 			log.Printf("verify email: consume token: %v", err)
 		}
 
-		render(w, r, deps, "verify_email", "", map[string]any{"Verified": true})
+		renderView(w, r, deps, "verify_email", "", &verifyEmailView{Verified: true})
 	}
 }
 
@@ -104,4 +104,14 @@ func resendVerificationHandler(deps Deps) http.HandlerFunc {
 
 		http.Redirect(w, r, "/settings?saved=verification-sent", http.StatusSeeOther)
 	}
+}
+
+// verifyEmailView is the landing page a verification link opens. The three
+// outcomes it reports are a success, an address claimed by another account
+// in the meantime, and -- the zero value, which the template's {{else}}
+// branch covers -- a link that was expired, spent or never ours.
+type verifyEmailView struct {
+	viewData
+	Verified bool
+	Conflict bool
 }

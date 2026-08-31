@@ -19,12 +19,21 @@ const sendTimeout = 10 * time.Second
 // renderForgotPasswordFragmentOrPage mirrors renderAuthFragmentOrPage: an
 // htmx submit gets back just the card body to swap into #forgot-password-card,
 // a direct navigation gets the full page shell.
-func renderForgotPasswordFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data map[string]any) {
+func renderForgotPasswordFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data *forgotPasswordView) {
 	if isFragmentRequest(r) {
-		renderNamed(w, r, deps, "forgot_password", "forgot_password_card_body", "", data)
+		renderViewNamed(w, r, deps, "forgot_password", "forgot_password_card_body", "", data)
 		return
 	}
-	render(w, r, deps, "forgot_password", "", data)
+	renderView(w, r, deps, "forgot_password", "", data)
+}
+
+// forgotPasswordView is the request-a-link card before and after the ask.
+// Sent is what swaps the form for the confirmation, and Email is echoed
+// back into it, so the confirmation names the address the link went to.
+type forgotPasswordView struct {
+	viewData
+	Email string
+	Sent  bool
 }
 
 // forgotPasswordPage handles both the request-a-link form and its
@@ -35,7 +44,7 @@ func renderForgotPasswordFragmentOrPage(w http.ResponseWriter, r *http.Request, 
 func forgotPasswordPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			renderForgotPasswordFragmentOrPage(w, r, deps, map[string]any{})
+			renderForgotPasswordFragmentOrPage(w, r, deps, &forgotPasswordView{})
 			return
 		}
 
@@ -45,7 +54,7 @@ func forgotPasswordPage(deps Deps) http.HandlerFunc {
 			queueResetEmail(r.Context(), deps, user)
 		}
 
-		renderForgotPasswordFragmentOrPage(w, r, deps, map[string]any{"Email": email, "Sent": true})
+		renderForgotPasswordFragmentOrPage(w, r, deps, &forgotPasswordView{Email: email, Sent: true})
 	}
 }
 
@@ -88,12 +97,22 @@ func queueResetEmail(ctx context.Context, deps Deps, user sqlcgen.User) {
 
 // renderResetPasswordFragmentOrPage mirrors renderForgotPasswordFragmentOrPage
 // for the /reset-password card.
-func renderResetPasswordFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data map[string]any) {
+func renderResetPasswordFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data *resetPasswordView) {
 	if isFragmentRequest(r) {
-		renderNamed(w, r, deps, "reset_password", "reset_password_card_body", "", data)
+		renderViewNamed(w, r, deps, "reset_password", "reset_password_card_body", "", data)
 		return
 	}
-	render(w, r, deps, "reset_password", "", data)
+	renderView(w, r, deps, "reset_password", "", data)
+}
+
+// resetPasswordView is the set-a-new-password card. Invalid replaces the
+// form entirely -- an expired or already-spent link has nothing to submit
+// -- while Error keeps the form and explains what was wrong with the try.
+type resetPasswordView struct {
+	viewData
+	Token   string
+	Error   string
+	Invalid bool
 }
 
 // resetPasswordPage handles both the landing GET (which validates the token
@@ -104,10 +123,10 @@ func resetPasswordPage(deps Deps) http.HandlerFunc {
 		if r.Method == http.MethodGet {
 			token := r.URL.Query().Get("token")
 			if _, err := deps.PasswordResets.ValidateResetToken(r.Context(), token); err != nil {
-				renderResetPasswordFragmentOrPage(w, r, deps, map[string]any{"Invalid": true})
+				renderResetPasswordFragmentOrPage(w, r, deps, &resetPasswordView{Invalid: true})
 				return
 			}
-			renderResetPasswordFragmentOrPage(w, r, deps, map[string]any{"Token": token})
+			renderResetPasswordFragmentOrPage(w, r, deps, &resetPasswordView{Token: token})
 			return
 		}
 
@@ -117,12 +136,12 @@ func resetPasswordPage(deps Deps) http.HandlerFunc {
 
 		userID, err := deps.PasswordResets.ValidateResetToken(r.Context(), token)
 		if err != nil {
-			renderResetPasswordFragmentOrPage(w, r, deps, map[string]any{"Invalid": true})
+			renderResetPasswordFragmentOrPage(w, r, deps, &resetPasswordView{Invalid: true})
 			return
 		}
 
 		fail := func(msg string) {
-			renderResetPasswordFragmentOrPage(w, r, deps, map[string]any{"Token": token, "Error": msg})
+			renderResetPasswordFragmentOrPage(w, r, deps, &resetPasswordView{Token: token, Error: msg})
 		}
 
 		if len([]rune(next)) < 8 {

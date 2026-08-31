@@ -31,12 +31,27 @@ var usernamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
 // a failed submit -- both submit forms with hx-post/hx-target="#auth-card"
 // so a fragment is exactly what's expected back), or the full auth page
 // shell on a direct navigation/refresh/bookmark.
-func renderAuthFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data map[string]any) {
+func renderAuthFragmentOrPage(w http.ResponseWriter, r *http.Request, deps Deps, data *authView) {
 	if isFragmentRequest(r) {
-		renderNamed(w, r, deps, "auth", "auth_card_body", "", data)
+		renderViewNamed(w, r, deps, "auth", "auth_card_body", "", data)
 		return
 	}
-	render(w, r, deps, "auth", "", data)
+	renderView(w, r, deps, "auth", "", data)
+}
+
+// authView is the login/register card: which of the two tabs is showing,
+// what the visitor had typed when a submit was rejected, and the one line
+// explaining why. Both tabs render from it, so the register-only fields sit
+// unused on a login render -- the alternative is two structs that differ by
+// two fields and one template that has to be told which it was handed.
+type authView struct {
+	viewData
+	Tab      string
+	Error    string
+	Notice   string
+	Name     string
+	Email    string
+	Username string
 }
 
 // badCredentials is the answer to every sign-in that fails for a reason the
@@ -47,12 +62,12 @@ const badCredentials = "Incorrect email or password."
 func loginPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			data := map[string]any{"Tab": "login"}
+			data := &authView{Tab: "login"}
 			// The account this marker belongs to no longer exists, so this
 			// page is the only place its owner can still be told the
 			// deletion went through rather than silently logged out.
 			if r.URL.Query().Get("deleted") != "" {
-				data["Notice"] = "Your account has been deleted."
+				data.Notice = "Your account has been deleted."
 			}
 			renderAuthFragmentOrPage(w, r, deps, data)
 			return
@@ -62,8 +77,8 @@ func loginPage(deps Deps) http.HandlerFunc {
 		password := r.FormValue("password")
 
 		fail := func(msg string) {
-			renderNamed(w, r, deps, "auth", "auth_card_body", "", map[string]any{
-				"Tab": "login", "Error": msg, "Email": email,
+			renderViewNamed(w, r, deps, "auth", "auth_card_body", "", &authView{
+				Tab: "login", Error: msg, Email: email,
 			})
 		}
 
@@ -156,7 +171,7 @@ func lockedMessage(left time.Duration) string {
 func registerPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			renderAuthFragmentOrPage(w, r, deps, map[string]any{"Tab": "register"})
+			renderAuthFragmentOrPage(w, r, deps, &authView{Tab: "register"})
 			return
 		}
 
@@ -167,8 +182,8 @@ func registerPage(deps Deps) http.HandlerFunc {
 		passwordConfirm := r.FormValue("password_confirm")
 
 		fail := func(msg string) {
-			renderNamed(w, r, deps, "auth", "auth_card_body", "", map[string]any{
-				"Tab": "register", "Error": msg, "Name": name, "Email": email, "Username": username,
+			renderViewNamed(w, r, deps, "auth", "auth_card_body", "", &authView{
+				Tab: "register", Error: msg, Name: name, Email: email, Username: username,
 			})
 		}
 
