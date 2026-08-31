@@ -73,6 +73,31 @@ func (q *Queries) DeletePersonalCategoriesForUser(ctx context.Context, userID pg
 	return err
 }
 
+const getCategoryBySlug = `-- name: GetCategoryBySlug :one
+SELECT id, user_id, name, type, color, created_at, slug FROM categories
+WHERE slug = $1
+`
+
+// GetCategoryBySlug looks up a shared default by its slug, never by name --
+// a default's displayed name is resolved through internal/i18n and can
+// change independently of the row, so matching on name would break the
+// moment that display text changed. The email processing loop uses this to
+// fall back to 'other' (expense) or 'other_income' (income).
+func (q *Queries) GetCategoryBySlug(ctx context.Context, slug pgtype.Text) (Category, error) {
+	row := q.db.QueryRow(ctx, getCategoryBySlug, slug)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.CreatedAt,
+		&i.Slug,
+	)
+	return i, err
+}
+
 const getCategoryForUser = `-- name: GetCategoryForUser :one
 SELECT id, user_id, name, type, color, created_at, slug FROM categories
 WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)

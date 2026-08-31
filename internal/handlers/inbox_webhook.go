@@ -134,6 +134,16 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
+		// Kicked off after the response is decided, not awaited: the Worker
+		// is waiting on this request, and parsing/DB work has no business
+		// making it wait longer. Runs against context.Background() inside
+		// processPendingEmails rather than r.Context(), which is canceled
+		// the moment this handler returns. Walks the user's whole pending
+		// backlog, not just the email this request just stored, so a
+		// message left mid-flight by an earlier restart still gets picked
+		// up.
+		go processPendingEmails(deps, user.ID)
+
 		w.WriteHeader(http.StatusOK)
 	}
 }
