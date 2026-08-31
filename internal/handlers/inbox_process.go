@@ -208,7 +208,7 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 
 	// No hint fit. Ask Claude before falling back to Other/Other income --
 	// but only when it has something to say: an unconfigured classifier is
-	// the ordinary state for an account that never set ANTHROPIC_API_KEY,
+	// the ordinary state for an account that never set GEMINI_API_KEY,
 	// not a failure worth logging on every single miss.
 	if category, err := classifyAndRememberCategory(ctx, deps, userID, noteKey, storedDescription, notice.Direction); err == nil {
 		return category, nil

@@ -657,23 +657,23 @@ func TestProcessPendingEmailsSurvivesACategoryHintLookupError(t *testing.T) {
 	}
 }
 
-// classifyAnswerJSON builds a fake /v1/messages response whose only text
-// block is the structured-output JSON {"category_id": id} -- the shape
-// classify.Classifier expects back, real or faked.
+// classifyAnswerJSON builds a fake generateContent response whose only text
+// part is the structured-output JSON {"category_id":"id"} -- the shape
+// classify.Classifier expects back, real or faked. The id travels as a
+// string because the schema constrains it with a STRING enum, which is the
+// only type Gemini documents enum for.
 func classifyAnswerJSON(id int64) string {
 	return fmt.Sprintf(`{
-		"id": "msg_test",
-		"type": "message",
-		"role": "assistant",
-		"model": "claude-opus-5",
-		"stop_reason": "end_turn",
-		"stop_sequence": null,
-		"usage": {"input_tokens": 10, "output_tokens": 5},
-		"content": [{"type": "text", "text": %q}]
-	}`, fmt.Sprintf(`{"category_id":%d}`, id))
+		"candidates": [{
+			"content": {"role": "model", "parts": [{"text": %q}]},
+			"finishReason": "STOP"
+		}],
+		"usageMetadata": {"promptTokenCount": 120, "candidatesTokenCount": 8},
+		"modelVersion": "gemini-3.5-flash-lite"
+	}`, fmt.Sprintf(`{"category_id":"%d"}`, id))
 }
 
-// fakeClassifyServer stands in for the Anthropic API: every request
+// fakeClassifyServer stands in for the Gemini API: every request
 // increments the returned counter and gets handler's response. deps'
 // Classifier must be pointed at it (via classify.NewWithEndpoint) by the
 // caller -- this alone does not wire anything into a Deps.
@@ -701,7 +701,7 @@ func fakeClassifyFailingWith(status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		fmt.Fprint(w, `{"type":"error","error":{"type":"api_error","message":"boom"}}`)
+		fmt.Fprint(w, `{"error":{"code":500,"message":"boom","status":"INTERNAL"}}`)
 	}
 }
 

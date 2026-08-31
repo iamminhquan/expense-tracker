@@ -77,15 +77,17 @@ services:
         sync: false
       - key: INBOUND_DOMAIN
         sync: false
-      # Set by hand in the Render dashboard: an Anthropic API key, used to
-      # classify a bank-email transaction's category when no remembered
-      # hint fits yet (see internal/classify). Left unset, that lookup
-      # falls back to Other/Other income -- the feature degrades, the app
-      # does not fail to start.
-      - key: ANTHROPIC_API_KEY
+      # Set by hand in the Render dashboard: a Google AI Studio (Gemini)
+      # API key, used to classify a bank-email transaction's category when
+      # no remembered hint fits yet (see internal/classify). Left unset,
+      # that lookup falls back to Other/Other income -- the feature
+      # degrades, the app does not fail to start.
+      - key: GEMINI_API_KEY
         sync: false
       # No sync: false here -- unlike the keys above this carries no
       # secret, and a fixed value across environments is exactly the
-      # point: switching models is a dashboard edit, not a deploy.
-      - key: ANTHROPIC_MODEL
-        value: claude-opus-5
+      # point: switching models is a dashboard edit, not a deploy. That
+      # matters more here than it did on a paid API: which models the free
+      # tier covers changes over time, and this is the knob that follows it.
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite

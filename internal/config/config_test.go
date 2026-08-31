@@ -78,41 +78,41 @@ func TestLoadReadsInboundSettings(t *testing.T) {
 	}
 }
 
-// ANTHROPIC_MODEL defaults to claude-opus-5 rather than an empty string,
+// GEMINI_MODEL defaults to a real model name rather than an empty string,
 // unlike every other optional setting: internal/classify would otherwise
 // have to know the default itself, and this is the one place the app reads
 // environment variables at all.
-func TestLoadDefaultsAnthropicModelWhenUnset(t *testing.T) {
+func TestLoadDefaultsGeminiModelWhenUnset(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x/y")
-	t.Setenv("ANTHROPIC_API_KEY", "")
-	t.Setenv("ANTHROPIC_MODEL", "")
+	t.Setenv("GEMINI_API_KEY", "")
+	t.Setenv("GEMINI_MODEL", "")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v, want nil", err)
 	}
-	if cfg.AnthropicAPIKey != "" {
-		t.Errorf("AnthropicAPIKey = %q, want empty when unset", cfg.AnthropicAPIKey)
+	if cfg.GeminiAPIKey != "" {
+		t.Errorf("GeminiAPIKey = %q, want empty when unset", cfg.GeminiAPIKey)
 	}
-	if cfg.AnthropicModel != "claude-opus-5" {
-		t.Errorf("AnthropicModel = %q, want %q", cfg.AnthropicModel, "claude-opus-5")
+	if cfg.GeminiModel != "gemini-3.5-flash-lite" {
+		t.Errorf("GeminiModel = %q, want %q", cfg.GeminiModel, "gemini-3.5-flash-lite")
 	}
 }
 
-func TestLoadReadsAnthropicSettings(t *testing.T) {
+func TestLoadReadsGeminiSettings(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x/y")
-	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
-	t.Setenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+	t.Setenv("GEMINI_API_KEY", "test-key")
+	t.Setenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v, want nil", err)
 	}
-	if cfg.AnthropicAPIKey != "sk-test" {
-		t.Errorf("AnthropicAPIKey = %q, want %q", cfg.AnthropicAPIKey, "sk-test")
+	if cfg.GeminiAPIKey != "test-key" {
+		t.Errorf("GeminiAPIKey = %q, want %q", cfg.GeminiAPIKey, "test-key")
 	}
-	if cfg.AnthropicModel != "claude-haiku-4-5" {
-		t.Errorf("AnthropicModel = %q, want %q", cfg.AnthropicModel, "claude-haiku-4-5")
+	if cfg.GeminiModel != "gemini-2.5-flash" {
+		t.Errorf("GeminiModel = %q, want %q", cfg.GeminiModel, "gemini-2.5-flash")
 	}
 }
 
