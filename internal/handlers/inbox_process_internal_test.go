@@ -219,11 +219,14 @@ MB xin thông báo giao dịch của Quý khách đã được thực hiện nh�
 // createPendingBankEmail inserts one 'pending' bank_emails row with a
 // caller-chosen sender/body, standing in for a forwarded message the
 // webhook already stored. Returns the row so a test can act on its id.
-func createPendingBankEmail(t *testing.T, deps Deps, userID int64, from, subject, body string) sqlcgen.BankEmail {
+// suffix distinguishes several emails created inside one test: the
+// Message-ID is otherwise derived from the test name alone, and
+// CreateBankEmail's ON CONFLICT DO NOTHING would swallow the second one.
+func createPendingBankEmail(t *testing.T, deps Deps, userID int64, from, subject, body string, suffix ...string) sqlcgen.BankEmail {
 	t.Helper()
 	email, err := deps.Queries.CreateBankEmail(context.Background(), sqlcgen.CreateBankEmailParams{
 		UserID:      userID,
-		MessageID:   "<" + t.Name() + "@mail>",
+		MessageID:   "<" + t.Name() + strings.Join(suffix, "") + "@mail>",
 		FromAddress: from,
 		Subject:     subject,
 		Body:        body,
@@ -916,5 +919,109 @@ func TestProcessPendingEmailsSkipsAnUnconfiguredClassifier(t *testing.T) {
 	}
 	if categoryID != otherCategory.ID {
 		t.Errorf("transaction category_id = %d, want the Other fallback %d", categoryID, otherCategory.ID)
+	}
+}
+
+// mbNoticeBetween builds an MB transfer notice moving money out of debit
+// and into beneficiary, so a test can state the two account numbers that
+// decide whether a notice is a self-transfer.
+func mbNoticeBetween(debit, beneficiary string) string {
+	return `Cảm ơn Quý khách đã sử dụng dịch vụ MB eBanking.
+
+ Ngày,
+ giờ giao dịch
+
+ 31-08-2026 09:59:41
+
+ Tài
+ khoản trích nợ
+
+ BUI MINH QUAN - ` + debit + ` (VND)
+
+ Người
+ thụ hưởng
+
+ Bui Minh Quan - ` + beneficiary + `
+
+ Số
+ tiền giao dịch
+
+ (VND) 50,000.00
+
+ Nội
+ dung chuyển tiền
+
+ BUI MINH QUAN chuyen tien
+
+ Tình
+ trạng
+
+ Giao dịch thành công
+
+Xin chân thành cảm ơn.
+Website: http://www.mbbank.com.vn
+`
+}
+
+// TestProcessIgnoresATransferBetweenTheOwnersOwnAccounts is the scenario
+// that prompted this rule, replayed exactly: two MB accounts belonging to
+// one person, and two notices that are mirror images of each other.
+//
+// The first notice teaches the app that the debited account is the owner's
+// and is recorded as an expense -- nothing yet proves the payee is also
+// theirs. The second, moving the money back, names that first account as
+// the beneficiary, which *is* proof, and must be ignored rather than
+// recorded: a pot that pays itself neither earned nor spent anything.
+func TestProcessIgnoresATransferBetweenTheOwnersOwnAccounts(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+	ctx := context.Background()
+
+	const accountA, accountB = "0001111111111", "0399999999"
+
+	first := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich",
+		mbNoticeBetween(accountA, accountB), "first")
+	processOneBankEmail(ctx, deps, first.ID)
+
+	if n := countTransactionsForUser(t, deps, userID); n != 1 {
+		t.Fatalf("transactions after the first notice = %d, want 1 -- nothing yet proves the payee is the owner's", n)
+	}
+
+	second := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich",
+		mbNoticeBetween(accountB, accountA), "second")
+	processOneBankEmail(ctx, deps, second.ID)
+
+	if n := countTransactionsForUser(t, deps, userID); n != 1 {
+		t.Errorf("transactions after the mirrored notice = %d, want 1 -- money moved between two of the owner's own accounts", n)
+	}
+	status, reason := bankEmailStatus(t, deps, second.ID)
+	if status != "ignored" {
+		t.Errorf("mirrored notice status = %q, want %q", status, "ignored")
+	}
+	if reason != internalTransferReason {
+		t.Errorf("mirrored notice reason = %q, want %q", reason, internalTransferReason)
+	}
+}
+
+// TestProcessStillRecordsAPaymentToSomeoneElse is the guard on the rule
+// above, and the more important of the two: ignoring a real payment removes
+// money from the ledger that the owner has no way of noticing is gone.
+// Paying the same payee twice must stay two expenses, however many notices
+// have taught the app about the paying account.
+func TestProcessStillRecordsAPaymentToSomeoneElse(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+	ctx := context.Background()
+
+	const mine, payee = "0001111111111", "0999888777"
+
+	for i := range 2 {
+		email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn",
+			"Thong bao giao dich", mbNoticeBetween(mine, payee), strconv.Itoa(i))
+		processOneBankEmail(ctx, deps, email.ID)
+	}
+
+	if n := countTransactionsForUser(t, deps, userID); n != 2 {
+		t.Errorf("transactions after paying the same payee twice = %d, want 2 -- a payee is never proof of ownership", n)
 	}
 }
