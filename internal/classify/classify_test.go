@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -21,49 +22,42 @@ var testCategories = []classify.Category{
 	{ID: 9, Name: "Other"},
 }
 
-// answerJSON builds a fake /v1/messages response whose single text block is
-// the structured-output JSON {"category_id": id} -- the same shape a real
-// Claude reply constrained by classify's schema would have.
+// answerJSON builds a fake generateContent response whose single text part
+// is the structured-output JSON {"category_id":"id"} -- the same shape a
+// real Gemini reply constrained by classify's schema would have. The id is
+// a string because the schema constrains it with a STRING enum, which is
+// the only type Gemini documents enum for.
 func answerJSON(id int64) string {
-	inner := fmt.Sprintf(`{"category_id":%d}`, id)
-	encoded, _ := json.Marshal(inner)
+	return candidateJSON(fmt.Sprintf(`[{"text":%q}]`, fmt.Sprintf(`{"category_id":"%d"}`, id)), "STOP")
+}
+
+// candidateJSON builds a generateContent response with a caller-supplied
+// raw "parts" array and finish reason, for tests that need a shape
+// answerJSON can't produce: no parts at all, a truncated answer, or text
+// that isn't JSON.
+func candidateJSON(rawParts, finishReason string) string {
 	return fmt.Sprintf(`{
-		"id": "msg_test",
-		"type": "message",
-		"role": "assistant",
-		"model": "claude-opus-5",
-		"stop_reason": "end_turn",
-		"stop_sequence": null,
-		"usage": {"input_tokens": 10, "output_tokens": 5},
-		"content": [{"type": "text", "text": %s}]
-	}`, encoded)
+		"candidates": [{
+			"content": {"role": "model", "parts": %s},
+			"finishReason": %q
+		}],
+		"usageMetadata": {"promptTokenCount": 120, "candidatesTokenCount": 8},
+		"modelVersion": "gemini-3.5-flash-lite"
+	}`, rawParts, finishReason)
 }
 
-// errorJSON builds the {"error": {...}} envelope the Anthropic API sends
-// alongside a non-2xx status.
-func errorJSON(errType, message string) string {
-	return fmt.Sprintf(`{"type":"error","error":{"type":%q,"message":%q}}`, errType, message)
+// errorJSON builds the {"error": {...}} envelope Google APIs send alongside
+// a non-2xx status.
+func errorJSON(code int, status, message string) string {
+	return fmt.Sprintf(`{"error":{"code":%d,"message":%q,"status":%q}}`, code, message, status)
 }
 
-// messageJSON builds a fake /v1/messages response with a caller-supplied
-// raw "content" array, for tests that need a shape answerJSON can't
-// produce: no content at all, or a block that isn't a text block.
-func messageJSON(rawContent string) string {
-	return fmt.Sprintf(`{
-		"id": "msg_test",
-		"type": "message",
-		"role": "assistant",
-		"model": "claude-opus-5",
-		"stop_reason": "end_turn",
-		"stop_sequence": null,
-		"usage": {"input_tokens": 10, "output_tokens": 5},
-		"content": %s
-	}`, rawContent)
-}
-
-func TestClassifyRequestCarriesModelEffortAndFormat(t *testing.T) {
+func TestClassifyRequestCarriesModelKeyAndSchema(t *testing.T) {
 	var gotBody map[string]any
+	var gotPath, gotKey string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotKey = r.Header.Get("x-goog-api-key")
 		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
 			t.Fatalf("decode request body: %v", err)
 		}
@@ -72,50 +66,76 @@ func TestClassifyRequestCarriesModelEffortAndFormat(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key", Model: "claude-opus-5"}, server.URL)
+	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key", Model: "gemini-3.5-flash-lite"}, server.URL)
 	if _, err := c.Classify(context.Background(), "GRAB thanh toan chuyen di", testCategories); err != nil {
 		t.Fatalf("Classify() error = %v, want nil", err)
 	}
 
-	if got := gotBody["model"]; got != "claude-opus-5" {
-		t.Errorf("request model = %v, want %q", got, "claude-opus-5")
+	// Gemini names the model in the URL, not the body, so a model that
+	// silently stopped being sent would look identical in the payload.
+	if want := "/models/gemini-3.5-flash-lite:generateContent"; gotPath != want {
+		t.Errorf("request path = %q, want %q", gotPath, want)
 	}
-	// max_tokens is the actual dollar cost of every call on this path; a
-	// silent change to it (raised or dropped) would otherwise go
-	// unnoticed by this test even though it exists specifically to pin
-	// the request shape.
-	if got := gotBody["max_tokens"]; got != float64(256) {
-		t.Errorf("request max_tokens = %v, want %d", got, 256)
+	// The key must ride in the header, never the query string, so it stays
+	// out of proxy logs.
+	if gotKey != "test-key" {
+		t.Errorf("x-goog-api-key header = %q, want %q", gotKey, "test-key")
 	}
-	outputConfig, ok := gotBody["output_config"].(map[string]any)
+
+	cfg, ok := gotBody["generationConfig"].(map[string]any)
 	if !ok {
-		t.Fatalf("request output_config = %v, want a map", gotBody["output_config"])
+		t.Fatalf("request generationConfig = %v, want a map", gotBody["generationConfig"])
 	}
-	if got := outputConfig["effort"]; got != "low" {
-		t.Errorf("request output_config.effort = %v, want %q", got, "low")
+	if got := cfg["responseMimeType"]; got != "application/json" {
+		t.Errorf("request responseMimeType = %v, want %q", got, "application/json")
 	}
-	format, ok := outputConfig["format"].(map[string]any)
+	// maxOutputTokens has to leave room for a thinking model to reason
+	// before it answers; sized too tightly the call comes back MAX_TOKENS
+	// with no answer at all, which no other test here would catch.
+	if got := cfg["maxOutputTokens"]; got != float64(2048) {
+		t.Errorf("request maxOutputTokens = %v, want %d", got, 2048)
+	}
+	if got := cfg["temperature"]; got != float64(0) {
+		t.Errorf("request temperature = %v, want 0", got)
+	}
+	// thinkingConfig is deliberately never sent: the API errors on it for
+	// models that don't support thinking, and GEMINI_MODEL is meant to be
+	// changeable without editing classify.go.
+	if _, present := cfg["thinkingConfig"]; present {
+		t.Errorf("request carried thinkingConfig = %v, want it absent", cfg["thinkingConfig"])
+	}
+
+	schema, ok := cfg["responseSchema"].(map[string]any)
 	if !ok {
-		t.Fatalf("request output_config.format = %v, want a map", outputConfig["format"])
+		t.Fatalf("request responseSchema = %v, want a map", cfg["responseSchema"])
 	}
-	if got := format["type"]; got != "json_schema" {
-		t.Errorf("request output_config.format.type = %v, want %q", got, "json_schema")
+	// Gemini's schema is the OpenAPI subset: uppercase type names, and no
+	// additionalProperties (which it rejects outright).
+	if got := schema["type"]; got != "OBJECT" {
+		t.Errorf("request responseSchema.type = %v, want %q", got, "OBJECT")
 	}
-	schema, ok := format["schema"].(map[string]any)
-	if !ok {
-		t.Fatalf("request output_config.format.schema = %v, want a map", format["schema"])
+	if _, present := schema["additionalProperties"]; present {
+		t.Error("request responseSchema carried additionalProperties, which the Gemini API does not accept")
 	}
 	props, ok := schema["properties"].(map[string]any)
 	if !ok {
-		t.Fatalf("request schema.properties = %v, want a map", schema["properties"])
+		t.Fatalf("request responseSchema.properties = %v, want a map", schema["properties"])
 	}
 	categoryID, ok := props["category_id"].(map[string]any)
 	if !ok {
-		t.Fatalf("request schema.properties.category_id = %v, want a map", props["category_id"])
+		t.Fatalf("request responseSchema.properties.category_id = %v, want a map", props["category_id"])
+	}
+	if got := categoryID["type"]; got != "STRING" {
+		t.Errorf("request category_id.type = %v, want %q -- Gemini documents enum only for Type.STRING", got, "STRING")
 	}
 	enum, ok := categoryID["enum"].([]any)
 	if !ok || len(enum) != len(testCategories) {
-		t.Errorf("request schema.properties.category_id.enum = %v, want one entry per candidate", categoryID["enum"])
+		t.Fatalf("request category_id.enum = %v, want one entry per candidate", categoryID["enum"])
+	}
+	for i, want := range []string{"7", "8", "9"} {
+		if enum[i] != want {
+			t.Errorf("request category_id.enum[%d] = %v, want %q", i, enum[i], want)
+		}
 	}
 }
 
@@ -136,11 +156,32 @@ func TestClassifyMapsAValidAnswerToTheRightCategory(t *testing.T) {
 	}
 }
 
+// TestClassifyUsesTheDefaultModelWhenConfigLeavesItEmpty pins the fallback
+// that only fires for a Config built by hand: internal/config.Load applies
+// the same default, so nothing else in the app exercises this path.
+func TestClassifyUsesTheDefaultModelWhenConfigLeavesItEmpty(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, answerJSON(7))
+	}))
+	defer server.Close()
+
+	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	if _, err := c.Classify(context.Background(), "note", testCategories); err != nil {
+		t.Fatalf("Classify() error = %v, want nil", err)
+	}
+	if !strings.HasPrefix(gotPath, "/models/gemini-") || !strings.HasSuffix(gotPath, ":generateContent") {
+		t.Errorf("request path = %q, want a /models/gemini-...:generateContent path", gotPath)
+	}
+}
+
 func TestClassifyFallsBackOn429WithoutPanicking(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
-		fmt.Fprint(w, errorJSON("rate_limit_error", "rate limited"))
+		fmt.Fprint(w, errorJSON(429, "RESOURCE_EXHAUSTED", "Quota exceeded for quota metric"))
 	}))
 	defer server.Close()
 
@@ -154,7 +195,7 @@ func TestClassifyFallsBackOn500WithoutPanicking(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, errorJSON("api_error", "internal server error"))
+		fmt.Fprint(w, errorJSON(500, "INTERNAL", "internal error"))
 	}))
 	defer server.Close()
 
@@ -227,10 +268,14 @@ func TestClassifyUnconfiguredMakesNoCallAndFallsBack(t *testing.T) {
 // panic and never an id a caller could mistake for a real category.
 func TestClassifyFallsBackOnAMalformedResponse(t *testing.T) {
 	tests := map[string]string{
-		"no content blocks at all":           messageJSON(`[]`),
-		"only a non-text block":              messageJSON(`[{"type":"thinking","thinking":"pondering which category fits"}]`),
-		"text block that is not JSON":        messageJSON(`[{"type":"text","text":"sorry, I can't help with that"}]`),
-		"text block that is an empty string": messageJSON(`[{"type":"text","text":""}]`),
+		"no candidates at all":              `{"candidates":[]}`,
+		"candidate with no parts":           candidateJSON(`[]`, "STOP"),
+		"truncated before writing any":      candidateJSON(`[]`, "MAX_TOKENS"),
+		"prompt blocked by a safety rule":   `{"promptFeedback":{"blockReason":"SAFETY"}}`,
+		"text part that is not JSON":        candidateJSON(`[{"text":"sorry, I can't help with that"}]`, "STOP"),
+		"text part that is an empty string": candidateJSON(`[{"text":""}]`, "STOP"),
+		"category_id that is not a number":  candidateJSON(`[{"text":"{\"category_id\":\"Food \\u0026 Drink\"}"}]`, "STOP"),
+		"body that is not JSON at all":      `<html>502 Bad Gateway</html>`,
 	}
 	for name, body := range tests {
 		t.Run(name, func(t *testing.T) {
