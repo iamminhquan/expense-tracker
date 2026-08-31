@@ -2,12 +2,19 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"expensetracker/internal/auth"
+	"expensetracker/internal/bankmail"
+	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
 	"expensetracker/internal/mailer"
 	"expensetracker/internal/sqlcgen"
@@ -412,5 +419,223 @@ func TestProcessPendingEmailsMarksAnOtherFailureAsFailed(t *testing.T) {
 	}
 	if reason == "" {
 		t.Error("bank email failure_reason after a non-sender/shape failure is empty, want the underlying error")
+	}
+}
+
+// processTestCategory creates one category owned by userID, mirroring
+// handlers_test's own personalCategory helper -- duplicated rather than
+// shared because that one lives in package handlers_test, which this file
+// (package handlers) cannot import.
+func processTestCategory(t *testing.T, deps Deps, userID int64, name, typ string) sqlcgen.Category {
+	t.Helper()
+	category, err := deps.Queries.CreateCategory(context.Background(), sqlcgen.CreateCategoryParams{
+		UserID: pgtype.Int8{Int64: userID, Valid: true}, Name: name, Type: typ, Color: "#D97757",
+	})
+	if err != nil {
+		t.Fatalf("create category %q: %v", name, err)
+	}
+	return category
+}
+
+// processTestSessionCookie logs userID in without going through the
+// register/login handlers, which createProcessTestUser's row can't pass
+// (its password_hash is not a real bcrypt hash). Mirrors what
+// loginAndGetCookie hands back in package handlers_test: a cookie under
+// deps.CookieName carrying a session token auth.RequireAuth will accept.
+func processTestSessionCookie(t *testing.T, deps Deps, userID int64) *http.Cookie {
+	t.Helper()
+	token, _, err := deps.Sessions.CreateSession(context.Background(), userID, "test-agent")
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+	return &http.Cookie{Name: deps.CookieName, Value: token}
+}
+
+// processTestCSRFToken mirrors handlers_test's csrfTokenFor: a GET request
+// to pick up the csrf_token cookie every mutating request in this file has
+// to echo back.
+func processTestCSRFToken(t *testing.T, router http.Handler) *http.Cookie {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == csrf.CookieName {
+			return c
+		}
+	}
+	t.Fatal("expected a csrf_token cookie on GET /login")
+	return nil
+}
+
+// TestProcessPendingEmailsUsesCategoryHintWhenNoteKeyMatches is the hit
+// half of step 6: a category_hints row for this user and this notice's own
+// note key must decide the category instead of the Other/Other income
+// fallback, with no AI call involved (none is even configured in this test
+// -- if the hint weren't consulted first, this would just fall back to
+// Other and go undetected as it did before this slice).
+func TestProcessPendingEmailsUsesCategoryHintWhenNoteKeyMatches(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+
+	// bankmail.Parse the same notice the plain fallback test uses, so the
+	// hint is planted under exactly the note key the processing loop will
+	// itself compute -- guessing the key independently would let this test
+	// pass or fail for the wrong reason if NoteKey's own rule ever changed.
+	notice, err := bankmail.Parse("mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	if err != nil {
+		t.Fatalf("bankmail.Parse() error = %v", err)
+	}
+	remembered := processTestCategory(t, deps, userID, "Remembered Transfer", "expense")
+	if _, err := deps.Queries.UpsertCategoryHint(context.Background(), sqlcgen.UpsertCategoryHintParams{
+		UserID: userID, NoteKey: bankmail.NoteKey(notice.Description), CategoryID: remembered.ID,
+	}); err != nil {
+		t.Fatalf("UpsertCategoryHint() error = %v", err)
+	}
+
+	email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	processPendingEmails(deps, userID)
+
+	if n := countTransactionsForUser(t, deps, userID); n != 1 {
+		t.Fatalf("transactions after processing = %d, want 1", n)
+	}
+	var categoryID int64
+	if err := deps.DB.QueryRow(context.Background(),
+		"SELECT category_id FROM transactions WHERE bank_email_id = $1", email.ID,
+	).Scan(&categoryID); err != nil {
+		t.Fatalf("query created transaction's category: %v", err)
+	}
+	if categoryID != remembered.ID {
+		t.Errorf("transaction category_id = %d, want %d (the remembered hint, not the Other fallback)", categoryID, remembered.ID)
+	}
+}
+
+// TestProcessPendingEmailsCorrectingCategoryTeachesTheNextEmail is the
+// end-to-end proof the design doc's step 8 promises: a first notice with no
+// hint yet falls back to Other as always, the owner corrects that row's
+// category through the same PATCH /transactions/{id} route the edit form
+// uses, and a second, later notice sharing the same note key (a different
+// reference number, same "NGUYEN VAN A chuyen tien" text) lands directly in
+// the corrected category with no further correction needed.
+func TestProcessPendingEmailsCorrectingCategoryTeachesTheNextEmail(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+	router := NewRouter(deps)
+	cookie := processTestSessionCookie(t, deps, userID)
+	corrected := processTestCategory(t, deps, userID, "Corrected Transfer", "expense")
+
+	firstEmail := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	processPendingEmails(deps, userID)
+
+	otherCategory, err := deps.Queries.GetCategoryBySlug(context.Background(), pgText(otherExpenseSlug))
+	if err != nil {
+		t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
+	}
+	var firstTxnID int64
+	var firstDescription string
+	var firstCategoryID int64
+	if err := deps.DB.QueryRow(context.Background(),
+		"SELECT id, description, category_id FROM transactions WHERE bank_email_id = $1", firstEmail.ID,
+	).Scan(&firstTxnID, &firstDescription, &firstCategoryID); err != nil {
+		t.Fatalf("query first transaction: %v", err)
+	}
+	if firstCategoryID != otherCategory.ID {
+		t.Fatalf("first transaction category_id = %d, want the Other fallback %d before any correction exists", firstCategoryID, otherCategory.ID)
+	}
+
+	tok := processTestCSRFToken(t, router)
+	form := url.Values{
+		"category_id": {strconv.FormatInt(corrected.ID, 10)},
+		"amount":      {"20000"},
+		"description": {firstDescription},
+		"occurred_on": {"2026-08-31"},
+	}
+	req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/transactions/%d", firstTxnID), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
+	req.AddCookie(tok)
+	req.Header.Set(csrf.HeaderName, tok.Value)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PATCH /transactions/%d = %d, want 200: %s", firstTxnID, rec.Code, rec.Body.String())
+	}
+
+	// A different reference number than the first email's, same transfer
+	// text -- bankmail.NoteKey must fold both to the same key for this to
+	// mean anything.
+	secondBody := strings.Replace(mbNotice, "26083101055223730", "26083101099999999", 1)
+	secondEmail, err := deps.Queries.CreateBankEmail(context.Background(), sqlcgen.CreateBankEmailParams{
+		UserID:      userID,
+		MessageID:   "<" + t.Name() + "-2@mail>",
+		FromAddress: "mbebanking@mbbank.com.vn",
+		Subject:     "Thong bao giao dich",
+		Body:        secondBody,
+		Status:      "pending",
+	})
+	if err != nil {
+		t.Fatalf("CreateBankEmail() (second) error = %v", err)
+	}
+	processPendingEmails(deps, userID)
+
+	var secondCategoryID int64
+	if err := deps.DB.QueryRow(context.Background(),
+		"SELECT category_id FROM transactions WHERE bank_email_id = $1", secondEmail.ID,
+	).Scan(&secondCategoryID); err != nil {
+		t.Fatalf("query second transaction's category: %v", err)
+	}
+	if secondCategoryID != corrected.ID {
+		t.Errorf("second email's transaction category_id = %d, want %d (the corrected category, learned from the first)", secondCategoryID, corrected.ID)
+	}
+}
+
+// TestProcessPendingEmailsSurvivesACategoryHintLookupError pins the fix for
+// review finding 1: a hint is an optimisation, never a requirement for the
+// transaction to exist, so any error reading category_hints -- not just an
+// ordinary miss -- must still create the transaction against the
+// Other/Other income fallback rather than losing it. Forcing that error is
+// done the same way TestProcessPendingEmailsMarksAnOtherFailureAsFailed
+// forces its own downstream failure: rename the table out from under the
+// query for the duration of the test and restore it via t.Cleanup, rather
+// than reshaping resolveCategoryForNotice into something a mock could
+// intercept.
+func TestProcessPendingEmailsSurvivesACategoryHintLookupError(t *testing.T) {
+	deps := processTestDeps(t)
+	userID := createProcessTestUser(t, deps)
+
+	ctx := context.Background()
+	if _, err := deps.DB.Exec(ctx, "ALTER TABLE category_hints RENAME TO category_hints_test_disabled"); err != nil {
+		t.Fatalf("rename category_hints: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := deps.DB.Exec(context.Background(), "ALTER TABLE category_hints_test_disabled RENAME TO category_hints"); err != nil {
+			t.Errorf("restore category_hints: %v", err)
+		}
+	})
+
+	email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
+	processPendingEmails(deps, userID)
+
+	if n := countTransactionsForUser(t, deps, userID); n != 1 {
+		t.Fatalf("transactions after a category_hints lookup error = %d, want 1 (a classification failure must never cost a transaction)", n)
+	}
+
+	otherCategory, err := deps.Queries.GetCategoryBySlug(ctx, pgText(otherExpenseSlug))
+	if err != nil {
+		t.Fatalf("GetCategoryBySlug(%q) error = %v", otherExpenseSlug, err)
+	}
+	var categoryID int64
+	if err := deps.DB.QueryRow(ctx,
+		"SELECT category_id FROM transactions WHERE bank_email_id = $1", email.ID,
+	).Scan(&categoryID); err != nil {
+		t.Fatalf("query created transaction's category: %v", err)
+	}
+	if categoryID != otherCategory.ID {
+		t.Errorf("transaction category_id = %d, want the Other fallback %d", categoryID, otherCategory.ID)
+	}
+
+	status, _ := bankEmailStatus(t, deps, email.ID)
+	if status != "imported" {
+		t.Errorf("bank email status after a category_hints lookup error = %q, want %q (not 'failed')", status, "imported")
 	}
 }

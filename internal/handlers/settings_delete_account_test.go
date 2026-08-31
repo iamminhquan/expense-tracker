@@ -262,6 +262,41 @@ func TestDeleteAccountRemovesStoredBankEmails(t *testing.T) {
 	}
 }
 
+// TestDeleteAccountRemovesCategoryHints guards the other new table this
+// slice adds: category_hints carries its own ON DELETE CASCADE from users,
+// but deleteAccount lists every table explicitly rather than trusting a
+// cascade (see its own doc comment), so this confirms the row is actually
+// gone rather than the cascade papering over a missing explicit delete.
+func TestDeleteAccountRemovesCategoryHints(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	ctx := context.Background()
+	email := "delete-category-hints@example.com"
+	cookie := loginAndGetCookie(t, router, deps, email, "s3cret-pass")
+
+	user, err := deps.Queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	category := personalCategory(t, deps, user.ID, "Delete Hints Category")
+	if _, err := deps.Queries.UpsertCategoryHint(ctx, sqlcgen.UpsertCategoryHintParams{
+		UserID: user.ID, NoteKey: "grab", CategoryID: category.ID,
+	}); err != nil {
+		t.Fatalf("UpsertCategoryHint() error = %v", err)
+	}
+
+	rec := postSettings(t, router, cookie, "/settings/delete", url.Values{
+		"current_password": {"s3cret-pass"},
+	})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("POST /settings/delete = %d, want %d: %s", rec.Code, http.StatusSeeOther, rec.Body.String())
+	}
+
+	if n := countRows(t, deps, "SELECT count(*) FROM category_hints WHERE user_id = $1", user.ID); n != 0 {
+		t.Errorf("category_hints after account delete = %d, want 0", n)
+	}
+}
+
 // TestDeletedEmailCanRegisterAgainAsAFreshAccount is the deliberate answer to
 // "should the address be reserved". It is not: $pend shares no data between
 // accounts, so the new one starts empty, and holding the address back would
