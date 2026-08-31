@@ -46,7 +46,13 @@ func parseMB(_, body string) (Notice, error) {
 	collapsed := strings.TrimSpace(collapseWhitespace.ReplaceAllString(body, " "))
 	fields := extractFields(collapsed, mbLabels)
 
-	if fields["Tình trạng"] != mbSuccessStatus {
+	// Prefix, not equality: "Tình trạng" is the last label MB's template
+	// emits, so extractFields has no following label to stop at and the
+	// value runs to the end of the body -- carrying MB's whole footer
+	// ("Xin chân thành cảm ơn. Hội sở: ...") along with it. Comparing for
+	// equality here is what made every real notice fail this gate while
+	// the fixture, captured with the footer trimmed off, passed.
+	if !strings.HasPrefix(strings.TrimSpace(fields["Tình trạng"]), mbSuccessStatus) {
 		return Notice{}, ErrNotANotice
 	}
 
