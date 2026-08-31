@@ -7,6 +7,8 @@ import (
 	"log"
 
 	"expensetracker/internal/bankmail"
+	"expensetracker/internal/classify"
+	"expensetracker/internal/i18n"
 	"expensetracker/internal/sqlcgen"
 
 	"github.com/jackc/pgx/v5"
@@ -152,11 +154,12 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 }
 
 // resolveCategoryForNotice decides which category a new email-sourced
-// transaction files under. A remembered hint for this note wins over the
-// Other/Other income fallback; a miss keeps that fallback exactly as before
-// this slice. Slice 4 adds an AI classification call between those two
-// steps -- in the miss branch, before the fallback lookup -- so its shape
-// is left ready here rather than written now.
+// transaction files under. A remembered hint for this note wins outright;
+// a miss now asks classify.Classifier before falling back to Other/Other
+// income, and a successful classification is written back to
+// category_hints so the same note key never has to ask again -- that
+// write-back is the entire payoff of slice 4's design (see
+// classifyAndRememberCategory).
 //
 // storedDescription must be the same string the caller is about to save on
 // the transaction row (truncateEmailNote(notice.Description), not
@@ -203,6 +206,16 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 		log.Printf("look up category hint for user %d: %v", userID, err)
 	}
 
+	// No hint fit. Ask Claude before falling back to Other/Other income --
+	// but only when it has something to say: an unconfigured classifier is
+	// the ordinary state for an account that never set ANTHROPIC_API_KEY,
+	// not a failure worth logging on every single miss.
+	if category, err := classifyAndRememberCategory(ctx, deps, userID, noteKey, storedDescription, notice.Direction); err == nil {
+		return category, nil
+	} else if !errors.Is(err, classify.ErrNotConfigured) {
+		log.Printf("classify category for user %d: %v", userID, err)
+	}
+
 	slug := otherExpenseSlug
 	if notice.Direction == "income" {
 		slug = otherIncomeSlug
@@ -210,6 +223,70 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 	category, err := deps.Queries.GetCategoryBySlug(ctx, pgText(slug))
 	if err != nil {
 		return sqlcgen.Category{}, fmt.Errorf("look up category %q: %w", slug, err)
+	}
+	return category, nil
+}
+
+// classifyAndRememberCategory asks deps.Classifier which of the user's own
+// categories -- filtered to notice's own direction, since an expense
+// notice must never be filed under an income category or vice versa --
+// fits this note, and writes a successful answer back to category_hints
+// under noteKey so the same note never has to ask again. That write-back
+// (UpsertCategoryHint) is the entire point of doing this in slice 4 rather
+// than calling classify.Classifier on every email forever.
+//
+// Every failure returns a plain error: an unconfigured or nil Classifier,
+// no categories of the right type to offer, the API call itself failing,
+// or an answer that names an id outside the candidates just offered. The
+// caller (resolveCategoryForNotice) treats all of them identically -- fall
+// back to Other/Other income -- which is what makes it safe for this
+// function to fail in any of these ways without costing the transaction
+// that is about to be created either way.
+func classifyAndRememberCategory(ctx context.Context, deps Deps, userID int64, noteKey, description, direction string) (sqlcgen.Category, error) {
+	if deps.Classifier == nil || !deps.Classifier.Configured() {
+		return sqlcgen.Category{}, classify.ErrNotConfigured
+	}
+
+	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgInt64(userID))
+	if err != nil {
+		return sqlcgen.Category{}, fmt.Errorf("list categories for user %d: %w", userID, err)
+	}
+
+	// candidates is keyed by id so the answer can be resolved back to a
+	// full row without a second query -- and, as defense in depth, so an
+	// id Classify already validated against this same list still can't
+	// reach a category outside it if that validation ever had a bug.
+	candidates := make(map[int64]sqlcgen.Category, len(rows))
+	var options []classify.Category
+	for _, row := range rows {
+		if row.Type != direction {
+			continue
+		}
+		candidates[row.ID] = row
+		options = append(options, classify.Category{ID: row.ID, Name: i18n.CategoryName(row.Slug, row.Name)})
+	}
+	if len(options) == 0 {
+		return sqlcgen.Category{}, fmt.Errorf("classify: no %s categories to offer for user %d", direction, userID)
+	}
+
+	categoryID, err := deps.Classifier.Classify(ctx, description, options)
+	if err != nil {
+		return sqlcgen.Category{}, err
+	}
+	category, ok := candidates[categoryID]
+	if !ok {
+		return sqlcgen.Category{}, fmt.Errorf("classify: model answered category %d, which was not offered to user %d", categoryID, userID)
+	}
+
+	if _, err := deps.Queries.UpsertCategoryHint(ctx, sqlcgen.UpsertCategoryHintParams{
+		UserID: userID, NoteKey: noteKey, CategoryID: categoryID,
+	}); err != nil {
+		// The classification itself succeeded; losing the hint costs a
+		// repeat API call the next time this note key shows up, not this
+		// transaction's category. Log and keep the answer rather than
+		// discarding a good classification over a write that can be
+		// retried by simply asking again.
+		log.Printf("write category hint for user %d: %v", userID, err)
 	}
 	return category, nil
 }

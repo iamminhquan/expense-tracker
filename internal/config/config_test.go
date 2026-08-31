@@ -78,6 +78,44 @@ func TestLoadReadsInboundSettings(t *testing.T) {
 	}
 }
 
+// ANTHROPIC_MODEL defaults to claude-opus-5 rather than an empty string,
+// unlike every other optional setting: internal/classify would otherwise
+// have to know the default itself, and this is the one place the app reads
+// environment variables at all.
+func TestLoadDefaultsAnthropicModelWhenUnset(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("ANTHROPIC_MODEL", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+	if cfg.AnthropicAPIKey != "" {
+		t.Errorf("AnthropicAPIKey = %q, want empty when unset", cfg.AnthropicAPIKey)
+	}
+	if cfg.AnthropicModel != "claude-opus-5" {
+		t.Errorf("AnthropicModel = %q, want %q", cfg.AnthropicModel, "claude-opus-5")
+	}
+}
+
+func TestLoadReadsAnthropicSettings(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
+	t.Setenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+	if cfg.AnthropicAPIKey != "sk-test" {
+		t.Errorf("AnthropicAPIKey = %q, want %q", cfg.AnthropicAPIKey, "sk-test")
+	}
+	if cfg.AnthropicModel != "claude-haiku-4-5" {
+		t.Errorf("AnthropicModel = %q, want %q", cfg.AnthropicModel, "claude-haiku-4-5")
+	}
+}
+
 func TestLoadLeavesInboundSettingsEmptyWhenUnset(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	t.Setenv("INBOUND_DOMAIN", "")
