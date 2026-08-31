@@ -3,7 +3,7 @@ package bankmail
 import (
 	"fmt"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -152,7 +152,7 @@ func extractFields(text string, labels []string) map[string]string {
 		}
 		hits = append(hits, hit{label: label, start: idx, end: idx + len(label)})
 	}
-	sort.Slice(hits, func(i, j int) bool { return hits[i].start < hits[j].start })
+	slices.SortFunc(hits, func(a, b hit) int { return a.start - b.start })
 
 	fields := make(map[string]string, len(hits))
 	for i, h := range hits {

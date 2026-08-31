@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 
 	"expensetracker/internal/auth"
@@ -24,12 +25,7 @@ var categorySwatches = []string{
 }
 
 func isValidSwatch(color string) bool {
-	for _, c := range categorySwatches {
-		if c == color {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(categorySwatches, color)
 }
 
 // categoryRow is one category as category_row.html and

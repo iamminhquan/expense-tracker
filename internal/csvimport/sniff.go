@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -189,10 +190,8 @@ var headerAliases = map[string][]string{
 
 func roleForName(name string) (string, bool) {
 	for role, aliases := range headerAliases {
-		for _, alias := range aliases {
-			if name == alias {
-				return role, true
-			}
+		if slices.Contains(aliases, name) {
+			return role, true
 		}
 	}
 	return "", false
@@ -280,11 +279,9 @@ func remainingByVariety(rows [][]string, taken []bool, width int) []int {
 		remaining = append(remaining, i)
 		variety[i] = len(distinct)
 	}
-	for a := 1; a < len(remaining); a++ {
-		for b := a; b > 0 && variety[remaining[b]] < variety[remaining[b-1]]; b-- {
-			remaining[b], remaining[b-1] = remaining[b-1], remaining[b]
-		}
-	}
+	// Stable, so two columns holding equally many distinct values keep their
+	// left-to-right order and the guess does not depend on map iteration.
+	slices.SortStableFunc(remaining, func(a, b int) int { return variety[a] - variety[b] })
 	return remaining
 }
 
@@ -340,11 +337,4 @@ func anyNegative(values []string) bool {
 		}
 	}
 	return false
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
