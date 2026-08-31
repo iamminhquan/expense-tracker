@@ -116,23 +116,12 @@ func Fingerprint(p Payload) string {
 	return "fp-" + hex.EncodeToString(h.Sum(nil))
 }
 
-// TruncateBody caps the extracted plain text at MaxBodyBytes.
-func TruncateBody(s string) string {
-	return truncateUTF8(s, MaxBodyBytes)
-}
-
-// TruncateRaw caps the original MIME message at MaxRawBytes, on the same rune
-// boundary rule as TruncateBody: a message cut through a multi-byte character
-// is invalid UTF-8, which Postgres refuses outright.
-func TruncateRaw(s string) string {
-	return truncateUTF8(s, MaxRawBytes)
-}
-
-// truncateUTF8 cuts s to at most max bytes without splitting a multi-byte
-// character. Vietnamese bank text is full of multi-byte runes, and a string cut
-// through one is invalid UTF-8 that Postgres refuses outright -- which would
-// lose the whole message rather than shorten it.
-func truncateUTF8(s string, max int) string {
+// Truncate cuts s to at most max bytes -- MaxBodyBytes for the extracted
+// plain text, MaxRawBytes for the original MIME message -- without splitting
+// a multi-byte character. Vietnamese bank text is full of multi-byte runes,
+// and a string cut through one is invalid UTF-8 that Postgres refuses
+// outright, which would lose the whole message rather than shorten it.
+func Truncate(s string, max int) string {
 	if len(s) <= max {
 		return s
 	}

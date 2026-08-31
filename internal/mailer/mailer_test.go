@@ -49,7 +49,7 @@ func TestSendPostsExpectedRequest(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	m := mailer.NewWithEndpoint(mailer.Config{APIKey: "test-key", From: "sender@example.com"}, srv.URL)
+	m := mailer.New(mailer.Config{APIKey: "test-key", From: "sender@example.com", Endpoint: srv.URL})
 	if err := m.Send(context.Background(), "to@example.com", "Subject line", "body text"); err != nil {
 		t.Fatalf("Send() error = %v", err)
 	}
@@ -90,7 +90,7 @@ func TestSendReturnsErrorOnNonSuccessStatus(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	m := mailer.NewWithEndpoint(mailer.Config{APIKey: "bad-key", From: "sender@example.com"}, srv.URL)
+	m := mailer.New(mailer.Config{APIKey: "bad-key", From: "sender@example.com", Endpoint: srv.URL})
 	err := m.Send(context.Background(), "to@example.com", "Subject", "body")
 	if err == nil {
 		t.Fatal("Send() error = nil, want an error on a 401 response")

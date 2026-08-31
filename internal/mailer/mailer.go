@@ -24,6 +24,9 @@ const sendEndpoint = "https://api.brevo.com/v3/smtp/email"
 type Config struct {
 	APIKey string
 	From   string
+	// Endpoint overrides the Brevo API URL, so a test can point Send at an
+	// httptest server instead of the real API. Empty means sendEndpoint.
+	Endpoint string
 }
 
 // Mailer sends email through the Brevo account it was constructed with.
@@ -35,12 +38,10 @@ type Mailer struct {
 
 // New constructs a Mailer that sends through the Brevo account in cfg.
 func New(cfg Config) *Mailer {
-	return NewWithEndpoint(cfg, sendEndpoint)
-}
-
-// NewWithEndpoint is New with the API endpoint overridable, so tests can
-// point Send at an httptest server instead of the real Brevo API.
-func NewWithEndpoint(cfg Config, endpoint string) *Mailer {
+	endpoint := cfg.Endpoint
+	if endpoint == "" {
+		endpoint = sendEndpoint
+	}
 	return &Mailer{cfg: cfg, client: &http.Client{}, endpoint: endpoint}
 }
 

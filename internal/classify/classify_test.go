@@ -66,7 +66,7 @@ func TestClassifyRequestCarriesModelKeyAndSchema(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key", Model: "gemini-3.5-flash-lite"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Model: "gemini-3.5-flash-lite", Endpoint: server.URL})
 	if _, err := c.Classify(context.Background(), "GRAB thanh toan chuyen di", testCategories); err != nil {
 		t.Fatalf("Classify() error = %v, want nil", err)
 	}
@@ -146,7 +146,7 @@ func TestClassifyMapsAValidAnswerToTheRightCategory(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 	got, err := c.Classify(context.Background(), "GRAB thanh toan chuyen di", testCategories)
 	if err != nil {
 		t.Fatalf("Classify() error = %v, want nil", err)
@@ -168,7 +168,7 @@ func TestClassifyUsesTheDefaultModelWhenConfigLeavesItEmpty(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 	if _, err := c.Classify(context.Background(), "note", testCategories); err != nil {
 		t.Fatalf("Classify() error = %v, want nil", err)
 	}
@@ -185,7 +185,7 @@ func TestClassifyFallsBackOn429WithoutPanicking(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 	if _, err := c.Classify(context.Background(), "note", testCategories); err == nil {
 		t.Error("Classify() error = nil, want an error on a 429 response")
 	}
@@ -199,7 +199,7 @@ func TestClassifyFallsBackOn500WithoutPanicking(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 	if _, err := c.Classify(context.Background(), "note", testCategories); err == nil {
 		t.Error("Classify() error = nil, want an error on a 500 response")
 	}
@@ -215,7 +215,7 @@ func TestClassifyFallsBackWhenAnswerIsNotACandidate(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 	if _, err := c.Classify(context.Background(), "note", testCategories); err == nil {
 		t.Error("Classify() error = nil, want an error when the answer names an id outside the candidate list")
 	}
@@ -231,7 +231,7 @@ func TestClassifyFallsBackWhenAnswerBelongsToAnotherAccount(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 	if _, err := c.Classify(context.Background(), "note", testCategories); err == nil {
 		t.Error("Classify() error = nil, want an error when the answer names a category not offered to this account")
 	}
@@ -246,7 +246,7 @@ func TestClassifyUnconfiguredMakesNoCallAndFallsBack(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{}, server.URL)
+	c := classify.New(classify.Config{Endpoint: server.URL})
 	if c.Configured() {
 		t.Fatal("Configured() = true for a Config with no APIKey, want false")
 	}
@@ -285,7 +285,7 @@ func TestClassifyFallsBackOnAMalformedResponse(t *testing.T) {
 			}))
 			defer server.Close()
 
-			c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+			c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 			got, err := c.Classify(context.Background(), "note", testCategories)
 			if err == nil {
 				t.Fatalf("Classify() error = nil, want an error for a malformed response")
@@ -306,7 +306,7 @@ func TestClassifyWithNoCandidatesFallsBackWithoutCallingOut(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	c := classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 	_, err := c.Classify(context.Background(), "note", nil)
 	if !errors.Is(err, classify.ErrNoCandidates) {
 		t.Errorf("Classify() error = %v, want errors.Is(err, ErrNoCandidates)", err)

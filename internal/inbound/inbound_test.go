@@ -126,25 +126,25 @@ func TestFingerprintDependsOnEveryField(t *testing.T) {
 	}
 }
 
-func TestTruncateBodyCapsAtMaxBodyBytes(t *testing.T) {
+func TestTruncateCapsAtMaxBodyBytes(t *testing.T) {
 	long := strings.Repeat("x", inbound.MaxBodyBytes+500)
-	if got := len(inbound.TruncateBody(long)); got != inbound.MaxBodyBytes {
-		t.Errorf("len(TruncateBody(long)) = %d, want %d", got, inbound.MaxBodyBytes)
+	if got := len(inbound.Truncate(long, inbound.MaxBodyBytes)); got != inbound.MaxBodyBytes {
+		t.Errorf("len(Truncate(long, MaxBodyBytes)) = %d, want %d", got, inbound.MaxBodyBytes)
 	}
-	if got := inbound.TruncateBody("short"); got != "short" {
-		t.Errorf("TruncateBody(%q) = %q, want unchanged", "short", got)
+	if got := inbound.Truncate("short", inbound.MaxBodyBytes); got != "short" {
+		t.Errorf("Truncate(%q, MaxBodyBytes) = %q, want unchanged", "short", got)
 	}
 }
 
-func TestTruncateBodyRespectUTF8Boundaries(t *testing.T) {
+func TestTruncateRespectsUTF8Boundaries(t *testing.T) {
 	// Create a string with multi-byte UTF-8 runes that exceeds MaxBodyBytes.
 	// Vietnamese text uses multi-byte runes; a naive byte-slice would split them.
 	multibyte := strings.Repeat("ế", inbound.MaxBodyBytes/3+100) // "ế" is 3 bytes
-	got := inbound.TruncateBody(multibyte)
+	got := inbound.Truncate(multibyte, inbound.MaxBodyBytes)
 	if !utf8.ValidString(got) {
-		t.Errorf("TruncateBody(multibyte) produced invalid UTF-8")
+		t.Errorf("Truncate(multibyte, MaxBodyBytes) produced invalid UTF-8")
 	}
 	if len(got) > inbound.MaxBodyBytes {
-		t.Errorf("len(TruncateBody(multibyte)) = %d, want <= %d", len(got), inbound.MaxBodyBytes)
+		t.Errorf("len(Truncate(multibyte, MaxBodyBytes)) = %d, want <= %d", len(got), inbound.MaxBodyBytes)
 	}
 }
