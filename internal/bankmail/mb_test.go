@@ -120,6 +120,14 @@ MB xin thông báo giao dịch của Quý khách đã được thực hiện nh�
 
 
  Giao dịch thành công
+
+
+Xin chân thành cảm ơn.
+
+Hội sở: Toà nhà MB, Số 18 Lê Văn Lương – Cầu Giấy – Hà Nội – Việt Nam
+ĐT: (+84) 24 6277 7222 | Fax: (+84) 24 6266 1080
+Website: http://www.mbbank.com.vn
+Liên hệ MB 247: 1900 545426 | (+84) 24 3767 4050
 `
 
 func mustVietnamTime(t *testing.T, layout, value string) time.Time {
@@ -199,7 +207,16 @@ func TestParseMBFailedTransactionStatus(t *testing.T) {
  trạng
 
  Giao dịch không thành công
+
+Xin chân thành cảm ơn.
+
+Hội sở: Toà nhà MB, Số 18 Lê Văn Lương – Cầu Giấy – Hà Nội – Việt Nam
+Website: http://www.mbbank.com.vn
 `
+	// The footer matters here as much as it does in the success fixture:
+	// the status gate matches a prefix precisely because the footer runs
+	// on past the value, and this is what proves that relaxation still
+	// refuses a transfer that never moved money.
 	_, err := bankmail.Parse("mbebanking@mbbank.com.vn", "Thong bao giao dich", body)
 	if !errors.Is(err, bankmail.ErrNotANotice) {
 		t.Errorf("Parse(failed transaction status) error = %v, want errors.Is ErrNotANotice", err)
