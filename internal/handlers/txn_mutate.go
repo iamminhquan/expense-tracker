@@ -3,7 +3,6 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"expensetracker/internal/auth"
@@ -61,19 +60,9 @@ func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64
 }
 
 func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {
-	categoryID, err := strconv.ParseInt(r.FormValue("category_id"), 10, 64)
-	if err != nil {
-		http.Error(w, "invalid category", http.StatusBadRequest)
-		return
-	}
-	amount, err := strconv.ParseInt(r.FormValue("amount"), 10, 64)
-	if err != nil || amount <= 0 {
-		http.Error(w, "invalid amount", http.StatusBadRequest)
-		return
-	}
-	occurredOn, err := time.Parse("2006-01-02", r.FormValue("occurred_on"))
-	if err != nil {
-		http.Error(w, "invalid date", http.StatusBadRequest)
+	form, msg := txnFormFromRequest(r)
+	if msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 	txnType := r.FormValue("type")
@@ -94,30 +83,21 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 	}
 
 	category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{
-		ID: categoryID, UserID: pgInt64(userID),
+		ID: form.CategoryID, UserID: pgInt64(userID),
 	})
 	if err != nil {
 		http.Error(w, "category not found", http.StatusForbidden)
 		return
 	}
 
-	var formErr string
-	switch {
-	case category.Type != txnType:
-		formErr = "That category does not match the transaction type"
-	case len([]rune(r.FormValue("description"))) > 200:
-		formErr = "Note must be 200 characters or fewer"
-	case occurredOn.After(time.Now().In(vietnamLocation).AddDate(0, 0, 7)):
-		formErr = "That date is too far in the future"
-	}
-	if formErr != "" {
+	if formErr := form.violation(category.Type, txnType); formErr != "" {
 		retarget(formErr)
 		return
 	}
 
 	created, err := deps.Queries.CreateTransaction(r.Context(), sqlcgen.CreateTransactionParams{
-		UserID: userID, CategoryID: categoryID, Amount: amount, Type: txnType,
-		Description: r.FormValue("description"), OccurredOn: pgDate(occurredOn),
+		UserID: userID, CategoryID: form.CategoryID, Amount: form.Amount, Type: txnType,
+		Description: form.Description, OccurredOn: pgDate(form.OccurredOn),
 	})
 	if err != nil {
 		retarget("Could not add the transaction, please try again.")
@@ -236,42 +216,24 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		categoryID, err := strconv.ParseInt(r.FormValue("category_id"), 10, 64)
-		if err != nil {
-			http.Error(w, "invalid category", http.StatusBadRequest)
+		form, msg := txnFormFromRequest(r)
+		if msg != "" {
+			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
-		amount, err := strconv.ParseInt(r.FormValue("amount"), 10, 64)
-		if err != nil || amount <= 0 {
-			http.Error(w, "invalid amount", http.StatusBadRequest)
-			return
-		}
-		occurredOn, err := time.Parse("2006-01-02", r.FormValue("occurred_on"))
-		if err != nil {
-			http.Error(w, "invalid date", http.StatusBadRequest)
-			return
-		}
-		description := r.FormValue("description")
 
-		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: categoryID, UserID: pgInt64(userID)})
+		category, err := deps.Queries.GetCategoryForUser(r.Context(), sqlcgen.GetCategoryForUserParams{ID: form.CategoryID, UserID: pgInt64(userID)})
 		if err != nil {
 			http.Error(w, "category not found", http.StatusForbidden)
 			return
 		}
 
-		var formErr string
-		switch {
-		case category.Type != existing.Type:
-			formErr = "That category does not match the transaction type"
-		case len([]rune(description)) > 200:
-			formErr = "Note must be 200 characters or fewer"
-		case occurredOn.After(time.Now().In(vietnamLocation).AddDate(0, 0, 7)):
-			formErr = "That date is too far in the future"
-		}
-		if formErr != "" {
+		// An edit never changes the type: the row keeps the one it was
+		// created with, so it is existing.Type the category has to match.
+		if formErr := form.violation(category.Type, existing.Type); formErr != "" {
 			allCategories, _ := deps.Queries.ListCategoriesForUser(r.Context(), pgInt64(userID))
 			renderNamed(w, r, deps, "transactions", "transaction_row_edit", "", map[string]any{
-				"ID": id, "CategoryID": categoryID, "Description": description, "Amount": amount,
+				"ID": id, "CategoryID": form.CategoryID, "Description": form.Description, "Amount": form.Amount,
 				"OccurredOnValue": r.FormValue("occurred_on"),
 				"CategoryOptions": categoriesOfType(allCategories, existing.Type), "Error": formErr,
 			})
@@ -279,8 +241,8 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		}
 
 		updated, err := deps.Queries.UpdateTransaction(r.Context(), sqlcgen.UpdateTransactionParams{
-			ID: id, UserID: userID, CategoryID: categoryID, Amount: amount, Type: existing.Type,
-			Description: description, OccurredOn: pgDate(occurredOn),
+			ID: id, UserID: userID, CategoryID: form.CategoryID, Amount: form.Amount, Type: existing.Type,
+			Description: form.Description, OccurredOn: pgDate(form.OccurredOn),
 		})
 		if err != nil {
 			log.Printf("update transaction: %v", err)
@@ -310,9 +272,9 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// whatever is actually stored on the row, not re-truncate or
 		// otherwise recompute it, or the two sides drift apart for exactly
 		// the longest notes.
-		if existing.Source == "email" && categoryID != existing.CategoryID {
+		if existing.Source == "email" && form.CategoryID != existing.CategoryID {
 			if _, err := deps.Queries.UpsertCategoryHint(r.Context(), sqlcgen.UpsertCategoryHintParams{
-				UserID: userID, NoteKey: bankmail.NoteKey(existing.Description), CategoryID: categoryID,
+				UserID: userID, NoteKey: bankmail.NoteKey(existing.Description), CategoryID: form.CategoryID,
 			}); err != nil {
 				// The transaction edit itself already succeeded; failing to
 				// remember the correction should not turn that into a
