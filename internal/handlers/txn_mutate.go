@@ -146,18 +146,14 @@ func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, 
 			return
 		}
 		// The swap replaces the list section, which the nav sits outside of,
-		// so the balance widget still needs its own out-of-band update -- the
-		// same one freshTotals folds into the ordinary single-row response.
-		header, err := currentHeaderBalance(r, deps, userID)
-		if err != nil {
-			http.Error(w, "could not load totals", http.StatusInternalServerError)
-			return
-		}
-		data["HeaderBalance"] = header
+		// so the balance widget still needs its own out-of-band update --
+		// the same one freshTotals folds into the ordinary single-row
+		// response. Here it arrives with the nav data, which this render
+		// asks for by passing "transactions" as the active page.
 		w.Header().Set("HX-Retarget", "#transactions-month-section")
 		w.Header().Set("HX-Reswap", "outerHTML")
 		w.Header().Set("HX-Push-Url", transactionsURL(month, 1, filters))
-		renderNamed(w, r, deps, "transactions", "transactions_first_page_response", "transactions", data)
+		renderViewNamed(w, r, deps, "transactions", "transactions_first_page_response", "transactions", data)
 		return
 	}
 

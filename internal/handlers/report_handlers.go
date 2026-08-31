@@ -40,14 +40,46 @@ func dashboardPage(deps Deps) http.HandlerFunc {
 		}
 
 		if isFragmentRequest(r) {
-			renderNamed(w, r, deps, "dashboard", "dashboard_month_section", "dashboard", data)
+			renderViewNamed(w, r, deps, "dashboard", "dashboard_month_section", "dashboard", data)
 			return
 		}
-		render(w, r, deps, "dashboard", "dashboard", data)
+		renderView(w, r, deps, "dashboard", "dashboard", data)
 	}
 }
 
-func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam string) (map[string]any, error) {
+// dashboardView is the whole dashboard: the month it is showing, the two
+// totals with their comparison lines, and the two charts' data already
+// serialised, since Chart.js reads them out of the page as JSON rather than
+// from anything the template could build.
+//
+// The comparison lines come in two spellings because the mobile cards share
+// a row and have half the width to say the same thing in.
+type dashboardView struct {
+	viewData
+
+	MonthLabel        string
+	CurrentMonthValue string
+	AvailableMonths   []monthOption
+
+	TotalExpense            int64
+	TotalIncome             int64
+	ExpenseComparison       string
+	IncomeComparison        string
+	ExpenseComparisonMobile string
+	IncomeComparisonMobile  string
+	CurrentMonthEmpty       bool
+	HasAnyMonthData         bool
+
+	PieLegend      []pieLegendEntry
+	PieLabelsJSON  template.JS
+	PieValuesJSON  template.JS
+	PieColorsJSON  template.JS
+	BarLabelsJSON  template.JS
+	BarExpenseJSON template.JS
+	BarIncomeJSON  template.JS
+}
+
+func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam string) (*dashboardView, error) {
 	from, to := monthRangeFor(monthParam)
 
 	totals, err := deps.Queries.MonthlyTotals(r.Context(), sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
@@ -86,13 +118,6 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 		return nil, err
 	}
 	currentFrom, _ := currentMonthRange()
-	var available []map[string]any
-	for _, m := range months {
-		if m.Time.Year() == currentFrom.Time.Year() && m.Time.Month() == currentFrom.Time.Month() {
-			continue
-		}
-		available = append(available, map[string]any{"Value": m.Time.Format("2006-01"), "Label": monthLabel(m.Time)})
-	}
 
 	pieLabelsJSON, _ := json.Marshal(pieLabels)
 	pieValuesJSON, _ := json.Marshal(pieValues)
@@ -101,25 +126,25 @@ func buildDashboardData(r *http.Request, deps Deps, userID int64, monthParam str
 	barExpenseJSON, _ := json.Marshal(barExpense)
 	barIncomeJSON, _ := json.Marshal(barIncome)
 
-	return map[string]any{
-		"MonthLabel":              monthLabel(from.Time),
-		"CurrentMonthValue":       currentFrom.Time.Format("2006-01"),
-		"AvailableMonths":         available,
-		"TotalExpense":            totals.TotalExpense,
-		"TotalIncome":             totals.TotalIncome,
-		"ExpenseComparison":       comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
-		"IncomeComparison":        comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
-		"ExpenseComparisonMobile": comparisonTextMobile(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
-		"IncomeComparisonMobile":  comparisonTextMobile(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
-		"CurrentMonthEmpty":       totals.TotalExpense == 0 && totals.TotalIncome == 0,
-		"HasAnyMonthData":         hasAnyMonthData,
-		"PieLegend":               legend,
-		"PieLabelsJSON":           template.JS(pieLabelsJSON),
-		"PieValuesJSON":           template.JS(pieValuesJSON),
-		"PieColorsJSON":           template.JS(pieColorsJSON),
-		"BarLabelsJSON":           template.JS(barLabelsJSON),
-		"BarExpenseJSON":          template.JS(barExpenseJSON),
-		"BarIncomeJSON":           template.JS(barIncomeJSON),
+	return &dashboardView{
+		MonthLabel:              monthLabel(from.Time),
+		CurrentMonthValue:       currentFrom.Time.Format("2006-01"),
+		AvailableMonths:         monthOptions(months, currentFrom),
+		TotalExpense:            totals.TotalExpense,
+		TotalIncome:             totals.TotalIncome,
+		ExpenseComparison:       comparisonText(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
+		IncomeComparison:        comparisonText(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
+		ExpenseComparisonMobile: comparisonTextMobile(totals.TotalExpense, prevTotals.TotalExpense, hasPrevData),
+		IncomeComparisonMobile:  comparisonTextMobile(totals.TotalIncome, prevTotals.TotalIncome, hasPrevData),
+		CurrentMonthEmpty:       totals.TotalExpense == 0 && totals.TotalIncome == 0,
+		HasAnyMonthData:         hasAnyMonthData,
+		PieLegend:               legend,
+		PieLabelsJSON:           template.JS(pieLabelsJSON),
+		PieValuesJSON:           template.JS(pieValuesJSON),
+		PieColorsJSON:           template.JS(pieColorsJSON),
+		BarLabelsJSON:           template.JS(barLabelsJSON),
+		BarExpenseJSON:          template.JS(barExpenseJSON),
+		BarIncomeJSON:           template.JS(barIncomeJSON),
 	}, nil
 }
 

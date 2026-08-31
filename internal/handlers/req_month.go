@@ -15,6 +15,31 @@ import (
 // the balance widget all take a [from, to) window -- so these live together
 // rather than beside whichever handler happened to need one first.
 
+// monthOption is one entry in the month picker's dropdown: the "YYYY-MM" a
+// link carries, and the "August 2026" it reads as.
+type monthOption struct {
+	Value string
+	Label string
+}
+
+// monthOptions turns the months an account has transactions in into the
+// picker's entries. The current month is left out on purpose: both pages
+// that render the picker pin it as their own "This month" entry above the
+// list, so including it here would offer the same month twice.
+func monthOptions(months []pgtype.Date, current pgtype.Date) []monthOption {
+	var options []monthOption
+	for _, m := range months {
+		if m.Time.Year() == current.Time.Year() && m.Time.Month() == current.Time.Month() {
+			continue
+		}
+		options = append(options, monthOption{
+			Value: m.Time.Format("2006-01"),
+			Label: monthLabel(m.Time),
+		})
+	}
+	return options
+}
+
 func monthLabel(t time.Time) string      { return t.Format("January 2006") }
 func monthLabelLower(t time.Time) string { return t.Format("January") }
 

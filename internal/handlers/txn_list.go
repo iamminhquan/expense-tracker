@@ -48,11 +48,11 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 			// instead keeps the address bar to what is actually being
 			// filtered -- and makes it the same URL a bookmark or a reload
 			// would produce.
-			w.Header().Set("HX-Push-Url", transactionsURL(data["MonthValue"].(string), data["Pager"].(pager).Page, filters))
-			renderNamed(w, r, deps, "transactions", "transactions_month_section", "transactions", data)
+			w.Header().Set("HX-Push-Url", transactionsURL(data.MonthValue, data.Pager.Page, filters))
+			renderViewNamed(w, r, deps, "transactions", "transactions_month_section", "transactions", data)
 			return
 		}
-		render(w, r, deps, "transactions", "transactions", data)
+		renderView(w, r, deps, "transactions", "transactions", data)
 	}
 }
 
@@ -60,7 +60,44 @@ func transactionsPage(deps Deps) http.HandlerFunc {
 // full page and the transactions_month_section fragment the month dropdown
 // swaps in) needs: the selected month's transactions/totals, the dropdown's
 // list of other months with data, and the quick-add form's own state.
-func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam string, page int, filters txnFilters, quickAddError, selectedType string) (map[string]any, error) {
+// transactionsView is the whole transactions page: the month's rows and the
+// count they were drawn from, the filter controls' own state, the month
+// picker's entries, and the quick-add form, which is part of the page as
+// well as an answer to a rejected submit.
+type transactionsView struct {
+	viewData
+
+	Transactions []txnRow
+	TotalCount   int64
+	Pager        pager
+
+	Filters     txnFilters
+	FilterCount int
+	Filtering   bool
+	ExportURL   string
+
+	MonthValue        string
+	MonthLabel        string
+	MonthLabelLower   string
+	AllMonths         bool
+	CurrentMonthValue string
+	AvailableMonths   []monthOption
+
+	// The add form's own state. AllCategories is the full list the filter
+	// bar's category select offers; Categories is the same list narrowed to
+	// the type the add form currently has selected.
+	AllCategories []sqlcgen.Category
+	Categories    []sqlcgen.Category
+	SelectedType  string
+	Today         string
+	QuickAddError string
+
+	// Imported is the marker the importer redirects here with, so the
+	// confirmation lands on the list the rows actually went into.
+	Imported int
+}
+
+func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthParam string, page int, filters txnFilters, quickAddError, selectedType string) (*transactionsView, error) {
 	scope := newTxnScope(monthParam)
 	from, to := scope.Bounds()
 
@@ -88,16 +125,6 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		return nil, err
 	}
 	currentFrom, _ := currentMonthRange()
-	var available []map[string]any
-	for _, m := range months {
-		if m.Time.Year() == currentFrom.Time.Year() && m.Time.Month() == currentFrom.Time.Month() {
-			continue // already offered as the pinned "This month" entry
-		}
-		available = append(available, map[string]any{
-			"Value": m.Time.Format("2006-01"),
-			"Label": monthLabel(m.Time),
-		})
-	}
 
 	allCategories, err := deps.Queries.ListCategoriesForUser(r.Context(), pgval.Int64(userID))
 	if err != nil {
@@ -108,29 +135,26 @@ func buildTransactionsPageData(r *http.Request, deps Deps, userID int64, monthPa
 		formType = "expense"
 	}
 
-	return map[string]any{
-		"Transactions":      rows,
-		"TotalCount":        count,
-		"Pager":             pgr,
-		"Filters":           filters,
-		"FilterCount":       filters.ActiveCount(),
-		"Filtering":         filters.Any(),
-		"AllCategories":     allCategories,
-		"ExportURL":         exportURL(scope.Value, pgr.Page, filters),
-		"MonthValue":        scope.Value,
-		"MonthLabel":        scope.Label,
-		"MonthLabelLower":   scope.LabelLower(),
-		"AllMonths":         scope.All,
-		"CurrentMonthValue": currentFrom.Time.Format("2006-01"),
-		"AvailableMonths":   available,
-		"Categories":        categoriesOfType(allCategories, formType),
-		"SelectedType":      selectedType,
-		"Today":             time.Now().In(vietnamLocation).Format("2006-01-02"),
-		"QuickAddError":     quickAddError,
-		// The importer redirects here with a count rather than rendering its
-		// own "done" screen, so the confirmation lands on the list the rows
-		// actually went into.
-		"Imported": importedCount(r),
+	return &transactionsView{
+		Transactions:      rows,
+		TotalCount:        count,
+		Pager:             pgr,
+		Filters:           filters,
+		FilterCount:       filters.ActiveCount(),
+		Filtering:         filters.Any(),
+		AllCategories:     allCategories,
+		ExportURL:         exportURL(scope.Value, pgr.Page, filters),
+		MonthValue:        scope.Value,
+		MonthLabel:        scope.Label,
+		MonthLabelLower:   scope.LabelLower(),
+		AllMonths:         scope.All,
+		CurrentMonthValue: currentFrom.Time.Format("2006-01"),
+		AvailableMonths:   monthOptions(months, currentFrom),
+		Categories:        categoriesOfType(allCategories, formType),
+		SelectedType:      selectedType,
+		Today:             time.Now().In(vietnamLocation).Format("2006-01-02"),
+		QuickAddError:     quickAddError,
+		Imported:          importedCount(r),
 	}, nil
 }
 
