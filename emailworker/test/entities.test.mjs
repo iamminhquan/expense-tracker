@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readText, parseMessage } from "../src/index.js";
+import { parseMessage } from "../src/index.js";
 
 // Dung nguyen hinh dang email MB that: khong co phan text/plain, chu tieng
 // Viet viet bang entity so, tron lan voi UTF-8 that.
@@ -23,20 +23,20 @@ function mbLikeHtmlMessage() {
 }
 
 test("decodes the numeric entities MB writes Vietnamese with", async () => {
-  const got = await readText({ raw: mbLikeHtmlMessage() });
+  const got = (await parseMessage({ raw: mbLikeHtmlMessage() })).text;
   assert.match(got, /Cảm ơn Quý khách/);
   assert.match(got, /Số tiền giao dịch/);
   assert.match(got, /Nội dung chuyển tiền/);
 });
 
 test("leaves no undecoded entity behind", async () => {
-  const got = await readText({ raw: mbLikeHtmlMessage() });
+  const got = (await parseMessage({ raw: mbLikeHtmlMessage() })).text;
   assert.doesNotMatch(got, /&#[0-9]+;/, "con entity so chua giai ma");
   assert.doesNotMatch(got, /&(amp|ndash|agrave);/, "con entity ten chua giai ma");
 });
 
 test("decodes named entities and keeps real UTF-8 untouched", async () => {
-  const got = await readText({ raw: mbLikeHtmlMessage() });
+  const got = (await parseMessage({ raw: mbLikeHtmlMessage() })).text;
   assert.match(got, /Toà nhà MB – Hà Nội & nhieu noi khac/);
   assert.match(got, /Chuyển tiền nội bộ MB/);
 });
@@ -50,7 +50,7 @@ test("does not cascade: &amp;#65; stays literal", async () => {
     "<p>&amp;#65;</p>",
     "",
   ].join("\r\n");
-  const got = await readText({ raw });
+  const got = (await parseMessage({ raw })).text;
   assert.match(got, /&#65;/, "phai giu nguyen chu khong giai thanh A");
   assert.doesNotMatch(got, /(^|[^#])A([^0-9]|$)/);
 });

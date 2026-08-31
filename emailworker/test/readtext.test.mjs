@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readText } from "../src/index.js";
+import { parseMessage } from "../src/index.js";
 
 // A multipart/alternative message with quoted-printable text/plain part
 // containing Vietnamese text with diacritics. Must use CRLF line endings for
@@ -28,7 +28,7 @@ function createMessage(rawEmail) {
 
 test("multipart/alternative with quoted-printable text/plain decodes Vietnamese diacritics", async () => {
   const message = createMessage(multipartQuotedPrintable);
-  const text = await readText(message);
+  const text = (await parseMessage(message)).text;
 
   // The expected decoded Vietnamese text with diacritics.
   assert.ok(text.includes("Ngân hàng thông báo"), "must contain decoded Vietnamese text");
@@ -37,7 +37,7 @@ test("multipart/alternative with quoted-printable text/plain decodes Vietnamese 
 
 test("multipart/alternative output contains no MIME boundary markers", async () => {
   const message = createMessage(multipartQuotedPrintable);
-  const text = await readText(message);
+  const text = (await parseMessage(message)).text;
 
   // The bug symptom: boundary lines or raw MIME artifacts present in output.
   assert.ok(!text.includes("--boundary"), "must not contain MIME boundary markers");
@@ -47,7 +47,7 @@ test("multipart/alternative output contains no MIME boundary markers", async () 
 
 test("multipart/alternative output contains no base64 runs", async () => {
   const message = createMessage(multipartQuotedPrintable);
-  const text = await readText(message);
+  const text = (await parseMessage(message)).text;
 
   // The bug symptom: long sequences of base64-looking characters.
   // This checks that we didn't just dump the raw MIME with undecoded parts.
@@ -56,14 +56,14 @@ test("multipart/alternative output contains no base64 runs", async () => {
 
 test("base64-encoded text/plain part decodes correctly", async () => {
   const message = createMessage(base64TextPart);
-  const text = await readText(message);
+  const text = (await parseMessage(message)).text;
 
   assert.equal(text, "Ngân hàng báo Giao dịch -50,000 VND.");
 });
 
 test("HTML-only message falls back to tag-stripped text", async () => {
   const message = createMessage(htmlOnlyMessage);
-  const text = await readText(message);
+  const text = (await parseMessage(message)).text;
 
   // Tags should be stripped, leaving readable text.
   assert.ok(text.includes("Ngân hàng thông báo"), "must contain decoded content");

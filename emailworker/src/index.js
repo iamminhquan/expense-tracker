@@ -144,13 +144,7 @@ async function parseMessage(message) {
   }
 }
 
-// readText is a thin wrapper over parseMessage for callers (and tests) that
-// only want the body text.
-async function readText(message) {
-  return (await parseMessage(message)).text;
-}
-
-export { readText, parseMessage };
+export { parseMessage };
 
 export default {
   async email(message, env, ctx) {
