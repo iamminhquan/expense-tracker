@@ -1,21 +1,8 @@
-# Cloudflare Email Worker: nhan email forward tu Gmail qua Email Routing va
-# chuyen tiep vao app.
-#
-# DEPLOY BANG TAY. Day la dich deploy thu hai cua repo nay va no KHONG di theo
-# `git push`. render.yaml co autoDeploy tren main, nen sua Go la push xong tu
-# len; sua thu muc nay thi phai chay `npx wrangler deploy` tu trong
-# emailworker/, khong thi Cloudflare van chay ban cu va email im lang sai theo
-# kieu khong test nao bat duoc.
 name = "email-inbox"
 main = "src/index.js"
 compatibility_date = "2026-08-28"
 
-# Worker nay chi chay qua email handler, khong can route HTTP cong khai.
 workers_dev = false
 
-# URL cua app tren Render. Khong phai bi mat -- de o day de cau hinh Worker
-# luon khop voi thu dang chay, thay vi nam roi trong dashboard. Secret
-# INBOUND_WEBHOOK_SECRET thi nguoc lai: dat bang `wrangler secret put`,
-# khong bao gio vao repo.
 [vars]
 APP_BASE_URL = "https://expense-tracker-qorv.onrender.com"

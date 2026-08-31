@@ -1,8 +1,3 @@
-// Ky HMAC-SHA256 tren raw body, tra ve hex thuong.
-//
-// Phai khop tung byte voi inbound.Sign trong Go (internal/inbound). Doi mot
-// ben ma quen ben kia thi email dung lai im lang: app tra 403 va khong ai
-// nhin thay, vi Worker khong co cho nao bao loi.
 export async function sign(secret, body) {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
