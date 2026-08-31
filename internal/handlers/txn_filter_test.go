@@ -356,6 +356,56 @@ func TestThePagerCarriesTheFiltersAlong(t *testing.T) {
 	}
 }
 
+// countTransactionRows counts the rows a response actually rendered, by the
+// wrapper id every one of them carries.
+func countTransactionRows(body string) int {
+	return strings.Count(body, `id="transaction-row-`)
+}
+
+// TestAFilteredPageHoldsAFullPageOfRows pins the half of filtered paging
+// that TestThePagerCarriesTheFiltersAlong does not. That one proves the
+// pager sends the filters back; this one proves they reach the list query's
+// LIMIT/OFFSET window and not just the count that sizes the pager.
+//
+// The two failures it rules out both leave a plausible-looking page. If the
+// filter reached only the count, a page would be ten rows drawn from the
+// unfiltered month with a pager sized for eleven matches; if it reached only
+// the list, every match would arrive on one page with no pager at all.
+func TestAFilteredPageHoldsAFullPageOfRows(t *testing.T) {
+	deps := newTestDeps(t)
+	router := handlers.NewRouter(deps)
+	// Thirty rows, amounts 1000 through 30000, so min=20000 keeps eleven of
+	// them: one full page and one row over.
+	cookie := pagingUser(t, deps, router, "filter-page-size@example.com", 30)
+
+	page1 := getTransactions(t, router, cookie, "?min=20000")
+	if got := countTransactionRows(page1); got != 10 {
+		t.Errorf("filtered page 1 rendered %d rows, want a full page of 10", got)
+	}
+	// The pager has to be sized by the filtered count as well. Sized by the
+	// unfiltered one it would offer a third page holding nothing, which the
+	// row counts below would not notice.
+	if !strings.Contains(page1, "Page 1 of 2") {
+		t.Error("expected the pager to be sized by the eleven matches, not by the whole month")
+	}
+	page2 := getTransactions(t, router, cookie, "?min=20000&page=2")
+	if got := countTransactionRows(page2); got != 1 {
+		t.Errorf("filtered page 2 rendered %d rows, want the single row left over", got)
+	}
+
+	// The eleventh match belongs on page 2 and nowhere else.
+	if strings.Contains(page1, "Txn 20") {
+		t.Error("expected the 11th match to be held back for page 2")
+	}
+	if !strings.Contains(page2, "Txn 20") {
+		t.Error("expected the 11th match on page 2")
+	}
+	// And a row the filter excludes may not pad either page out to ten.
+	if strings.Contains(page1, "Txn 19") || strings.Contains(page2, "Txn 19") {
+		t.Error("expected a row below the minimum to be filtered out of every page")
+	}
+}
+
 // idOfTransaction finds a seeded row by its note.
 func idOfTransaction(t *testing.T, deps handlers.Deps, userID int64, note string) int64 {
 	t.Helper()
