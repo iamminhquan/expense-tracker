@@ -43,14 +43,14 @@ type Config struct {
 	// The same value must be set as the Worker's secret; see
 	// emailworker/wrangler.toml.
 	InboundWebhookSecret string
-	// AnthropicAPIKey and AnthropicModel configure the classify.Classifier
-	// that resolves a category for a bank-email transaction when no
-	// remembered hint fits (see internal/classify). Both optional, the
-	// same way BrevoAPIKey is: an empty key just means classification
-	// falls back to Other/Other income -- the transaction is still
-	// created -- rather than the app refusing to start.
-	AnthropicAPIKey string
-	AnthropicModel  string
+	// GeminiAPIKey and GeminiModel configure the classify.Classifier that
+	// resolves a category for a bank-email transaction when no remembered
+	// hint fits (see internal/classify). Both optional, the same way
+	// BrevoAPIKey is: an empty key just means classification falls back to
+	// Other/Other income -- the transaction is still created -- rather
+	// than the app refusing to start.
+	GeminiAPIKey string
+	GeminiModel  string
 }
 
 // Load reads the configuration from the environment. Everything but the
@@ -74,8 +74,8 @@ func Load() (Config, error) {
 		MailFrom:             getEnv("MAIL_FROM", ""),
 		InboundDomain:        getEnv("INBOUND_DOMAIN", ""),
 		InboundWebhookSecret: getEnv("INBOUND_WEBHOOK_SECRET", ""),
-		AnthropicAPIKey:      getEnv("ANTHROPIC_API_KEY", ""),
-		AnthropicModel:       getEnv("ANTHROPIC_MODEL", "claude-opus-5"),
+		GeminiAPIKey:         getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:          getEnv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
 	}, nil
 }
 
