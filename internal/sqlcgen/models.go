@@ -8,6 +8,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BankAccount struct {
+	ID            int64              `json:"id"`
+	UserID        int64              `json:"user_id"`
+	AccountNumber string             `json:"account_number"`
+	FirstSeenAt   pgtype.Timestamptz `json:"first_seen_at"`
+}
+
 type BankEmail struct {
 	ID            int64              `json:"id"`
 	UserID        int64              `json:"user_id"`

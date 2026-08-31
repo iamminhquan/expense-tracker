@@ -33,6 +33,17 @@ type Notice struct {
 	Direction   string
 	OccurredAt  time.Time
 	Description string
+	// DebitAccount and BeneficiaryAccount are the two account numbers the
+	// notice names, digits only, empty when the template did not carry one.
+	//
+	// They exist for one caller: deciding whether a transfer merely moved
+	// money between two accounts the same person owns, which is neither
+	// income nor expense in a single-ledger app. Reading them here rather
+	// than in the handler keeps every rule about what an email says inside
+	// this package -- the handler decides what to do about it, not what it
+	// means.
+	DebitAccount       string
+	BeneficiaryAccount string
 }
 
 // bankSenders maps the domain suffix a bank's mail arrives from to the

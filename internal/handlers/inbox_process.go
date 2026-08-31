@@ -78,6 +78,20 @@ func processOneBankEmail(ctx context.Context, deps Deps, id int64) {
 		return
 	}
 
+	// Learn which accounts belong to this person, then decide whether this
+	// notice merely moved money between two of them. Both steps run before
+	// the transaction is created and neither may prevent it on an error:
+	// see rememberOwnAccount and isInternalTransfer.
+	rememberOwnAccount(ctx, deps, email.UserID, notice.DebitAccount)
+	if isInternalTransfer(ctx, deps, email.UserID, notice) {
+		if markErr := deps.Queries.MarkBankEmailIgnored(ctx, sqlcgen.MarkBankEmailIgnoredParams{
+			ID: email.ID, FailureReason: internalTransferReason,
+		}); markErr != nil {
+			log.Printf("process bank email %d: mark ignored: %v", id, markErr)
+		}
+		return
+	}
+
 	if err := createTransactionFromNotice(ctx, deps, email, notice); err != nil {
 		log.Printf("process bank email %d: %v", id, err)
 		if markErr := deps.Queries.MarkBankEmailFailed(ctx, sqlcgen.MarkBankEmailFailedParams{
@@ -108,6 +122,63 @@ func markUnprocessableBankEmail(ctx context.Context, deps Deps, id int64, err er
 	}); markErr != nil {
 		log.Printf("process bank email %d: mark failed: %v", id, markErr)
 	}
+}
+
+// internalTransferReason is the ignore reason a self-transfer is closed
+// with. It is spelled out rather than reusing a bankmail sentinel because
+// nothing is wrong with the email: it parsed perfectly, and the reason a
+// person reads in the settings list has to say that.
+const internalTransferReason = "internal transfer between your own accounts"
+
+// rememberOwnAccount records the debited account as one this person owns.
+//
+// The debit side of an MB notice is proof of ownership, not a guess: MB
+// sends a debit notice to the account holder whose money moved. The
+// beneficiary side is deliberately never recorded -- money can be sent to
+// anyone, so filing a payee as "yours" would make the next real payment to
+// them silently vanish from the ledger.
+//
+// A write failure is logged and swallowed. Failing to learn an account
+// costs at most one self-transfer recorded as an expense, which the owner
+// can see and delete; letting it abort the email would cost the whole
+// transaction.
+func rememberOwnAccount(ctx context.Context, deps Deps, userID int64, account string) {
+	if account == "" {
+		return
+	}
+	if err := deps.Queries.RememberBankAccount(ctx, sqlcgen.RememberBankAccountParams{
+		UserID: userID, AccountNumber: account,
+	}); err != nil {
+		log.Printf("remember bank account for user %d: %v", userID, err)
+	}
+}
+
+// isInternalTransfer reports whether this notice only moved money between
+// two accounts the same person owns -- neither income nor expense in a
+// ledger that treats all of someone's accounts as one pot.
+//
+// It answers true only on proof: the beneficiary account has itself been
+// seen as a debit account on a notice delivered to this person's own inbox.
+// A matching account-holder *name* is deliberately not enough. Two people
+// can share a name, and the cost of the two mistakes is not symmetric --
+// wrongly recording a self-transfer leaves a visible row the owner can
+// delete, while wrongly ignoring a real payment removes money from the
+// ledger that the owner has no way of knowing is missing.
+//
+// Every failure answers false, for the same reason: a lookup error must
+// cost a spurious row at worst, never a missing one.
+func isInternalTransfer(ctx context.Context, deps Deps, userID int64, notice bankmail.Notice) bool {
+	if notice.BeneficiaryAccount == "" || notice.BeneficiaryAccount == notice.DebitAccount {
+		return false
+	}
+	owns, err := deps.Queries.BankAccountBelongsToUser(ctx, sqlcgen.BankAccountBelongsToUserParams{
+		UserID: userID, AccountNumber: notice.BeneficiaryAccount,
+	})
+	if err != nil {
+		log.Printf("check own bank account for user %d: %v", userID, err)
+		return false
+	}
+	return owns
 }
 
 // createTransactionFromNotice inserts the transaction a parsed notice

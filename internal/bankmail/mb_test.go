@@ -2,6 +2,7 @@ package bankmail_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -331,5 +332,67 @@ func TestParseMBAmountRejectsWrongShape(t *testing.T) {
 				t.Errorf("Parse(amount %q) error = %v, want errors.Is ErrNotANotice", tc.amount, err)
 			}
 		})
+	}
+}
+
+// TestParseMBCarriesBothAccountNumbers pins the two fields self-transfer
+// detection rests on. They are read here rather than in the handler so that
+// every rule about what an MB email *says* stays in this package.
+func TestParseMBCarriesBothAccountNumbers(t *testing.T) {
+	notice, err := bankmail.Parse("mbebanking@mbbank.com.vn", "Thong bao giao dich thanh cong", mbTransferNotice)
+	if err != nil {
+		t.Fatalf("Parse(mbTransferNotice) unexpected error: %v", err)
+	}
+	if want := "0001111111111"; notice.DebitAccount != want {
+		t.Errorf("DebitAccount = %q, want %q", notice.DebitAccount, want)
+	}
+	if want := "0399999999"; notice.BeneficiaryAccount != want {
+		t.Errorf("BeneficiaryAccount = %q, want %q", notice.BeneficiaryAccount, want)
+	}
+	// The holder's name sits right next to the number in the same field;
+	// picking the name up would make two notices look like a match on
+	// nothing at all.
+	if strings.ContainsAny(notice.DebitAccount, "ABCDEFGHIJKLMNOPQRSTUVWXYZ ") {
+		t.Errorf("DebitAccount = %q, want digits only", notice.DebitAccount)
+	}
+}
+
+// TestParseMBWithoutBeneficiaryLeavesTheAccountEmpty guards the one way
+// this could silently misfire: a template with no beneficiary field must
+// yield an empty string, never something that could compare equal to
+// another notice's missing field.
+func TestParseMBWithoutBeneficiaryLeavesTheAccountEmpty(t *testing.T) {
+	body := `
+ Ngày,
+ giờ giao dịch
+
+ 31-08-2026 01:05:33
+
+ Tài
+ khoản trích nợ
+
+ NGUYEN VAN A - 0001111111111 (VND)
+
+ Số
+ tiền giao dịch
+
+ (VND) 20,000.00
+
+ Nội
+ dung chuyển tiền
+
+ NGUYEN VAN A chuyen tien
+
+ Tình
+ trạng
+
+ Giao dịch thành công
+`
+	notice, err := bankmail.Parse("mbebanking@mbbank.com.vn", "Thong bao giao dich", body)
+	if err != nil {
+		t.Fatalf("Parse(no beneficiary) unexpected error: %v", err)
+	}
+	if notice.BeneficiaryAccount != "" {
+		t.Errorf("BeneficiaryAccount = %q, want empty when the field is absent", notice.BeneficiaryAccount)
 	}
 }
