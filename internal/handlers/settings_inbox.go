@@ -82,28 +82,25 @@ func retryFailedEmailsHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// inboxSettingsData adds the Email tracking card's values to the settings
-// page data. It returns nothing at all when no domain is configured, which is
-// what makes the card disappear rather than render an address nobody can send
-// to.
-func inboxSettingsData(r *http.Request, deps Deps, userID int64, token pgtype.Text) (map[string]any, error) {
+// addInboxSettings fills in the Email tracking card's values. It leaves
+// InboxAvailable false when no domain is configured, which is what makes
+// the card disappear rather than render an address nobody can send to.
+func addInboxSettings(r *http.Request, deps Deps, userID int64, token pgtype.Text, data *settingsView) error {
 	if deps.InboundDomain == "" {
-		return map[string]any{"InboxAvailable": false}, nil
+		return nil
 	}
 
-	data := map[string]any{
-		"InboxAvailable": true,
-		"InboxEnabled":   token.Valid && token.String != "",
-	}
+	data.InboxAvailable = true
+	data.InboxEnabled = token.Valid && token.String != ""
 	if token.Valid && token.String != "" {
-		data["InboxAddress"] = token.String + "@" + deps.InboundDomain
+		data.InboxAddress = token.String + "@" + deps.InboundDomain
 	}
 
 	rows, err := deps.Queries.ListRecentBankEmails(r.Context(), sqlcgen.ListRecentBankEmailsParams{
 		UserID: userID, Limit: recentEmailsShown,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	views := make([]recentEmailView, 0, len(rows))
 	for _, row := range rows {
@@ -114,7 +111,7 @@ func inboxSettingsData(r *http.Request, deps Deps, userID int64, token pgtype.Te
 			Reason:     row.FailureReason,
 		})
 	}
-	data["InboxRecent"] = views
+	data.InboxRecent = views
 
 	// The retry button is scoped to 'failed' rows -- it must stay hidden
 	// when there are none, even if the list above is showing only
@@ -126,8 +123,8 @@ func inboxSettingsData(r *http.Request, deps Deps, userID int64, token pgtype.Te
 		UserID: userID, Limit: 1,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	data["InboxHasFailed"] = len(failed) > 0
-	return data, nil
+	data.InboxHasFailed = len(failed) > 0
+	return nil
 }

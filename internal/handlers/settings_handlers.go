@@ -24,12 +24,12 @@ import (
 // only by showing or hiding a field with JavaScript.
 func settingsPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data, err := settingsData(r, deps)
+		data, err := newSettingsView(r, deps)
 		if err != nil {
 			serverError(w, "settings: load user", err)
 			return
 		}
-		render(w, r, deps, "settings", "settings", data)
+		renderView(w, r, deps, "settings", "settings", data)
 	}
 }
 
@@ -60,8 +60,49 @@ type sessionView struct {
 	IsCurrent bool
 }
 
-// settingsData loads the current values the three forms are pre-filled with.
-func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
+// settingsView is the whole settings page: the current values its forms are
+// pre-filled with, the active-session list, the email-tracking card, the
+// confirmation line a redirect landed with, and at most one error message.
+//
+// All four forms are on screen at once, which is why each has an error
+// field of its own rather than the page carrying a single one.
+type settingsView struct {
+	viewData
+
+	ProfileName     string
+	ProfileUsername string
+	ProfileEmail    string
+	PendingEmail    string
+	Sessions        []sessionView
+	Saved           string
+
+	ProfileError  string
+	EmailError    string
+	PasswordError string
+	DeleteError   string
+
+	// InboxAvailable is false when no inbound domain is configured, which
+	// is what makes the whole card disappear rather than offer an address
+	// nobody can send to.
+	InboxAvailable bool
+	InboxEnabled   bool
+	InboxAddress   string
+	InboxRecent    []recentEmailView
+	InboxHasFailed bool
+}
+
+// settingsForm names which of the page's forms a message belongs beside.
+type settingsForm int
+
+const (
+	profileForm settingsForm = iota
+	emailForm
+	passwordForm
+	deleteForm
+)
+
+// newSettingsView loads the current values the forms are pre-filled with.
+func newSettingsView(r *http.Request, deps Deps) (*settingsView, error) {
 	userID, _ := auth.UserIDFromContext(r.Context())
 	user, err := deps.Queries.GetUserByID(r.Context(), userID)
 	if err != nil {
@@ -86,21 +127,17 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 		})
 	}
 
-	data := map[string]any{
-		"ProfileName":     user.Name,
-		"ProfileUsername": user.Username,
-		"ProfileEmail":    user.Email,
-		"PendingEmail":    user.PendingEmail.String,
-		"Sessions":        views,
-		"Saved":           savedMessages[r.URL.Query().Get("saved")],
+	data := &settingsView{
+		ProfileName:     user.Name,
+		ProfileUsername: user.Username,
+		ProfileEmail:    user.Email,
+		PendingEmail:    user.PendingEmail.String,
+		Sessions:        views,
+		Saved:           savedMessages[r.URL.Query().Get("saved")],
 	}
 
-	inboxData, err := inboxSettingsData(r, deps, userID, user.InboxToken)
-	if err != nil {
+	if err := addInboxSettings(r, deps, userID, user.InboxToken, data); err != nil {
 		return nil, err
-	}
-	for k, v := range inboxData {
-		data[k] = v
 	}
 
 	return data, nil
@@ -110,14 +147,23 @@ func settingsData(r *http.Request, deps Deps) (map[string]any, error) {
 // error message. Errors answer 200 with the page rather than a fragment:
 // hx-boost swaps <body>, so the browser lands on the same page it submitted
 // from, with the message in place and the other two forms untouched.
-func renderSettingsError(w http.ResponseWriter, r *http.Request, deps Deps, field, msg string) {
-	data, err := settingsData(r, deps)
+func renderSettingsError(w http.ResponseWriter, r *http.Request, deps Deps, form settingsForm, msg string) {
+	data, err := newSettingsView(r, deps)
 	if err != nil {
 		serverError(w, "settings: load user", err)
 		return
 	}
-	data[field] = msg
-	render(w, r, deps, "settings", "settings", data)
+	switch form {
+	case profileForm:
+		data.ProfileError = msg
+	case emailForm:
+		data.EmailError = msg
+	case passwordForm:
+		data.PasswordError = msg
+	case deleteForm:
+		data.DeleteError = msg
+	}
+	renderView(w, r, deps, "settings", "settings", data)
 }
 
 // updatePasswordHandler changes the account password and signs out every
@@ -139,19 +185,19 @@ func updatePasswordHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if !auth.VerifyPassword(user.PasswordHash, current) {
-			renderSettingsError(w, r, deps, "PasswordError", "That current password is not correct.")
+			renderSettingsError(w, r, deps, passwordForm, "That current password is not correct.")
 			return
 		}
 		if len([]rune(next)) < 8 {
-			renderSettingsError(w, r, deps, "PasswordError", "New password must be at least 8 characters.")
+			renderSettingsError(w, r, deps, passwordForm, "New password must be at least 8 characters.")
 			return
 		}
 		if next != confirm {
-			renderSettingsError(w, r, deps, "PasswordError", "The two new passwords do not match.")
+			renderSettingsError(w, r, deps, passwordForm, "The two new passwords do not match.")
 			return
 		}
 		if next == current {
-			renderSettingsError(w, r, deps, "PasswordError", "The new password must be different from the current one.")
+			renderSettingsError(w, r, deps, passwordForm, "The new password must be different from the current one.")
 			return
 		}
 
@@ -195,11 +241,11 @@ func updateProfileHandler(deps Deps) http.HandlerFunc {
 		username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
 
 		if name == "" {
-			renderSettingsError(w, r, deps, "ProfileError", "Please enter your name.")
+			renderSettingsError(w, r, deps, profileForm, "Please enter your name.")
 			return
 		}
 		if !usernamePattern.MatchString(username) {
-			renderSettingsError(w, r, deps, "ProfileError", "Username must be 3-20 characters: lowercase letters, numbers, or underscores, starting with a letter.")
+			renderSettingsError(w, r, deps, profileForm, "Username must be 3-20 characters: lowercase letters, numbers, or underscores, starting with a letter.")
 			return
 		}
 
@@ -209,7 +255,7 @@ func updateProfileHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				renderSettingsError(w, r, deps, "ProfileError", "That username is already taken.")
+				renderSettingsError(w, r, deps, profileForm, "That username is already taken.")
 				return
 			}
 			serverError(w, "update profile", err)
@@ -241,11 +287,11 @@ func updateEmailHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if !auth.VerifyPassword(user.PasswordHash, current) {
-			renderSettingsError(w, r, deps, "EmailError", "That current password is not correct.")
+			renderSettingsError(w, r, deps, emailForm, "That current password is not correct.")
 			return
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
-			renderSettingsError(w, r, deps, "EmailError", "That email address is not valid.")
+			renderSettingsError(w, r, deps, emailForm, "That email address is not valid.")
 			return
 		}
 		// pending_email carries no UNIQUE constraint of its own -- it is
@@ -258,7 +304,7 @@ func updateEmailHandler(deps Deps) http.HandlerFunc {
 		// the address already on the account through, the way the old
 		// UPDATE-based check always did.
 		if existing, err := deps.Queries.GetUserByEmail(r.Context(), email); err == nil && existing.ID != userID {
-			renderSettingsError(w, r, deps, "EmailError", "That email is already registered.")
+			renderSettingsError(w, r, deps, emailForm, "That email is already registered.")
 			return
 		}
 
@@ -331,7 +377,7 @@ func deleteAccountHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !auth.VerifyPassword(user.PasswordHash, r.FormValue("current_password")) {
-			renderSettingsError(w, r, deps, "DeleteError", "That password is not correct.")
+			renderSettingsError(w, r, deps, deleteForm, "That password is not correct.")
 			return
 		}
 
