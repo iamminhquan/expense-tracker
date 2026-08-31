@@ -1,4 +1,15 @@
-package handlers
+// Package inboxproc turns the bank email a user's inbox has already
+// received into transactions.
+//
+// It is the writing half of email ingestion: internal/bankmail reads a
+// message into a Notice and touches nothing, internal/handlers accepts the
+// Worker's POST and stores the raw message, and this package is what runs
+// afterwards, on its own goroutine, deciding what each stored message
+// means for the ledger. It lived in internal/handlers until it was clear
+// that nothing here answers a request -- there is no ResponseWriter on any
+// path through it, and the only two things it ever needed from Deps were
+// the queries and the classifier.
+package inboxproc
 
 import (
 	"context"
@@ -11,10 +22,28 @@ import (
 	"expensetracker/internal/i18n"
 	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
+	"expensetracker/internal/txnrule"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// A Processor reads stored bank email for one deployment's database.
+//
+// It holds the two things this work needs and nothing else: the queries,
+// and the classifier consulted when no remembered hint fits. A nil
+// classifier is the ordinary state of an account that never set
+// GEMINI_API_KEY and is handled as such -- see classifyAndRememberCategory.
+type Processor struct {
+	queries    *sqlcgen.Queries
+	classifier *classify.Classifier
+}
+
+// New returns a Processor reading through queries and classifying with
+// classifier, which may be nil.
+func New(queries *sqlcgen.Queries, classifier *classify.Classifier) *Processor {
+	return &Processor{queries: queries, classifier: classifier}
+}
 
 // otherExpenseSlug and otherIncomeSlug are the default categories a
 // processed email's transaction falls back to when neither a category_hints
@@ -26,12 +55,6 @@ const (
 	otherExpenseSlug = "other"
 	otherIncomeSlug  = "other_income"
 )
-
-// emailNoteMaxRunes mirrors handleCreateTransaction's own 200-character
-// limit on the note. Row validation here deliberately repeats what the form
-// enforces -- a laxer path in through email would let the processor create
-// rows a person typing the same note would have been refused.
-const emailNoteMaxRunes = 200
 
 // processPendingEmails walks every 'pending' bank_emails row belonging to
 // userID and tries to turn each into a transaction. It processes the user's
@@ -45,15 +68,15 @@ const emailNoteMaxRunes = 200
 // the handler returns, and using it here would kill this work mid-flight the
 // moment the Worker's connection closed. See the same pattern and reasoning
 // in auth_password_reset.go's forgot-password email send.
-func processPendingEmails(deps Deps, userID int64) {
+func (p *Processor) ProcessPending(userID int64) {
 	ctx := context.Background()
-	ids, err := deps.Queries.ListPendingBankEmailIDs(ctx, userID)
+	ids, err := p.queries.ListPendingBankEmailIDs(ctx, userID)
 	if err != nil {
 		log.Printf("process pending emails: list pending for user %d: %v", userID, err)
 		return
 	}
 	for _, id := range ids {
-		processOneBankEmail(ctx, deps, id)
+		p.processOne(ctx, id)
 	}
 }
 
@@ -63,8 +86,8 @@ func processPendingEmails(deps Deps, userID int64) {
 // row back means some other goroutine already has this email, and this call
 // must walk away rather than read-then-write, which would let two goroutines
 // both process the same message and create two transactions from one email.
-func processOneBankEmail(ctx context.Context, deps Deps, id int64) {
-	email, err := deps.Queries.ClaimPendingBankEmail(ctx, id)
+func (p *Processor) processOne(ctx context.Context, id int64) {
+	email, err := p.queries.ClaimPendingBankEmail(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return
 	}
@@ -75,7 +98,7 @@ func processOneBankEmail(ctx context.Context, deps Deps, id int64) {
 
 	notice, err := bankmail.Parse(email.FromAddress, email.Subject, email.Body)
 	if err != nil {
-		markUnprocessableBankEmail(ctx, deps, email.ID, err)
+		p.markUnprocessable(ctx, email.ID, err)
 		return
 	}
 
@@ -83,9 +106,9 @@ func processOneBankEmail(ctx context.Context, deps Deps, id int64) {
 	// notice merely moved money between two of them. Both steps run before
 	// the transaction is created and neither may prevent it on an error:
 	// see rememberOwnAccount and isInternalTransfer.
-	rememberOwnAccount(ctx, deps, email.UserID, notice.DebitAccount)
-	if isInternalTransfer(ctx, deps, email.UserID, notice) {
-		if markErr := deps.Queries.MarkBankEmailIgnored(ctx, sqlcgen.MarkBankEmailIgnoredParams{
+	p.rememberOwnAccount(ctx, email.UserID, notice.DebitAccount)
+	if p.isInternalTransfer(ctx, email.UserID, notice) {
+		if markErr := p.queries.MarkBankEmailIgnored(ctx, sqlcgen.MarkBankEmailIgnoredParams{
 			ID: email.ID, FailureReason: internalTransferReason,
 		}); markErr != nil {
 			log.Printf("process bank email %d: mark ignored: %v", id, markErr)
@@ -93,9 +116,9 @@ func processOneBankEmail(ctx context.Context, deps Deps, id int64) {
 		return
 	}
 
-	if err := createTransactionFromNotice(ctx, deps, email, notice); err != nil {
+	if err := p.createTransactionFromNotice(ctx, email, notice); err != nil {
 		log.Printf("process bank email %d: %v", id, err)
-		if markErr := deps.Queries.MarkBankEmailFailed(ctx, sqlcgen.MarkBankEmailFailedParams{
+		if markErr := p.queries.MarkBankEmailFailed(ctx, sqlcgen.MarkBankEmailFailedParams{
 			ID: email.ID, FailureReason: err.Error(),
 		}); markErr != nil {
 			log.Printf("process bank email %d: mark failed: %v", id, markErr)
@@ -109,16 +132,16 @@ func processOneBankEmail(ctx context.Context, deps Deps, id int64) {
 // something anyone needs to fix. Any other error means 'failed' -- our own
 // bug, and the list a person actually needs to look at. Mixing the two would
 // flood that failed list with routine mail until nobody reads it anymore.
-func markUnprocessableBankEmail(ctx context.Context, deps Deps, id int64, err error) {
+func (p *Processor) markUnprocessable(ctx context.Context, id int64, err error) {
 	if errors.Is(err, bankmail.ErrUnknownSender) || errors.Is(err, bankmail.ErrNotANotice) {
-		if markErr := deps.Queries.MarkBankEmailIgnored(ctx, sqlcgen.MarkBankEmailIgnoredParams{
+		if markErr := p.queries.MarkBankEmailIgnored(ctx, sqlcgen.MarkBankEmailIgnoredParams{
 			ID: id, FailureReason: err.Error(),
 		}); markErr != nil {
 			log.Printf("process bank email %d: mark ignored: %v", id, markErr)
 		}
 		return
 	}
-	if markErr := deps.Queries.MarkBankEmailFailed(ctx, sqlcgen.MarkBankEmailFailedParams{
+	if markErr := p.queries.MarkBankEmailFailed(ctx, sqlcgen.MarkBankEmailFailedParams{
 		ID: id, FailureReason: err.Error(),
 	}); markErr != nil {
 		log.Printf("process bank email %d: mark failed: %v", id, markErr)
@@ -143,11 +166,11 @@ const internalTransferReason = "internal transfer between your own accounts"
 // costs at most one self-transfer recorded as an expense, which the owner
 // can see and delete; letting it abort the email would cost the whole
 // transaction.
-func rememberOwnAccount(ctx context.Context, deps Deps, userID int64, account string) {
+func (p *Processor) rememberOwnAccount(ctx context.Context, userID int64, account string) {
 	if account == "" {
 		return
 	}
-	if err := deps.Queries.RememberBankAccount(ctx, sqlcgen.RememberBankAccountParams{
+	if err := p.queries.RememberBankAccount(ctx, sqlcgen.RememberBankAccountParams{
 		UserID: userID, AccountNumber: account,
 	}); err != nil {
 		log.Printf("remember bank account for user %d: %v", userID, err)
@@ -168,11 +191,11 @@ func rememberOwnAccount(ctx context.Context, deps Deps, userID int64, account st
 //
 // Every failure answers false, for the same reason: a lookup error must
 // cost a spurious row at worst, never a missing one.
-func isInternalTransfer(ctx context.Context, deps Deps, userID int64, notice bankmail.Notice) bool {
+func (p *Processor) isInternalTransfer(ctx context.Context, userID int64, notice bankmail.Notice) bool {
 	if notice.BeneficiaryAccount == "" || notice.BeneficiaryAccount == notice.DebitAccount {
 		return false
 	}
-	owns, err := deps.Queries.BankAccountBelongsToUser(ctx, sqlcgen.BankAccountBelongsToUserParams{
+	owns, err := p.queries.BankAccountBelongsToUser(ctx, sqlcgen.BankAccountBelongsToUserParams{
 		UserID: userID, AccountNumber: notice.BeneficiaryAccount,
 	})
 	if err != nil {
@@ -188,7 +211,7 @@ func isInternalTransfer(ctx context.Context, deps Deps, userID int64, notice ban
 // caller, which marks the email 'failed' instead -- leaving it in
 // 'processing' forever would mean it never gets picked up by
 // ListPendingBankEmailIDs again.
-func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.BankEmail, notice bankmail.Notice) error {
+func (p *Processor) createTransactionFromNotice(ctx context.Context, email sqlcgen.BankEmail, notice bankmail.Notice) error {
 	// Computed once and threaded through to both the hint lookup and the
 	// insert below, rather than each recomputing it from notice.Description:
 	// resolveCategoryForNotice's NoteKey and the row's own stored
@@ -198,12 +221,12 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 	// never reproduce.
 	description := truncateEmailNote(notice.Description)
 
-	category, err := resolveCategoryForNotice(ctx, deps, email.UserID, notice, description)
+	category, err := p.resolveCategoryForNotice(ctx, email.UserID, notice, description)
 	if err != nil {
 		return err
 	}
 
-	_, err = deps.Queries.CreateTransactionFromEmail(ctx, sqlcgen.CreateTransactionFromEmailParams{
+	_, err = p.queries.CreateTransactionFromEmail(ctx, sqlcgen.CreateTransactionFromEmailParams{
 		UserID:      email.UserID,
 		CategoryID:  category.ID,
 		Amount:      notice.Amount,
@@ -216,7 +239,7 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 		return fmt.Errorf("insert transaction: %w", err)
 	}
 
-	if err := deps.Queries.MarkBankEmailImported(ctx, sqlcgen.MarkBankEmailImportedParams{
+	if err := p.queries.MarkBankEmailImported(ctx, sqlcgen.MarkBankEmailImportedParams{
 		ID:         email.ID,
 		OccurredAt: pgtype.Timestamptz{Time: notice.OccurredAt, Valid: true},
 	}); err != nil {
@@ -235,7 +258,7 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 //
 // storedDescription must be the same string the caller is about to save on
 // the transaction row (truncateEmailNote(notice.Description), not
-// notice.Description itself) -- the correction path in txn_handlers.go
+// notice.Description itself) -- the correction path in txn_mutate.go
 // computes its own NoteKey from the row's stored description, and the two
 // sides have to agree on exactly the same input or a note long enough to
 // get truncated would write a hint under a key that side can never
@@ -248,9 +271,9 @@ func createTransactionFromNotice(ctx context.Context, deps Deps, email sqlcgen.B
 // same two-click fix as any other misclassification; it must never cost the
 // transaction itself the way returning the error up to processOneBankEmail
 // (which marks the email 'failed' and creates nothing) would.
-func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, notice bankmail.Notice, storedDescription string) (sqlcgen.Category, error) {
+func (p *Processor) resolveCategoryForNotice(ctx context.Context, userID int64, notice bankmail.Notice, storedDescription string) (sqlcgen.Category, error) {
 	noteKey := bankmail.NoteKey(storedDescription)
-	hint, err := deps.Queries.GetCategoryHint(ctx, sqlcgen.GetCategoryHintParams{UserID: userID, NoteKey: noteKey})
+	hint, err := p.queries.GetCategoryHint(ctx, sqlcgen.GetCategoryHintParams{UserID: userID, NoteKey: noteKey})
 	switch {
 	case err == nil:
 		// GetCategoryForUser's own WHERE (user_id = $2 OR user_id IS NULL)
@@ -262,7 +285,7 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 		// one pointing at income when this notice is an expense. Either
 		// guard failing falls through to the fallback below rather than
 		// erroring: a hint that doesn't fit is exactly a miss, not a bug.
-		category, err := deps.Queries.GetCategoryForUser(ctx, sqlcgen.GetCategoryForUserParams{
+		category, err := p.queries.GetCategoryForUser(ctx, sqlcgen.GetCategoryForUserParams{
 			ID: hint.CategoryID, UserID: pgval.Int64(userID),
 		})
 		if err == nil && category.Type == notice.Direction {
@@ -282,7 +305,7 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 	// but only when it has something to say: an unconfigured classifier is
 	// the ordinary state for an account that never set GEMINI_API_KEY,
 	// not a failure worth logging on every single miss.
-	if category, err := classifyAndRememberCategory(ctx, deps, userID, noteKey, storedDescription, notice.Direction); err == nil {
+	if category, err := p.classifyAndRememberCategory(ctx, userID, noteKey, storedDescription, notice.Direction); err == nil {
 		return category, nil
 	} else if !errors.Is(err, classify.ErrNotConfigured) {
 		log.Printf("classify category for user %d: %v", userID, err)
@@ -292,14 +315,14 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 	if notice.Direction == "income" {
 		slug = otherIncomeSlug
 	}
-	category, err := deps.Queries.GetCategoryBySlug(ctx, pgval.Text(slug))
+	category, err := p.queries.GetCategoryBySlug(ctx, pgval.Text(slug))
 	if err != nil {
 		return sqlcgen.Category{}, fmt.Errorf("look up category %q: %w", slug, err)
 	}
 	return category, nil
 }
 
-// classifyAndRememberCategory asks deps.Classifier which of the user's own
+// classifyAndRememberCategory asks p.classifier which of the user's own
 // categories -- filtered to notice's own direction, since an expense
 // notice must never be filed under an income category or vice versa --
 // fits this note, and writes a successful answer back to category_hints
@@ -314,12 +337,12 @@ func resolveCategoryForNotice(ctx context.Context, deps Deps, userID int64, noti
 // back to Other/Other income -- which is what makes it safe for this
 // function to fail in any of these ways without costing the transaction
 // that is about to be created either way.
-func classifyAndRememberCategory(ctx context.Context, deps Deps, userID int64, noteKey, description, direction string) (sqlcgen.Category, error) {
-	if deps.Classifier == nil || !deps.Classifier.Configured() {
+func (p *Processor) classifyAndRememberCategory(ctx context.Context, userID int64, noteKey, description, direction string) (sqlcgen.Category, error) {
+	if p.classifier == nil || !p.classifier.Configured() {
 		return sqlcgen.Category{}, classify.ErrNotConfigured
 	}
 
-	rows, err := deps.Queries.ListCategoriesForUser(ctx, pgval.Int64(userID))
+	rows, err := p.queries.ListCategoriesForUser(ctx, pgval.Int64(userID))
 	if err != nil {
 		return sqlcgen.Category{}, fmt.Errorf("list categories for user %d: %w", userID, err)
 	}
@@ -341,7 +364,7 @@ func classifyAndRememberCategory(ctx context.Context, deps Deps, userID int64, n
 		return sqlcgen.Category{}, fmt.Errorf("classify: no %s categories to offer for user %d", direction, userID)
 	}
 
-	categoryID, err := deps.Classifier.Classify(ctx, description, options)
+	categoryID, err := p.classifier.Classify(ctx, description, options)
 	if err != nil {
 		return sqlcgen.Category{}, err
 	}
@@ -350,7 +373,7 @@ func classifyAndRememberCategory(ctx context.Context, deps Deps, userID int64, n
 		return sqlcgen.Category{}, fmt.Errorf("classify: model answered category %d, which was not offered to user %d", categoryID, userID)
 	}
 
-	if _, err := deps.Queries.UpsertCategoryHint(ctx, sqlcgen.UpsertCategoryHintParams{
+	if _, err := p.queries.UpsertCategoryHint(ctx, sqlcgen.UpsertCategoryHintParams{
 		UserID: userID, NoteKey: noteKey, CategoryID: categoryID,
 	}); err != nil {
 		// The classification itself succeeded; losing the hint costs a
@@ -363,13 +386,15 @@ func classifyAndRememberCategory(ctx context.Context, deps Deps, userID int64, n
 	return category, nil
 }
 
-// truncateEmailNote cuts a note to the same 200-rune limit
-// handleCreateTransaction enforces, counting runes rather than bytes so a
-// multi-byte Vietnamese character is never split mid-character.
+// truncateEmailNote cuts a note to the limit every other way into the
+// ledger enforces, counting runes rather than bytes so a multi-byte
+// Vietnamese character is never split mid-character. A note arriving by
+// email is trimmed rather than refused: the alternative is losing a real
+// transaction over the length of its description.
 func truncateEmailNote(s string) string {
 	runes := []rune(s)
-	if len(runes) <= emailNoteMaxRunes {
+	if len(runes) <= txnrule.MaxNoteRunes {
 		return s
 	}
-	return string(runes[:emailNoteMaxRunes])
+	return string(runes[:txnrule.MaxNoteRunes])
 }
