@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"expensetracker/internal/i18n"
+	"expensetracker/internal/txnrule"
 )
 
 // Category is one category the account can already spend against. Slug is
@@ -84,13 +85,6 @@ var ErrTooManyRows = fmt.Errorf("file has more than %d rows", MaxRows)
 // columns is the header the export writes, and the only one accepted.
 var columns = []string{"date", "type", "category", "amount", "note"}
 
-// futureDays and maxNote mirror the limits handleCreateTransaction applies
-// to the quick-add form.
-const (
-	futureDays = 7
-	maxNote    = 200
-)
-
 // Plan reads the file the way the Mapping says to, and works out what
 // importing it would do. An unreadable file is an error; a bad line is not
 // -- it lands in Errors so the caller can show every problem at once
@@ -142,9 +136,10 @@ func Plan(r io.Reader, m Mapping, catalog []Category, now time.Time) (*Import, e
 // the amount had to be rounded to whole đồng, and an empty message on
 // success.
 //
-// The date, note and future-date rules are the quick-add form's, repeated
-// rather than relaxed: a row this package accepts must be one the form
-// would have accepted too, or the app grows a second, laxer way in.
+// The date, note and future-date rules are the quick-add form's, shared
+// through internal/txnrule rather than restated: a row this package accepts
+// must be one the form would have accepted too, or the app grows a second,
+// laxer way in.
 func parseRow(record []string, line int, m Mapping, now time.Time) (Row, bool, string) {
 	if width := m.widest(); width >= len(record) {
 		return Row{}, false, fmt.Sprintf("this line has %d columns, and the mapping needs at least %d", len(record), width+1)
@@ -154,8 +149,8 @@ func parseRow(record []string, line int, m Mapping, now time.Time) (Row, bool, s
 	if !ok {
 		return Row{}, false, fmt.Sprintf("date %q is not written as %s", record[m.Date], layoutLabel(m.DateLayout))
 	}
-	if date.After(now.AddDate(0, 0, futureDays)) {
-		return Row{}, false, fmt.Sprintf("date %s is more than %d days in the future", record[m.Date], futureDays)
+	if txnrule.TooFarInFuture(date, now) {
+		return Row{}, false, fmt.Sprintf("date %s is more than %d days in the future", record[m.Date], txnrule.MaxFutureDays)
 	}
 
 	signed, rounded, ok := parseAmount(record[m.Amount])
@@ -187,8 +182,8 @@ func parseRow(record []string, line int, m Mapping, now time.Time) (Row, bool, s
 	if m.Note != NoColumn {
 		note = record[m.Note]
 	}
-	if len([]rune(note)) > maxNote {
-		return Row{}, false, fmt.Sprintf("note is longer than %d characters", maxNote)
+	if txnrule.NoteTooLong(note) {
+		return Row{}, false, fmt.Sprintf("note is longer than %d characters", txnrule.MaxNoteRunes)
 	}
 
 	return Row{
