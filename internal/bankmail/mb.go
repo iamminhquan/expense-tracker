@@ -91,12 +91,39 @@ func parseMB(_, body string) (Notice, error) {
 	// field on some MB templates), but Notice has no field for it and never
 	// will: a value parsed only to be discarded is dead code.
 	return Notice{
-		Bank:        "mb",
-		Amount:      amount,
-		Direction:   "expense",
-		OccurredAt:  when,
-		Description: description,
+		Bank:               "mb",
+		Amount:             amount,
+		Direction:          "expense",
+		OccurredAt:         when,
+		Description:        description,
+		DebitAccount:       accountNumber(fields["Tài khoản trích nợ"]),
+		BeneficiaryAccount: accountNumber(fields["Người thụ hưởng"]),
 	}, nil
+}
+
+// accountNumber pulls the account number out of a field MB writes as
+// "NGUYEN VAN A - 0001111111111 (VND)": the longest run of digits in it.
+//
+// Longest-run rather than "everything after the last dash", because an
+// account holder's name is free text that may itself contain a dash, while
+// no MB account field has ever carried a second number long enough to
+// outrun the account itself. An empty result means the field was absent or
+// carried no digits, which every caller must treat as "unknown" rather than
+// as a match -- comparing two empty strings would make every notice with a
+// missing field look like a self-transfer.
+func accountNumber(field string) string {
+	var longest, current string
+	for _, r := range field {
+		if r >= '0' && r <= '9' {
+			current += string(r)
+			if len(current) > len(longest) {
+				longest = current
+			}
+			continue
+		}
+		current = ""
+	}
+	return longest
 }
 
 // extractFields finds where each label in labels actually occurs in text
