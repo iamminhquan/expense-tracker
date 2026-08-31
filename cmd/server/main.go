@@ -105,8 +105,8 @@ func main() {
 			From:   cfg.MailFrom,
 		}),
 		Classifier: classify.New(classify.Config{
-			APIKey: cfg.AnthropicAPIKey,
-			Model:  cfg.AnthropicModel,
+			APIKey: cfg.GeminiAPIKey,
+			Model:  cfg.GeminiModel,
 		}),
 		Templates:            templates,
 		CookieName:           cfg.SessionCookieName,
