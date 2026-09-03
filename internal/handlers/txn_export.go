@@ -36,7 +36,7 @@ func exportTransactionsHandler(deps Deps) http.HandlerFunc {
 		userID, _ := auth.UserIDFromContext(r.Context())
 		scope := newTxnScope(r.URL.Query().Get("month"))
 		from, to := scope.Bounds()
-		filters := filtersFromRequest(r)
+		filters := filtersFromQuery(r.URL.Query())
 
 		// Read everything before writing a byte: once the first row is on the
 		// wire the status line is already sent, and a mid-stream failure can

@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"net/http"
+
+	"expensetracker/internal/sqlcgen"
 )
 
 type contextKey string
@@ -11,7 +13,7 @@ const userIDContextKey contextKey = "userID"
 
 // RequireAuth returns a middleware that validates the session cookie and
 // injects the authenticated user's ID into the request context.
-func RequireAuth(mgr *Manager, cookieName string) func(http.Handler) http.Handler {
+func RequireAuth(q *sqlcgen.Queries, cookieName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(cookieName)
@@ -20,7 +22,7 @@ func RequireAuth(mgr *Manager, cookieName string) func(http.Handler) http.Handle
 				return
 			}
 
-			userID, err := mgr.ValidateSession(r.Context(), cookie.Value)
+			userID, err := ValidateSession(r.Context(), q, cookie.Value)
 			if err != nil {
 				redirectToLogin(w, r)
 				return

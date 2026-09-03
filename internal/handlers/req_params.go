@@ -2,10 +2,26 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
+
+// currentURLQuery is the query string of the page that issued this request.
+// A mutation POST/PATCH/DELETE carries none of its own, but htmx sends the
+// originating page's full URL in HX-Current-URL.
+//
+// A missing or malformed header yields nil, and a read off nil url.Values
+// answers "" -- the same lenient fallback the month, filter and page
+// readers each used to spell out for themselves.
+func currentURLQuery(r *http.Request) url.Values {
+	u, err := url.Parse(r.Header.Get("HX-Current-URL"))
+	if err != nil {
+		return nil
+	}
+	return u.Query()
+}
 
 // idParam reads the {id} route parameter as an int64. Every row-scoped
 // handler starts with it, and every one of them answers a malformed id the

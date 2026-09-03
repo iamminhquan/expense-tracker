@@ -2,6 +2,7 @@ package csvimport
 
 import (
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -71,12 +72,7 @@ var DateFormats = []DateFormat{
 
 // ValidDateLayout reports whether key names a date layout the picker offers.
 func ValidDateLayout(key string) bool {
-	for _, f := range DateFormats {
-		if f.Key == key {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(DateFormats, func(f DateFormat) bool { return f.Key == key })
 }
 
 // parseDate reads one value under the named layout. The date-and-time entry

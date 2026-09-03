@@ -74,29 +74,14 @@ func positiveInt(raw string) int64 {
 	return n
 }
 
-// filtersFromRequest reads the filters the request's own URL carries, for
-// the list page itself.
-func filtersFromRequest(r *http.Request) txnFilters {
-	return filtersFromQuery(r.URL.Query())
-}
-
 // filtersFromHXCurrentURL reads the filters the page that issued this
-// request was showing. The mutation handlers need this for the same reason
-// monthRangeFromRequest exists: a create/update/delete carries no query
-// string of its own, but htmx sends the originating page's full URL on every
-// request it issues. Without it, the count chip and the pager returned
+// request was showing. The mutation handlers need it because a
+// create/update/delete carries no query string of its own -- see
+// currentURLQuery. Without it, the count chip and the pager returned
 // alongside a mutated row would describe the unfiltered month and disagree
 // with the rows actually on screen.
 func filtersFromHXCurrentURL(r *http.Request) txnFilters {
-	raw := r.Header.Get("HX-Current-URL")
-	if raw == "" {
-		return txnFilters{}
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return txnFilters{}
-	}
-	return filtersFromQuery(u.Query())
+	return filtersFromQuery(currentURLQuery(r))
 }
 
 // Any reports whether anything is being filtered at all. The list's empty
@@ -129,16 +114,6 @@ func (f txnFilters) ActiveCount() int {
 	return n
 }
 
-// searchParam renders the search term for the query's ILIKE. sqlc gives a
-// nullable text parameter as pgtype.Text; an invalid one is SQL NULL, which
-// is what switches the predicate off.
-func (f txnFilters) searchParam() pgtype.Text {
-	if f.Search == "" {
-		return pgtype.Text{}
-	}
-	return pgtype.Text{String: f.Search, Valid: true}
-}
-
 // searchSlugs is the other half of the search: the default categories whose
 // displayed label contains the term. Their labels live in internal/i18n
 // rather than in the database, so the term is resolved into slugs here and
@@ -156,20 +131,16 @@ func (f txnFilters) searchSlugs() []string {
 	return slugs
 }
 
-func (f txnFilters) typeParam() pgtype.Text {
-	if f.Type == "" {
+// nullableText turns an unset filter into SQL NULL and anything else into a
+// set parameter. sqlc renders a nullable text parameter as pgtype.Text, and
+// the NULL is what switches its predicate off: an empty search matches every
+// row, an empty type narrows neither way, and an empty sort matches neither
+// of the ORDER BY's CASEs, which leaves the list newest-first.
+func nullableText(v string) pgtype.Text {
+	if v == "" {
 		return pgtype.Text{}
 	}
-	return pgtype.Text{String: f.Type, Valid: true}
-}
-
-// sortParam renders the order for the query's ORDER BY. An unset one is SQL
-// NULL, which matches neither CASE and so leaves the list newest-first.
-func (f txnFilters) sortParam() pgtype.Text {
-	if f.Sort == "" {
-		return pgtype.Text{}
-	}
-	return pgtype.Text{String: f.Sort, Valid: true}
+	return pgtype.Text{String: v, Valid: true}
 }
 
 // nullableInt turns a 0 sentinel into SQL NULL and anything else into a set
@@ -198,13 +169,9 @@ func transactionsURL(month string, page int, f txnFilters) string {
 
 // exportURL renders the address the Export link points at: the same month
 // and the same filters, so the CSV is what is on screen. The page is
-// deliberately dropped -- the export is not paginated, and a link that
+// deliberately left out -- the export is not paginated, and a link that
 // carried "page=3" would quietly hand back a third of the month.
-//
-// It takes the page anyway, so that every caller can pass the view it is
-// rendering without having to remember which parts of that view the export
-// ignores.
-func exportURL(month string, page int, f txnFilters) string {
+func exportURL(month string, f txnFilters) string {
 	return "/transactions/export?" + filterQuery(month, f).Encode()
 }
 
@@ -246,10 +213,10 @@ func filterQuery(month string, f txnFilters) url.Values {
 func (f txnFilters) exportParams(userID int64, from, to pgtype.Date) sqlcgen.ListTransactionsForMonthParams {
 	return sqlcgen.ListTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
+		Search: nullableText(f.Search), SearchSlugs: f.searchSlugs(), Type: nullableText(f.Type),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
-		Sort: f.sortParam(),
+		Sort: nullableText(f.Sort),
 	}
 }
 
@@ -264,7 +231,7 @@ func (f txnFilters) listParams(userID int64, from, to pgtype.Date, offset int32)
 func (f txnFilters) countParams(userID int64, from, to pgtype.Date) sqlcgen.CountTransactionsForMonthParams {
 	return sqlcgen.CountTransactionsForMonthParams{
 		UserID: userID, OccurredOn: from, OccurredOn_2: to,
-		Search: f.searchParam(), SearchSlugs: f.searchSlugs(), Type: f.typeParam(),
+		Search: nullableText(f.Search), SearchSlugs: f.searchSlugs(), Type: nullableText(f.Type),
 		CategoryID: nullableInt(f.Category),
 		MinAmount:  nullableInt(f.MinAmount), MaxAmount: nullableInt(f.MaxAmount),
 	}

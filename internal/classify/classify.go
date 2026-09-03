@@ -3,12 +3,12 @@
 // to use.
 //
 // Shaped like internal/mailer on purpose, down to calling the provider's
-// HTTP API directly rather than through an SDK: a Config, a
-// New/NewWithEndpoint pair (the latter is what lets a test point Classify
-// at an httptest server instead of the real API), a Configured check, and a
-// call that takes ctx first. One JSON POST is the whole integration, so an
-// SDK would add a dependency and a release cadence to track without
-// removing any code worth removing.
+// HTTP API directly rather than through an SDK: a Config carrying an
+// overridable endpoint (which is what lets a test point Classify at an
+// httptest server instead of the real API), a Configured check, and a call
+// that takes ctx first. One JSON POST is the whole integration, so an SDK
+// would add a dependency and a release cadence to track without removing any
+// code worth removing.
 //
 // Callers must treat every error this package returns -- not configured, a
 // network failure, a 429/500, a malformed or out-of-candidate answer -- as
@@ -32,7 +32,7 @@ import (
 )
 
 // defaultEndpoint is the Gemini API base the model path is appended to.
-// Overridable through NewWithEndpoint so tests never reach the network.
+// Overridable through Config.Endpoint so tests never reach the network.
 const defaultEndpoint = "https://generativelanguage.googleapis.com/v1beta"
 
 // defaultModel is used when Config.Model is empty. internal/config.Load
@@ -95,6 +95,9 @@ type Category struct {
 type Config struct {
 	APIKey string
 	Model  string
+	// Endpoint overrides the Gemini API base, so a test can point Classify at
+	// an httptest server instead of the real API. Empty means defaultEndpoint.
+	Endpoint string
 }
 
 // Classifier calls Gemini to classify a note against a caller-supplied list
@@ -105,14 +108,12 @@ type Classifier struct {
 	endpoint string
 }
 
-// New constructs a Classifier that calls the real Gemini API.
+// New constructs a Classifier that calls the Gemini API in cfg.
 func New(cfg Config) *Classifier {
-	return NewWithEndpoint(cfg, defaultEndpoint)
-}
-
-// NewWithEndpoint is New with the API base URL overridable, so tests can
-// point Classify at an httptest server instead of the real Gemini API.
-func NewWithEndpoint(cfg Config, endpoint string) *Classifier {
+	endpoint := cfg.Endpoint
+	if endpoint == "" {
+		endpoint = defaultEndpoint
+	}
 	return &Classifier{cfg: cfg, client: &http.Client{}, endpoint: endpoint}
 }
 
@@ -311,16 +312,13 @@ func answerText(body []byte) (string, error) {
 }
 
 // statusError turns a non-2xx response into an error carrying the API's own
-// status string, which is what makes a 429 read differently from a 500 in a
-// log line without the caller string-matching anything. Every status still
-// becomes a plain error a caller treats identically (fall back); the
-// distinction exists for a clearer message, not different handling.
+// code and status string, which is what makes a 429 read differently from a
+// 500 in a log line without the caller string-matching anything. Every status
+// becomes a plain error a caller treats identically (fall back), so the code
+// travels in the message rather than in a branch.
 func statusError(code int, body []byte) error {
 	var apiErr apiErrorResponse
 	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
-		if code == http.StatusTooManyRequests {
-			return fmt.Errorf("classify: rate limited (429): %s", apiErr.Error.Message)
-		}
 		return fmt.Errorf("classify: gemini api error (%d %s): %s", code, apiErr.Error.Status, apiErr.Error.Message)
 	}
 	return fmt.Errorf("classify: gemini api error (%d): %s", code, body)

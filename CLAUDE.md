@@ -135,7 +135,7 @@ The category palette is fixed: 8 user-selectable swatches in `categorySwatches` 
 
 **Database**: schema lives in `internal/database/migrations/` as numbered `NNNNNN_description.up.sql`/`.down.sql` pairs applied by golang-migrate. Hand-written queries live in `internal/database/queries/*.sql`; `sqlc` generates the Go bindings into `internal/sqlcgen/` (package `sqlcgen`, `pgx/v5` driver) — never hand-edit files in `internal/sqlcgen/`, edit the `.sql` and regenerate. Migrations must be data-preserving and idempotent where they can be: 000006 and 000008 both `UPDATE ... IN PLACE` rather than delete-and-reinsert, because `transactions.category_id` has no `ON DELETE` clause and any account with history would break. Month-based queries (transactions list, dashboard totals) take explicit `[from, to)` date bounds computed in `internal/handlers/req_month.go`.
 
-**Auth**: `internal/auth/session.go` (`Manager`) issues/validates sessions against the `sessions` table; `internal/auth/password.go` handles bcrypt hashing/verification. Sessions last 7 days. A password change deletes every *other* session for that user but keeps the current one.
+**Auth**: `internal/auth/session.go` issues/validates sessions against the `sessions` table -- plain functions taking the `*sqlcgen.Queries` as an argument (as do the reset- and verification-token files beside it), rather than a type wrapping one, so a caller inside a transaction can pass `Queries.WithTx(tx)`; `internal/auth/password.go` handles bcrypt hashing/verification. Sessions last 7 days. A password change deletes every *other* session for that user but keeps the current one.
 
 `internal/auth/lockout.go` holds the login throttle's numbers -- 5 consecutive wrong passwords lock an account for 15 minutes -- because the SQL that stamps the lock and the message that explains it have to agree on them. The state is two columns on `users` (`failed_login_attempts`, `locked_until`) rather than a table of its own, so only real accounts are ever counted and a lapsed lock needs no sweeping. `RecordFailedLogin` counts and locks in one UPDATE, since a read-modify-write in Go would let a parallel flood spend far more than 5 guesses. The lock is checked *before* the password, so guessing at a locked account can't extend the window; a completed password reset clears it, which is the only way out that doesn't involve waiting.
 
@@ -168,7 +168,7 @@ Follow Google's official Go guidance, in its own stated order of priority: **cla
 - Name length scales with scope. A loop or a three-line closure gets `f`, `p`, `m`, `row`; a package-level identifier gets a name that reads on its own. `deps`, `w`, `r`, `ctx` are house names — use them.
 - Package names are short, lowercase, single-word, no underscores, no plurals where a singular reads better, and never `util`, `common`, `helpers`, or `base`. The name is part of every reference, so avoid stutter: `csrf.Middleware`, not `csrf.CSRFMiddleware`.
 - No `Get` prefix on accessors. `TokenFromRequest`, not `GetToken`. (The sqlc-generated `GetUserByID` is generated from the query name and is exempt.)
-- Receivers are one or two letters, consistent across every method on the type: `(m *Manager)`, `(f txnFilters)`, `(p pager)`.
+- Receivers are one or two letters, consistent across every method on the type: `(f txnFilters)`, `(p pager)`, `(s txnScope)`.
 
 **Errors.**
 - Error strings are lowercase and unpunctuated: `"session expired"`, not `"Session expired."`.

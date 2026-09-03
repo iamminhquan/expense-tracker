@@ -67,7 +67,7 @@ func forgotPasswordPage(deps Deps) http.HandlerFunc {
 // that call would cancel it anyway; the request context is closed the
 // moment the handler returns.
 func queueResetEmail(ctx context.Context, deps Deps, user sqlcgen.User) {
-	token, expiresAt, err := deps.PasswordResets.CreateResetToken(ctx, user.ID)
+	token, expiresAt, err := auth.CreateResetToken(ctx, deps.Queries, user.ID)
 	if err != nil {
 		log.Printf("forgot password: create token: %v", err)
 		return
@@ -122,7 +122,7 @@ func resetPasswordPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			token := r.URL.Query().Get("token")
-			if _, err := deps.PasswordResets.ValidateResetToken(r.Context(), token); err != nil {
+			if _, err := auth.ValidateResetToken(r.Context(), deps.Queries, token); err != nil {
 				renderResetPasswordFragmentOrPage(w, r, deps, &resetPasswordView{Invalid: true})
 				return
 			}
@@ -134,7 +134,7 @@ func resetPasswordPage(deps Deps) http.HandlerFunc {
 		next := r.FormValue("password")
 		confirm := r.FormValue("password_confirm")
 
-		userID, err := deps.PasswordResets.ValidateResetToken(r.Context(), token)
+		userID, err := auth.ValidateResetToken(r.Context(), deps.Queries, token)
 		if err != nil {
 			renderResetPasswordFragmentOrPage(w, r, deps, &resetPasswordView{Invalid: true})
 			return
@@ -170,7 +170,7 @@ func resetPasswordPage(deps Deps) http.HandlerFunc {
 		if err := deps.Queries.ClearFailedLogins(r.Context(), userID); err != nil {
 			log.Printf("reset password: clear failed attempts: %v", err)
 		}
-		if err := deps.PasswordResets.ConsumeResetToken(r.Context(), token); err != nil {
+		if err := auth.ConsumeResetToken(r.Context(), deps.Queries, token); err != nil {
 			log.Printf("reset password: consume token: %v", err)
 		}
 		// No current session to spare here, unlike updatePasswordHandler --

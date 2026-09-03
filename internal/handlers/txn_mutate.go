@@ -11,27 +11,15 @@ import (
 	"expensetracker/internal/sqlcgen"
 )
 
-// totalsOOBData assembles the payload for the "totals_oob" fragment that
-// every create/update/delete returns alongside its row: the refreshed nav
+// totalsView is what the "totals_oob" fragment reads: the refreshed nav
 // header balance, plus the transaction count, the month name the list's
 // empty state needs, and the pager, whose page count moves whenever a row is
 // added or removed.
 //
 // The header balance is the real current month even when the page is
 // browsing an older one, because that is what the widget in the layout
-// reports -- which is why it arrives as its own argument rather than being
-// derived from anything scoped to the browsed month.
-func totalsOOBData(header balanceSummary, count int64, scope txnScope, p pager) totalsView {
-	return totalsView{
-		HeaderBalance:   header,
-		Count:           count,
-		MonthLabelLower: scope.LabelLower(),
-		AllMonths:       scope.All,
-		Pager:           p,
-	}
-}
-
-// totalsView is what the "totals_oob" fragment reads.
+// reports -- so it is loaded separately from anything scoped to the browsed
+// month. See freshTotals.
 type totalsView struct {
 	HeaderBalance   balanceSummary
 	Count           int64
@@ -73,7 +61,13 @@ func freshTotals(w http.ResponseWriter, r *http.Request, deps Deps, userID int64
 		http.Error(w, "could not load transactions", http.StatusInternalServerError)
 		return totalsView{}, false
 	}
-	return totalsOOBData(header, count, scope, newPager(pageFromRequest(r), count, scope.Value)), true
+	return totalsView{
+		HeaderBalance:   header,
+		Count:           count,
+		MonthLabelLower: scope.LabelLower(),
+		AllMonths:       scope.All,
+		Pager:           newPager(pageFromRequest(r), count, scope.Value),
+	}, true
 }
 
 func handleCreateTransaction(w http.ResponseWriter, r *http.Request, deps Deps, userID int64) {

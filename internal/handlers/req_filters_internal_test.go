@@ -100,7 +100,7 @@ func TestFiltersCanonicalURLEscapesTheSearchTerm(t *testing.T) {
 // since the export is not paginated and "page 2 of the download" is not a
 // thing a user asked for.
 func TestExportURLCarriesTheMonthAndFiltersButNeverThePage(t *testing.T) {
-	got := exportURL("2026-08", 3, txnFilters{Search: "coffee", Type: "expense"})
+	got := exportURL("2026-08", txnFilters{Search: "coffee", Type: "expense"})
 	if got != "/transactions/export?month=2026-08&q=coffee&type=expense" {
 		t.Errorf("unexpected export URL: %s", got)
 	}
@@ -159,7 +159,7 @@ func TestFiltersCanonicalURLCarriesTheSortOrder(t *testing.T) {
 }
 
 func TestExportURLCarriesTheSortOrder(t *testing.T) {
-	got := exportURL("2026-08", 1, txnFilters{Sort: "amount_asc"})
+	got := exportURL("2026-08", txnFilters{Sort: "amount_asc"})
 	if got != "/transactions/export?month=2026-08&sort=amount_asc" {
 		t.Errorf("unexpected export URL: %s", got)
 	}

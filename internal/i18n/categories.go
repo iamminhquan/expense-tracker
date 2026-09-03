@@ -10,7 +10,7 @@
 package i18n
 
 import (
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -80,6 +80,6 @@ func SlugsMatching(term string) []string {
 	}
 	// Map iteration order is random; sorting keeps the query parameter (and
 	// anything that logs it) stable from one request to the next.
-	sort.Strings(slugs)
+	slices.Sort(slugs)
 	return slugs
 }

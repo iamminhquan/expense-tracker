@@ -9,18 +9,14 @@
 package web
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io/fs"
-	"mime"
 	"net/http"
-	"path"
 	"strings"
-	"time"
 )
 
 //go:embed templates
@@ -89,21 +85,17 @@ func Templates(funcs template.FuncMap) (map[string]*template.Template, error) {
 // keep the router's route and those tags from drifting apart silently.
 const StaticPrefix = "/static/"
 
-type staticAsset struct {
-	body        []byte
-	contentType string
-	etag        string
-}
+// staticETag is one digest over the whole embedded tree, computed at init.
+// Every asset shares it, which is fine: a browser stores an ETag per URL, so
+// the only cost is that a deploy makes every asset revalidate once.
+//
+// It exists at all because embed.FS reports a zero ModTime: there is no
+// Last-Modified to revalidate against, so an ETag is the only thing that can
+// turn a repeat visit into a 304.
+var staticETag = hashStaticTree()
 
-// staticAssets holds every embedded asset keyed by its path below static/,
-// read and hashed once at init. embed.FS reports a zero ModTime, so
-// Last-Modified is not available to revalidate against and an ETag is the
-// only thing that can turn a repeat visit into a 304 -- which is why the
-// bodies are held in memory rather than served straight off the FS.
-var staticAssets = loadStaticAssets()
-
-func loadStaticAssets() map[string]staticAsset {
-	assets := map[string]staticAsset{}
+func hashStaticTree() string {
+	h := sha256.New()
 	err := fs.WalkDir(staticFS, "static", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -112,16 +104,10 @@ func loadStaticAssets() map[string]staticAsset {
 		if err != nil {
 			return err
 		}
-		sum := sha256.Sum256(body)
-		contentType := mime.TypeByExtension(path.Ext(p))
-		if contentType == "" {
-			contentType = "application/octet-stream"
-		}
-		assets[strings.TrimPrefix(p, "static/")] = staticAsset{
-			body:        body,
-			contentType: contentType,
-			etag:        `"` + hex.EncodeToString(sum[:8]) + `"`,
-		}
+		// Length-prefixed with the path, so moving bytes between two files
+		// cannot leave the digest unchanged.
+		fmt.Fprintf(h, "%s:%d:", p, len(body))
+		h.Write(body)
 		return nil
 	})
 	if err != nil {
@@ -129,7 +115,7 @@ func loadStaticAssets() map[string]staticAsset {
 		// would be a build-time problem, not a runtime one.
 		panic("web: read embedded static assets: " + err.Error())
 	}
-	return assets
+	return `"` + hex.EncodeToString(h.Sum(nil)[:8]) + `"`
 }
 
 // StaticHandler serves the embedded static/ tree. It is mounted publicly:
@@ -140,19 +126,20 @@ func loadStaticAssets() map[string]staticAsset {
 // leaves a browser holding a stale app.js against fresh markup; the ETag is
 // what keeps the repeat request cheap (a 304 with no body).
 func StaticHandler() http.Handler {
+	// The embedded tree is rooted at "static", which is exactly what
+	// StaticPrefix names, so the request path needs no rewriting. FileServerFS
+	// answers If-None-Match against the ETag set below and picks the
+	// Content-Type off the extension.
+	files := http.FileServerFS(staticFS)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		name := strings.TrimPrefix(r.URL.Path, StaticPrefix)
-		asset, ok := staticAssets[name]
-		if !ok {
+		// No directory listings: the only things served here are the files
+		// the templates name.
+		if strings.HasSuffix(r.URL.Path, "/") {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", asset.contentType)
-		w.Header().Set("ETag", asset.etag)
+		w.Header().Set("ETag", staticETag)
 		w.Header().Set("Cache-Control", "no-cache")
-		// ServeContent handles If-None-Match against the ETag set above, and
-		// answers 304 without writing a body. The zero modtime keeps it from
-		// emitting a Last-Modified that embed.FS cannot back.
-		http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(asset.body))
+		files.ServeHTTP(w, r)
 	})
 }

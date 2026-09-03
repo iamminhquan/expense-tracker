@@ -21,7 +21,7 @@ import (
 // might be slow or unreachable, and the request's own context would be
 // canceled the moment the handler returns.
 func queueVerificationEmail(ctx context.Context, deps Deps, userID int64, email string) {
-	token, expiresAt, err := deps.EmailVerifications.CreateVerificationToken(ctx, userID, email)
+	token, expiresAt, err := auth.CreateVerificationToken(ctx, deps.Queries, userID, email)
 	if err != nil {
 		log.Printf("verification email: create token: %v", err)
 		return
@@ -58,7 +58,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
 
-		userID, email, err := deps.EmailVerifications.ValidateVerificationToken(r.Context(), token)
+		userID, email, err := auth.ValidateVerificationToken(r.Context(), deps.Queries, token)
 		if err != nil {
 			render(w, r, deps, "verify_email", "", &verifyEmailView{})
 			return
@@ -75,7 +75,7 @@ func verifyEmailPage(deps Deps) http.HandlerFunc {
 			serverError(w, "verify email: apply", err)
 			return
 		}
-		if err := deps.EmailVerifications.ConsumeVerificationToken(r.Context(), token); err != nil {
+		if err := auth.ConsumeVerificationToken(r.Context(), deps.Queries, token); err != nil {
 			log.Printf("verify email: consume token: %v", err)
 		}
 

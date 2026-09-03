@@ -34,20 +34,25 @@ function formatAmountInputsIn(root) {
   root.querySelectorAll('input[name="amount"]').forEach(formatAmountInput);
 }
 document.addEventListener('DOMContentLoaded', function () { formatAmountInputsIn(document); });
-document.addEventListener('htmx:afterSwap', function () { formatAmountInputsIn(document); });
+// afterSettle rather than afterSwap: it fires after every swap, once the
+// swapped-in nodes have settled, so one listener covers both.
 document.addEventListener('htmx:afterSettle', function () { formatAmountInputsIn(document); });
 
 // Long-press (~500ms) on any element carrying data-longpress-target opens
 // the <dialog> whose id it names -- used by mobile transaction rows to open
 // the Edit/Delete action sheet without a persistent "⋯" button.
+//
+// Pointer events rather than a touch and mouse pair: they unify both, so
+// there is one set of listeners and no branch reading the coordinates out of
+// evt.touches on one path and evt on the other. A scroll that steals the
+// gesture arrives as pointercancel, which cancels the press for free.
 (function () {
   var timer = null, startX = 0, startY = 0, targetEl = null;
   function start(evt) {
     var el = evt.target.closest && evt.target.closest('[data-longpress-target]');
     if (!el) return;
     targetEl = el;
-    var pt = evt.touches ? evt.touches[0] : evt;
-    startX = pt.clientX; startY = pt.clientY;
+    startX = evt.clientX; startY = evt.clientY;
     timer = setTimeout(function () {
       var dialog = document.getElementById(targetEl.getAttribute('data-longpress-target'));
       if (dialog) dialog.showModal();
@@ -56,8 +61,7 @@ document.addEventListener('htmx:afterSettle', function () { formatAmountInputsIn
   }
   function move(evt) {
     if (!timer) return;
-    var pt = evt.touches ? evt.touches[0] : evt;
-    if (Math.abs(pt.clientX - startX) > 10 || Math.abs(pt.clientY - startY) > 10) {
+    if (Math.abs(evt.clientX - startX) > 10 || Math.abs(evt.clientY - startY) > 10) {
       clearTimeout(timer);
       timer = null;
     }
@@ -65,13 +69,10 @@ document.addEventListener('htmx:afterSettle', function () { formatAmountInputsIn
   function cancel() {
     if (timer) { clearTimeout(timer); timer = null; }
   }
-  document.addEventListener('touchstart', start, { passive: true });
-  document.addEventListener('touchmove', move, { passive: true });
-  document.addEventListener('touchend', cancel);
-  document.addEventListener('touchcancel', cancel);
-  document.addEventListener('mousedown', start);
-  document.addEventListener('mousemove', move);
-  document.addEventListener('mouseup', cancel);
+  document.addEventListener('pointerdown', start, { passive: true });
+  document.addEventListener('pointermove', move, { passive: true });
+  document.addEventListener('pointerup', cancel);
+  document.addEventListener('pointercancel', cancel);
 })();
 
 // Bottom sheets: drag the grab handle down to dismiss. The pill reads as

@@ -49,10 +49,9 @@ func TestSessionLifecycle(t *testing.T) {
 	pool := testPool(t)
 	q := sqlcgen.New(pool)
 	userID := setupTestUser(t, q)
-	mgr := auth.NewManager(q)
 	ctx := context.Background()
 
-	token, expiresAt, err := mgr.CreateSession(ctx, userID, "test-agent/1.0")
+	token, expiresAt, err := auth.CreateSession(ctx, q, userID, "test-agent/1.0")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -71,7 +70,7 @@ func TestSessionLifecycle(t *testing.T) {
 		t.Fatalf("CreateSession(...) stored user agent = %+v, want %q", session.UserAgent, "test-agent/1.0")
 	}
 
-	gotUserID, err := mgr.ValidateSession(ctx, token)
+	gotUserID, err := auth.ValidateSession(ctx, q, token)
 	if err != nil {
 		t.Fatalf("validate session: %v", err)
 	}
@@ -79,11 +78,11 @@ func TestSessionLifecycle(t *testing.T) {
 		t.Fatalf("expected user id %d, got %d", userID, gotUserID)
 	}
 
-	if err := mgr.DeleteSession(ctx, token); err != nil {
+	if err := auth.DeleteSession(ctx, q, token); err != nil {
 		t.Fatalf("delete session: %v", err)
 	}
 
-	if _, err := mgr.ValidateSession(ctx, token); err == nil {
+	if _, err := auth.ValidateSession(ctx, q, token); err == nil {
 		t.Fatal("expected validate to fail after delete")
 	}
 }

@@ -3,7 +3,6 @@ package handlers
 import (
 	"html/template"
 
-	"expensetracker/internal/auth"
 	"expensetracker/internal/classify"
 	"expensetracker/internal/mailer"
 	"expensetracker/internal/sqlcgen"
@@ -22,12 +21,9 @@ import (
 // global name per template set, so the last-parsed page's block would win
 // for every page.
 type Deps struct {
-	DB                 *pgxpool.Pool
-	Queries            *sqlcgen.Queries
-	Sessions           *auth.Manager
-	PasswordResets     *auth.PasswordResetManager
-	EmailVerifications *auth.EmailVerificationManager
-	Mailer             *mailer.Mailer
+	DB      *pgxpool.Pool
+	Queries *sqlcgen.Queries
+	Mailer  *mailer.Mailer
 	// Classifier resolves a category for a bank-email transaction when no
 	// category_hints row fits (see resolveCategoryForNotice in
 	// internal/inboxproc). Nil is treated the same as an unconfigured

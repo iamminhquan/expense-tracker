@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -40,8 +39,7 @@ func monthOptions(months []pgtype.Date, current pgtype.Date) []monthOption {
 	return options
 }
 
-func monthLabel(t time.Time) string      { return t.Format("January 2006") }
-func monthLabelLower(t time.Time) string { return t.Format("January") }
+func monthLabel(t time.Time) string { return t.Format("January 2006") }
 
 // monthRangeFor returns the [from, to) bounds for the "YYYY-MM" value the
 // month dropdown sends via ?month=, falling back to the current Vietnam-
@@ -53,37 +51,6 @@ func monthRangeFor(param string) (from, to pgtype.Date) {
 	}
 	fromTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, vietnamLocation)
 	return pgval.Date(fromTime), pgval.Date(fromTime.AddDate(0, 1, 0))
-}
-
-// monthRangeFromRequest determines which month a mutation response's OOB
-// totals fragment should reflect: the month the page the request originated
-// from was actually displaying, not necessarily today's month. A create/
-// update/delete request's own URL never carries "?month=" (only the page's
-// GET request does), but htmx sends the full URL of that originating page,
-// query string included, in the HX-Current-URL header on every request it
-// issues -- so that header, not r.URL, is where the active month lives.
-// Falls back to currentMonthRange() (mirroring monthRangeFor's own
-// empty/malformed fallback) when the header is absent or unparseable, e.g.
-// non-htmx requests.
-func monthRangeFromRequest(r *http.Request) (from, to pgtype.Date) {
-	return monthRangeFor(monthParamFromRequest(r))
-}
-
-// monthParamFromRequest pulls the raw "YYYY-MM" out of the originating page's
-// URL, for the callers that have to hand it on rather than resolve it -- a
-// create that re-renders the whole list section needs the month value the
-// pager's own links will be built from. Returns "" when there is nothing to
-// read, which every consumer treats as the current month.
-func monthParamFromRequest(r *http.Request) string {
-	raw := r.Header.Get("HX-Current-URL")
-	if raw == "" {
-		return ""
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return ""
-	}
-	return u.Query().Get("month")
 }
 
 // vietnamLocation is loaded once at package init and reused by every
@@ -168,10 +135,10 @@ func newTxnScope(param string) txnScope {
 }
 
 // scopeFromRequest reads the scope the page that issued this request was
-// showing, for the mutation handlers -- the same reason monthRangeFromRequest
-// exists, and read out of the same HX-Current-URL header.
+// showing, for the mutation handlers -- read out of HX-Current-URL, see
+// currentURLQuery.
 func scopeFromRequest(r *http.Request) txnScope {
-	return newTxnScope(monthParamFromRequest(r))
+	return newTxnScope(currentURLQuery(r).Get("month"))
 }
 
 // Bounds is the half-open [from, to) window the queries take.
@@ -180,4 +147,4 @@ func (s txnScope) Bounds() (from, to pgtype.Date) { return s.from, s.to }
 // LabelLower is the bare month name the month-scoped empty states read
 // ("No transactions in august"). It is meaningless for the all-time scope,
 // which those templates branch away from before reaching it.
-func (s txnScope) LabelLower() string { return monthLabelLower(s.from.Time) }
+func (s txnScope) LabelLower() string { return s.from.Time.Format("January") }

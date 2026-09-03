@@ -120,8 +120,8 @@ func inboxWebhookHandler(deps Deps) http.HandlerFunc {
 			MessageID:     messageID,
 			FromAddress:   payload.From,
 			Subject:       payload.Subject,
-			Body:          inbound.TruncateBody(payload.Text),
-			RawBody:       inbound.TruncateRaw(payload.Raw),
+			Body:          inbound.Truncate(payload.Text, inbound.MaxBodyBytes),
+			RawBody:       inbound.Truncate(payload.Raw, inbound.MaxRawBytes),
 			Status:        status,
 			FailureReason: reason,
 		})

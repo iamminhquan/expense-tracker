@@ -565,7 +565,7 @@ func classifyAnswerJSON(id int64) string {
 
 // fakeClassifyServer stands in for the Gemini API: every request
 // increments the returned counter and gets handler's response. deps'
-// Classifier must be pointed at it (via classify.NewWithEndpoint) by the
+// Classifier must be pointed at it (via classify.Config.Endpoint) by the
 // caller -- this alone does not wire anything into a Deps.
 func fakeClassifyServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *int32) {
 	t.Helper()
@@ -606,7 +606,7 @@ func TestProcessPendingEmailsUsesTheClassifierWhenHintMisses(t *testing.T) {
 	picked := processTestCategory(t, deps, userID, "AI Picked Category", "expense")
 
 	server, requests := fakeClassifyServer(t, fakeClassifyAnswering(picked.ID))
-	deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	deps.Classifier = classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 
 	email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
 	deps.processor().ProcessPending(userID)
@@ -651,7 +651,7 @@ func TestProcessPendingEmailsHintFromClassifyStopsASecondCall(t *testing.T) {
 	picked := processTestCategory(t, deps, userID, "AI Picked Category", "expense")
 
 	server, requests := fakeClassifyServer(t, fakeClassifyAnswering(picked.ID))
-	deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+	deps.Classifier = classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 
 	createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
 	deps.processor().ProcessPending(userID)
@@ -695,7 +695,7 @@ func TestProcessPendingEmailsFallsBackWhenClassifierFails(t *testing.T) {
 			deps := processTestDeps(t)
 			userID := createProcessTestUser(t, deps)
 			server, requests := fakeClassifyServer(t, fakeClassifyFailingWith(status))
-			deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+			deps.Classifier = classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 
 			email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
 			deps.processor().ProcessPending(userID)
@@ -747,7 +747,7 @@ func TestProcessPendingEmailsFallsBackWhenClassifierAnswerIsUntrustworthy(t *tes
 		t.Run(name, func(t *testing.T) {
 			deps := deps
 			server, requests := fakeClassifyServer(t, fakeClassifyAnswering(answerID))
-			deps.Classifier = classify.NewWithEndpoint(classify.Config{APIKey: "test-key"}, server.URL)
+			deps.Classifier = classify.New(classify.Config{APIKey: "test-key", Endpoint: server.URL})
 
 			email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
 			deps.processor().ProcessPending(userID)
@@ -783,7 +783,7 @@ func TestProcessPendingEmailsSkipsAnUnconfiguredClassifier(t *testing.T) {
 	server, requests := fakeClassifyServer(t, fakeClassifyAnswering(1))
 	// Deliberately no APIKey: Configured() must be false, and the fake
 	// server above exists only to prove nothing ever reaches it.
-	deps.Classifier = classify.NewWithEndpoint(classify.Config{}, server.URL)
+	deps.Classifier = classify.New(classify.Config{Endpoint: server.URL})
 
 	email := createPendingBankEmail(t, deps, userID, "mbebanking@mbbank.com.vn", "Thong bao giao dich", mbNotice)
 	deps.processor().ProcessPending(userID)
