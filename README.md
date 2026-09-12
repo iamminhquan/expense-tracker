@@ -93,3 +93,7 @@ This single invocation exercises every package, including the migration
 test (which now runs against its own throwaway database rather than the
 shared `TEST_DATABASE_URL` database, so it no longer interferes with other
 packages' tests that expect the schema to stay in place).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
