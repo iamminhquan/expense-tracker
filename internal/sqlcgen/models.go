@@ -8,28 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type BankAccount struct {
-	ID            int64              `json:"id"`
-	UserID        int64              `json:"user_id"`
-	AccountNumber string             `json:"account_number"`
-	FirstSeenAt   pgtype.Timestamptz `json:"first_seen_at"`
-}
-
-type BankEmail struct {
-	ID            int64              `json:"id"`
-	UserID        int64              `json:"user_id"`
-	MessageID     string             `json:"message_id"`
-	FromAddress   string             `json:"from_address"`
-	Subject       string             `json:"subject"`
-	Body          string             `json:"body"`
-	ReceivedAt    pgtype.Timestamptz `json:"received_at"`
-	OccurredAt    pgtype.Timestamptz `json:"occurred_at"`
-	Status        string             `json:"status"`
-	FailureReason string             `json:"failure_reason"`
-	ProcessedAt   pgtype.Timestamptz `json:"processed_at"`
-	RawBody       string             `json:"raw_body"`
-}
-
 type Category struct {
 	ID        int64              `json:"id"`
 	UserID    pgtype.Int8        `json:"user_id"`
@@ -38,14 +16,6 @@ type Category struct {
 	Color     string             `json:"color"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	Slug      pgtype.Text        `json:"slug"`
-}
-
-type CategoryHint struct {
-	ID         int64              `json:"id"`
-	UserID     int64              `json:"user_id"`
-	NoteKey    string             `json:"note_key"`
-	CategoryID int64              `json:"category_id"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EmailVerificationToken struct {
@@ -79,8 +49,6 @@ type Transaction struct {
 	OccurredOn  pgtype.Date        `json:"occurred_on"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Source      string             `json:"source"`
-	BankEmailID pgtype.Int8        `json:"bank_email_id"`
 }
 
 type User struct {
@@ -95,5 +63,4 @@ type User struct {
 	LockedUntil         pgtype.Timestamptz `json:"locked_until"`
 	EmailVerified       bool               `json:"email_verified"`
 	PendingEmail        pgtype.Text        `json:"pending_email"`
-	InboxToken          pgtype.Text        `json:"inbox_token"`
 }

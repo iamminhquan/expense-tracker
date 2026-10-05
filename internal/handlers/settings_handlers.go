@@ -398,27 +398,6 @@ func deleteAccount(ctx context.Context, deps Deps, userID int64) error {
 	if err := qtx.DeleteTransactionsForUser(ctx, userID); err != nil {
 		return fmt.Errorf("delete transactions: %w", err)
 	}
-	// bank_emails.user_id already carries ON DELETE CASCADE from users, so
-	// this delete is not what stops a foreign-key error the way the ones
-	// around it are -- it is spelled out for the same reason the rest of
-	// this function is: leaving it to the cascade works today, but that
-	// fact is invisible here and one constraint change away from not being
-	// true. transactions.bank_email_id is ON DELETE SET NULL, not NO
-	// ACTION, so it never blocks this either way -- there is no ordering
-	// bug here to "fix" by moving this call again.
-	if err := qtx.DeleteBankEmailsForUser(ctx, userID); err != nil {
-		return fmt.Errorf("delete bank emails: %w", err)
-	}
-	// category_hints.user_id also already carries ON DELETE CASCADE from
-	// users, and a hint pointing at one of the personal categories the next
-	// call removes would cascade away from category_id too -- same reasoning
-	// as the bank_emails delete just above: spelled out on purpose rather
-	// than left to either cascade, which is invisible here and one
-	// constraint change away from not being true. Ahead of the categories
-	// delete rather than after, so nothing here depends on cascade order.
-	if err := qtx.DeleteCategoryHintsForUser(ctx, userID); err != nil {
-		return fmt.Errorf("delete category hints: %w", err)
-	}
 	if err := qtx.DeletePersonalCategoriesForUser(ctx, pgval.Int64(userID)); err != nil {
 		return fmt.Errorf("delete categories: %w", err)
 	}
