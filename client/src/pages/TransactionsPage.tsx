@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
 import { useCreateTransaction, useDeleteTransaction, useTransactions, useUpdateTransaction } from '../hooks/useTransactions'
+import { useLongPress } from '../hooks/useLongPress'
 import { MonthPicker } from '../components/MonthPicker'
+import { BottomSheet } from '../components/BottomSheet'
 import { ApiError } from '../lib/api/client'
 import { downloadTransactionsExport } from '../lib/api/import'
 import { formatDateLong, formatDateShort, formatVNDSigned } from '../lib/format'
@@ -304,11 +306,21 @@ function TransactionRow({
   const updateTransaction = useUpdateTransaction()
   const deleteTransaction = useDeleteTransaction()
   const [editing, setEditing] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [amount, setAmount] = useState(String(transaction.amount))
   const [categoryId, setCategoryId] = useState(transaction.categoryId)
   const [occurredOn, setOccurredOn] = useState(transaction.occurredOn)
   const [description, setDescription] = useState(transaction.description)
   const [error, setError] = useState<string | null>(null)
+
+  // Mirrors server/internal/web/static/app.js's long-press-opens-an-
+  // action-sheet pattern for a mobile row: a ~500ms hold opens the same
+  // Edit/Delete choice the always-visible text buttons below offer, so a
+  // narrow screen doesn't need both a gesture *and* visible buttons to be
+  // usable -- the buttons stay for a mouse/keyboard user or anyone who
+  // never discovers the gesture, the sheet is an added affordance, not a
+  // replacement.
+  const longPress = useLongPress(() => setSheetOpen(true))
 
   const sameTypeCategories = categories.filter((c) => c.type === transaction.type)
 
@@ -381,7 +393,7 @@ function TransactionRow({
   }
 
   return (
-    <li className="flex items-center gap-3 p-3 text-[13px]">
+    <li className="flex items-center gap-3 p-3 text-[13px] select-none" {...longPress}>
       <span className="w-[56px] shrink-0 text-ink-faint">
         {showYear ? formatDateLong(transaction.occurredOn) : formatDateShort(transaction.occurredOn)}
       </span>
@@ -402,6 +414,30 @@ function TransactionRow({
       <button onClick={() => void onDelete()} className="text-ink-faint hover:text-expense" aria-label="Delete">
         Delete
       </button>
+
+      <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
+        <p className="mb-3 mt-1 truncate text-[13px] text-ink-muted">{transaction.description || transaction.categoryName}</p>
+        <div className="flex flex-col gap-1">
+          <button
+            onClick={() => {
+              setSheetOpen(false)
+              setEditing(true)
+            }}
+            className="rounded-[10px] px-3 py-2.5 text-left text-[14px] text-ink hover:bg-track"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => {
+              setSheetOpen(false)
+              void onDelete()
+            }}
+            className="rounded-[10px] px-3 py-2.5 text-left text-[14px] text-expense hover:bg-expense/10"
+          >
+            Delete
+          </button>
+        </div>
+      </BottomSheet>
     </li>
   )
 }

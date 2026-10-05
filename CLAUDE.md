@@ -80,18 +80,24 @@ Gin JSON API in `server/` and a React SPA in `client/`.
   "view transactions" link to a specific month landed back on the current
   month instead -- fixed by making the URL's query string the source of
   truth (`useSearchParams`, not `useState`) the way the HTML side's
-  canonical-URL links always worked. Known simplifications versus the HTML
-  side, not yet addressed: no long-press/drag-to-dismiss mobile gesture
-  polish (plain responsive layout instead), styling is a faithful-effort
-  port of the design tokens rather than a pixel-exact match of every
-  template, Dashboard's month picker is still local `useState` (not yet
-  brought in line with Transactions' URL-as-source-of-truth fix). Every
-  page is its own lazy-loaded chunk (`App.tsx`'s `lazy()` imports, one
-  `<Suspense>` boundary around the whole route tree) -- Chart.js alone is
-  ~170KB, and splitting by route means a signed-out visitor's first paint
-  never fetches it. No dedicated context file yet — one gets written once
-  the page set
-  stabilizes.
+  canonical-URL links always worked. Mobile gesture parity landed too --
+  `src/hooks/useLongPress.ts` (a ~500ms hold, cancelled by a 10px move the
+  same way a scroll cancels it) and `src/components/BottomSheet.tsx` (a
+  native `<dialog>`, drag-the-handle-down-to-dismiss past a quarter of its
+  height or a short flick) port `server/internal/web/static/app.js`'s two
+  pointer-event IIFEs; `TransactionRow` wires a long-press to open the same
+  Edit/Delete choice its always-visible text buttons offer, an added
+  affordance rather than a replacement. Verified in a real mobile-viewport
+  browser session (long-press opens the sheet, a drag dismisses it).
+  Every page is its own lazy-loaded chunk (`App.tsx`'s `lazy()` imports,
+  one `<Suspense>` boundary around the whole route tree) -- Chart.js alone
+  is ~170KB, and splitting by route means a signed-out visitor's first
+  paint never fetches it. Known simplifications versus the HTML side, not
+  yet addressed: styling is a faithful-effort port of the design tokens
+  rather than a pixel-exact match of every template, and Dashboard's month
+  picker is still local `useState` (not yet brought in line with
+  Transactions' URL-as-source-of-truth fix). No dedicated context file yet
+  — one gets written once the page set stabilizes.
 - Deploy target: `server/` on Render (`server/render.yaml`, `rootDir:
   server`), `client/` on Vercel (`client/vercel.json`) once cutover happens.
   Today only `server/` is deployed; the old single-service Chi app is still
