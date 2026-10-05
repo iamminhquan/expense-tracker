@@ -35,6 +35,11 @@ func NewRouter(deps Deps) *gin.Engine {
 			authed.POST("/categories", createCategoryHandler(deps))
 			authed.PATCH("/categories/:id", updateCategoryHandler(deps))
 			authed.DELETE("/categories/:id", deleteCategoryHandler(deps))
+
+			authed.GET("/transactions", listTransactionsHandler(deps))
+			authed.POST("/transactions", createTransactionHandler(deps))
+			authed.PATCH("/transactions/:id", updateTransactionHandler(deps))
+			authed.DELETE("/transactions/:id", deleteTransactionHandler(deps))
 		}
 	}
 

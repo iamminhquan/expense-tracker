@@ -1,11 +1,26 @@
 ---
 paths:
   - "server/internal/handlers/req_*.go"
+  - "server/internal/api/transaction_query.go"
+  - "server/internal/api/transaction_handlers.go"
 ---
 
 # Month, filters, paging
 
 The `req_` files in `server/internal/handlers/` are small value objects parsed out of a request.
+
+`server/internal/api/transaction_query.go` duplicates `req_month.go`'s,
+`req_filters.go`'s, and `req_paging.go`'s value objects verbatim for the
+Gin/JSON side of the migration (see `CLAUDE.md`), minus everything that
+exists only because an htmx mutation POST carries no query string of its
+own: `HX-Current-URL` reading, `scopeFromRequest`/
+`filtersFromHXCurrentURL`/`pageFromRequest`, and the canonical
+`?month=&page=&...` URL builders (`transactionsURL`, `exportURL`). A JSON
+client already holds the filter/page state it sent and resends it, so none
+of that has an equivalent here. Keep the two copies' actual filtering/
+scoping/paging *behavior* identical by hand until Phase 4 deletes one of
+them -- a bug fixed in one and not the other would make the old and new UI
+disagree on what a filter matches.
 
 ## Shared pattern
 
