@@ -42,6 +42,16 @@ func NewRouter(deps Deps) *gin.Engine {
 			authed.DELETE("/transactions/:id", deleteTransactionHandler(deps))
 
 			authed.GET("/dashboard", dashboardHandler(deps))
+
+			authed.GET("/settings", settingsHandler(deps))
+			authed.PATCH("/settings/profile", updateProfileHandler(deps))
+			authed.PATCH("/settings/email", updateEmailHandler(deps))
+			authed.POST("/settings/resend-verification", resendVerificationHandler(deps))
+			authed.PATCH("/settings/password", updatePasswordHandler(deps))
+			authed.POST("/settings/delete-account", deleteAccountHandler(deps))
+			authed.DELETE("/settings/sessions/:id", revokeSessionHandler(deps))
+			authed.POST("/settings/sessions/revoke-others", revokeOtherSessionsHandler(deps))
+			authed.PUT("/settings/theme", updateThemeHandler(deps))
 		}
 	}
 

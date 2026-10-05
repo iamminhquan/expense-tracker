@@ -29,27 +29,27 @@ Gin JSON API in `server/` and a React SPA in `client/`.
     `.claude/rules/*.md` describe this half, with every path written
     relative to `server/` (e.g. `server/internal/handlers/`) to match.
   - A new JSON API under `/api/*` (package `internal/api`, Gin), additive
-    and not yet linked from anywhere a real user reaches. Landed so far:
-    JWT access tokens (`internal/auth/jwt.go`, stateless, 15 min TTL);
-    `/api/register`, `/api/login`, `/api/refresh`, `/api/logout`,
-    `/api/me` — register/login reuse `internal/auth/session.go`'s existing
-    token *as* the refresh token (httpOnly cookie, `Path=/api`), rather
-    than a second revocable-token mechanism; see `jwt.go`'s and
-    `auth_handlers.go`'s doc comments for why; `/api/categories`
-    (`GET`/`POST`/`PATCH /:id`/`DELETE /:id`) — one `PATCH` doing what the
-    HTML side splits into `.../color` and `.../name` sub-routes, since a
-    JSON body has no fragment-identity reason to keep them apart; and
-    `/api/transactions` (`GET`/`POST`/`PATCH /:id`/`DELETE /:id`) — same
-    filters/month-scope/paging semantics as the HTML side
-    (`transaction_query.go` duplicates `req_month.go`/`req_filters.go`/
-    `req_paging.go`, minus the `HX-Current-URL` machinery a JSON client has
-    no use for; see `.claude/rules/req-value-objects.md`); and
-    `/api/dashboard` (`GET`) — same pie/bar-chart aggregation as the HTML
-    side, returning raw numbers instead of pre-formatted display strings
-    or `template.JS`-wrapped JSON (see `.claude/rules/dashboard.md`). CSV
-    import/export and settings endpoints are still TODO. No dedicated
-    context file for `internal/api` yet — one gets written once it covers
-    the full route surface backend.md describes for the Chi side today.
+    and not yet linked from anywhere a real user reaches. **Phase 1 (the
+    JSON API rewrite) is functionally complete except CSV import/export**:
+    JWT access tokens (`internal/auth/jwt.go`, stateless, 15 min TTL) plus
+    a refresh token that's `internal/auth/session.go`'s existing token
+    reused as-is (httpOnly cookie, `Path=/api`) rather than a second
+    revocable-token mechanism (`jwt.go`'s doc comment has the reasoning);
+    full auth (`/api/register|login|refresh|logout|me`); categories
+    (`/api/categories`, one `PATCH` where the HTML side splits
+    `.../color`/`.../name`); transactions (`/api/transactions`, same
+    filter/month-scope/paging semantics via a duplicated
+    `transaction_query.go` — see `.claude/rules/req-value-objects.md`);
+    dashboard (`/api/dashboard`, same pie/bar aggregation but raw numbers
+    instead of pre-formatted strings — see `.claude/rules/dashboard.md`);
+    and settings (`/api/settings` + profile/email/password/theme/
+    sessions/account-deletion, same rules as `settings_handlers.go` — see
+    `.claude/rules/account-deletion.md` and `.claude/rules/auth-sessions.md`).
+    Every endpoint above is DB-tested end to end (`internal/api/*_test.go`,
+    needs `TEST_DATABASE_URL`). CSV import/export has no JSON design yet
+    and is the one deliberately deferred piece. No dedicated context file
+    for `internal/api` yet — one gets written once Phase 2 is underway and
+    the route surface has stopped shifting day to day.
 - **`client/`** is a fresh Vite + React + TypeScript + Tailwind v4 scaffold
   (pnpm workspace) with no real pages yet — see `client/src/App.tsx`. It has
   no dedicated context file yet; one gets written once it has real pages to

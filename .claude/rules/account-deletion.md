@@ -1,6 +1,7 @@
 ---
 paths:
   - "server/internal/handlers/settings_handlers.go"
+  - "server/internal/api/settings_handlers.go"
   - "server/internal/database/queries/users.sql"
   - "server/internal/database/queries/transactions.sql"
   - "server/internal/database/queries/categories.sql"
@@ -8,7 +9,7 @@ paths:
 
 # Account deletion
 
-Deleting an account is a hard delete (`deleteAccountHandler` / `deleteAccount` in `settings_handlers.go`).
+Deleting an account is a hard delete (`deleteAccountHandler` / `deleteAccount` in `settings_handlers.go` -- duplicated identically, function names included, in `internal/api/settings_handlers.go` for the Gin/JSON side of the migration; see `CLAUDE.md`).
 
 ## Rules
 
