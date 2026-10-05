@@ -1,9 +1,9 @@
 import { QueryClient } from '@tanstack/react-query'
 
-// Shared TanStack Query client. Phase 1/2 resource hooks (useTransactions,
-// useCategories, etc.) all read through this instance so mutations can
-// invalidate the right queries -- the replacement for htmx's auto-refresh +
-// OOB-swap pattern described in the migration plan.
+// Shared TanStack Query client. Every resource hook (useTransactions,
+// useCategories, etc.) reads through this one instance so a mutation can
+// invalidate whatever else it affects -- see
+// .claude/context/frontend.md's Data Layer section.
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

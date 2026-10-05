@@ -1,9 +1,9 @@
 import { getAccessToken, notifyUnauthorized, setAccessToken } from './tokenStore'
 
 // Relative in dev (Vite's proxy in vite.config.ts forwards /api to
-// localhost:8080, so the browser sees one origin), an absolute URL in
-// production once client/ and server/ are genuinely cross-origin
-// (Vercel + Render) -- see Phase 3's cutover notes in CLAUDE.md.
+// localhost:8080, so the browser sees one origin); an absolute URL
+// (VITE_API_BASE_URL) in production, where client/ (Vercel) and server/
+// (Render) are genuinely cross-origin.
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
 export class ApiError extends Error {

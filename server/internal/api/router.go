@@ -70,13 +70,13 @@ func NewRouter(deps Deps) *gin.Engine {
 // a wildcard + credentials is the CORS misconfiguration that lets any site
 // ride a visitor's cookies.
 //
-// An empty origin list (the default until Phase 3's cutover sets
-// CORS_ALLOWED_ORIGINS to the real Vercel domain) is a no-op rather than a
-// call to cors.New: that library panics on an empty AllowOrigins ("all
-// origins disabled") since it assumes a deployment that mounts it always
-// means to allow something. No CORS headers at all has the same practical
-// effect here -- a browser still refuses any cross-origin request without
-// them -- and doesn't force every test and local run to set the env var.
+// An empty origin list (the default until CORS_ALLOWED_ORIGINS is set to
+// the real Vercel domain) is a no-op rather than a call to cors.New: that
+// library panics on an empty AllowOrigins ("all origins disabled") since
+// it assumes a deployment that mounts it always means to allow something.
+// No CORS headers at all has the same practical effect here -- a browser
+// still refuses any cross-origin request without them -- and doesn't
+// force every test and local run to set the env var.
 func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 	if len(allowedOrigins) == 0 {
 		return func(c *gin.Context) { c.Next() }
