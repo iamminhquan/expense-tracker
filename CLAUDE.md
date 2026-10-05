@@ -50,13 +50,34 @@ Gin JSON API in `server/` and a React SPA in `client/`.
     see `.claude/rules/email-verification.md`). Every endpoint above is
     DB-tested end to end (`internal/api/*_test.go`, needs
     `TEST_DATABASE_URL`). CSV import/export has no JSON design yet and is
-    the one deliberately deferred piece. No dedicated context file for
-    `internal/api` yet — one gets written once Phase 2 is underway and the
-    route surface has stopped shifting day to day.
-- **`client/`** is a fresh Vite + React + TypeScript + Tailwind v4 scaffold
-  (pnpm workspace) with no real pages yet — see `client/src/App.tsx`. It has
-  no dedicated context file yet; one gets written once it has real pages to
-  describe.
+    the one deliberately deferred piece. See
+    `.claude/rules/json-api-conventions.md` for conventions spanning this
+    whole package (never ship a `null` where the client expects `[]`,
+    refresh-cookie `SameSite` must track `SecureCookies`, duplication over
+    sharing with `internal/handlers`) -- both the array/`null` and the
+    cookie rule exist because a real browser smoke test caught each one
+    crashing/breaking something `go test` had no way to notice; see that
+    file before assuming Go's test suite passing means a JSON/cookie
+    change actually works. No dedicated context file for `internal/api`
+    yet — one gets written once Phase 2 is underway and the route surface
+    has stopped shifting day to day.
+- **`client/`** is a Vite + React + TypeScript + Tailwind v4 SPA (pnpm
+  workspace), **Phase 2 underway**: routing, auth (login/register/
+  forgot-password/reset-password/verify-email, access token in memory via
+  `AuthContext`, silent refresh on load), and all four main pages
+  (Dashboard with Chart.js, Transactions with filters/paging, Categories,
+  Settings) have a working first pass, each talking to its `internal/api`
+  counterpart through `src/hooks/` (TanStack Query) and `src/lib/api/`.
+  Verified end to end in a real browser (register → dashboard → add a
+  category → add a transaction → see it reflected on the dashboard →
+  settings → dark mode → mobile viewport), which is what caught both bugs
+  `.claude/rules/json-api-conventions.md` now documents. Known
+  simplifications versus the HTML side, not yet addressed: no long-press/
+  drag-to-dismiss mobile gesture polish (plain responsive layout instead),
+  no CSV import/export UI (the API doesn't have it either), styling is a
+  faithful-effort port of the design tokens rather than a pixel-exact
+  match of every template. No dedicated context file yet — one gets
+  written once the page set stabilizes.
 - Deploy target: `server/` on Render (`server/render.yaml`, `rootDir:
   server`), `client/` on Vercel (`client/vercel.json`) once cutover happens.
   Today only `server/` is deployed; the old single-service Chi app is still
