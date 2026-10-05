@@ -11,10 +11,8 @@ import (
 	"expensetracker/internal/api"
 	"expensetracker/internal/config"
 	"expensetracker/internal/database"
-	"expensetracker/internal/handlers"
 	"expensetracker/internal/mailer"
 	"expensetracker/internal/sqlcgen"
-	"expensetracker/internal/web"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -87,36 +85,16 @@ func main() {
 	}
 	defer pool.Close()
 
-	queries := sqlcgen.New(pool)
-	templates, err := web.Templates(handlers.TemplateFuncs())
-	if err != nil {
-		log.Fatalf("parse templates: %v", err)
-	}
-
-	mailerClient := mailer.New(mailer.Config{
-		APIKey: cfg.BrevoAPIKey,
-		From:   cfg.MailFrom,
-	})
-
-	deps := handlers.Deps{
-		DB:            pool,
-		Queries:       queries,
-		Mailer:        mailerClient,
-		Templates:     templates,
-		CookieName:    cfg.SessionCookieName,
-		SecureCookies: cfg.SecureCookies,
-		BaseURL:       cfg.BaseURL,
-	}
-
-	apiDeps := api.Deps{
+	deps := api.Deps{
 		DB:      pool,
-		Queries: queries,
-		Mailer:  mailerClient,
-		// Reuses the same cookie name as the HTML side's session cookie --
-		// they never collide despite sharing a name because this one is
-		// scoped to Path=/api (set in internal/api/auth_handlers.go) while
-		// the session cookie is scoped to Path=/ (see
-		// handlers.startSession); browsers key a cookie by name *and* path.
+		Queries: sqlcgen.New(pool),
+		Mailer: mailer.New(mailer.Config{
+			APIKey: cfg.BrevoAPIKey,
+			From:   cfg.MailFrom,
+		}),
+		// The name predates this being the only cookie the server sets --
+		// see internal/auth/jwt.go's doc comment for why the refresh token
+		// is this same session-row token rather than a second mechanism.
 		RefreshCookieName:  cfg.SessionCookieName,
 		SecureCookies:      cfg.SecureCookies,
 		BaseURL:            cfg.BaseURL,
@@ -124,19 +102,8 @@ func main() {
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
 	}
 
-	// Two routers share one process and one port during the migration: the
-	// Chi-routed, html/template-rendered app at every path it already
-	// owns, and the new Gin-routed JSON API entirely under /api/*, which
-	// ServeMux dispatches to on prefix without altering the request path
-	// (unlike http.StripPrefix), so Gin's own routes -- registered
-	// starting with /api -- still match. See CLAUDE.md's "Migration in
-	// Progress" section.
-	mux := http.NewServeMux()
-	mux.Handle("/api/", api.NewRouter(apiDeps))
-	mux.Handle("/", handlers.NewRouter(deps))
-
 	log.Printf("listening on :%s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
+	if err := http.ListenAndServe(":"+cfg.Port, api.NewRouter(deps)); err != nil {
 		log.Fatal(err)
 	}
 }
