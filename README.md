@@ -10,18 +10,16 @@ Salary, ...).
 
 ## Monorepo layout
 
-This repo is in the middle of a migration from a single Go monolith to a
-two-package monorepo:
+Two packages:
 
-- **`server/`** — the backend. Currently still `chi` router +
-  `html/template` server-rendered pages (being migrated to a Gin JSON API);
-  PostgreSQL via `sqlc`-generated queries.
+- **`server/`** — the backend. A Gin-routed JSON API (`internal/api`)
+  under `/api/*`, JWT access tokens + an httpOnly-cookie refresh token, no
+  server-rendered HTML; PostgreSQL via `sqlc`-generated queries.
 - **`client/`** — the frontend. A Vite + React + TypeScript + Tailwind v4
-  scaffold, currently a placeholder (being built out into the real SPA that
-  replaces the `html/template` + htmx pages).
+  single-page app that talks to `server/` entirely over `/api/*`.
 
-See `CLAUDE.md`'s "Migration in Progress" section for the current state of
-that transition.
+See `.claude/context/backend.md` and `.claude/context/frontend.md` for the
+full picture of each half.
 
 ## Prerequisites
 
@@ -84,8 +82,9 @@ that transition.
    separate migration step to run by hand, whether against a brand-new
    empty database or an already-migrated one restarting.
 
-4. Visit `http://localhost:8080` (redirects to `/dashboard`, which in turn
-   redirects anonymous visitors to `/login`).
+4. The server now only answers `/api/*` and `/healthz` — there's nothing to
+   visit directly in a browser. Run `client/` (below) and visit *that*
+   dev server instead; it proxies `/api/*` to this one.
 
 ### Backend tests
 
@@ -122,7 +121,7 @@ real data instead of a blank page. `pnpm build` produces a static
   Render's native Go runtime, `rootDir: server`). Postgres is hosted
   separately on Neon — see the comments in `server/render.yaml` for why.
 - `client/` deploys to Vercel (`client/vercel.json`), separately from the
-  backend, once the React rewrite reaches cutover.
+  backend.
 
 ## License
 
