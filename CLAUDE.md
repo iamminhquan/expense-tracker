@@ -94,10 +94,10 @@ Gin JSON API in `server/` and a React SPA in `client/`.
   is ~170KB, and splitting by route means a signed-out visitor's first
   paint never fetches it. Known simplifications versus the HTML side, not
   yet addressed: styling is a faithful-effort port of the design tokens
-  rather than a pixel-exact match of every template, and Dashboard's month
-  picker is still local `useState` (not yet brought in line with
-  Transactions' URL-as-source-of-truth fix). No dedicated context file yet
-  — one gets written once the page set stabilizes.
+  rather than a pixel-exact match of every template. Dashboard's month
+  picker was brought in line with Transactions' URL-as-source-of-truth fix
+  too. No dedicated context file yet — one gets written once the page set
+  stabilizes.
 - Deploy target: `server/` on Render (`server/render.yaml`, `rootDir:
   server`), `client/` on Vercel (`client/vercel.json`) once cutover happens.
   Today only `server/` is deployed; the old single-service Chi app is still

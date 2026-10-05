@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import '../lib/charts'
 import { useDashboard } from '../hooks/useDashboard'
@@ -15,8 +15,19 @@ function comparison(current: number, previous: number, hasPrevData: boolean): st
 }
 
 export function DashboardPage() {
-  const [month, setMonth] = useState<string | undefined>(undefined)
+  // The URL's own query string is the source of truth, the same fix
+  // TransactionsPage got after a browser smoke test caught the bug this
+  // avoids: a reload or a bookmark of /dashboard?month=2026-02 now shows
+  // that month instead of silently resetting to the current one.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const month = searchParams.get('month') ?? undefined
   const { data, isLoading, error } = useDashboard(month)
+
+  function setMonth(value: string) {
+    const next = new URLSearchParams(searchParams)
+    next.set('month', value)
+    setSearchParams(next, { replace: true })
+  }
 
   if (isLoading || !data) return <p className="text-ink-faint">Loading…</p>
   if (error) return <p className="text-expense">Could not load the dashboard.</p>
