@@ -47,18 +47,18 @@ func loadVietnamLocation() *time.Location {
 const badCredentials = "Incorrect email or password."
 
 // userDTO is the user-facing shape returned by auth endpoints and GET
-// /api/me. It deliberately excludes PasswordHash, FailedLoginAttempts, and
+// /api/v1/me. It deliberately excludes PasswordHash, FailedLoginAttempts, and
 // LockedUntil -- internal account-security state no client needs.
 type userDTO struct {
 	ID       int64  `json:"id"`
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Username string `json:"username"`
-	// Theme rides along here rather than only in GET /api/settings: the
+	// Theme rides along here rather than only in GET /api/v1/settings: the
 	// client applies it as soon as it knows who's signed in (on
-	// bootstrap, via /api/refresh or /api/me), the same moment
+	// bootstrap, via /api/v1/refresh or /api/v1/me), the same moment
 	// handlers.authPageView loads it for every authenticated page's nav
-	// on the HTML side. Waiting for a separate /api/settings call would
+	// on the HTML side. Waiting for a separate /api/v1/settings call would
 	// mean every page flashes the wrong theme before it's ready.
 	Theme string `json:"theme"`
 }
@@ -78,7 +78,7 @@ type authResponse struct {
 	User        userDTO   `json:"user"`
 }
 
-// errorResponse is the one error shape every /api/* endpoint uses (the
+// errorResponse is the one error shape every /api/v1/* endpoint uses (the
 // migration plan's locked error-shape decision): a single human-readable
 // message, nothing structured for a client to branch on by field. None of
 // this API's errors need field-level detail yet; this gets revisited if

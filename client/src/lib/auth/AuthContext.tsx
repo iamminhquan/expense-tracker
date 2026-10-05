@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ;(async () => {
       try {
         const res = await fetch(
-          `${(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''}/api/refresh`,
+          `${(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''}/api/v1/refresh`,
           { method: 'POST', credentials: 'include' },
         )
         if (!res.ok) throw new Error('no refresh token')

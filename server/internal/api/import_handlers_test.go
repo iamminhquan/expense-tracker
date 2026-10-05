@@ -40,7 +40,7 @@ func postImport(t *testing.T, deps api.Deps, router http.Handler, userID int64, 
 	if err != nil {
 		t.Fatalf("IssueAccessToken: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/transactions/import", body)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/import", body)
 	req.Header.Set("Content-Type", form.FormDataContentType())
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
@@ -64,7 +64,7 @@ func TestImportExactFormatPreviewThenConfirm(t *testing.T) {
 
 	rec := postImport(t, deps, router, userID, exportHeaderCSV("Groceries"), nil)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("preview POST /api/transactions/import = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("preview POST /api/v1/transactions/import = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	preview := decodeJSON[struct {
 		Preview     bool   `json:"preview"`
@@ -80,7 +80,7 @@ func TestImportExactFormatPreviewThenConfirm(t *testing.T) {
 		"confirm": "1", "fingerprint": preview.Fingerprint,
 	})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("confirm POST /api/transactions/import = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("confirm POST /api/v1/transactions/import = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	result := decodeJSON[struct {
 		Imported int    `json:"imported"`
@@ -94,7 +94,7 @@ func TestImportExactFormatPreviewThenConfirm(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/transactions?month=2026-01", userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/transactions?month=2026-01", userID))
 	list := decodeJSON[struct{ TotalCount int64 }](t, rec)
 	if list.TotalCount != 1 {
 		t.Errorf("transactions in 2026-01 after import = %d, want 1", list.TotalCount)
@@ -123,7 +123,7 @@ func TestImportUnknownFormatAsksForMapping(t *testing.T) {
 	foreignCSV := "When,What,How much\n2026-01-15,Coffee,-50000\n"
 	rec := postImport(t, deps, router, userID, foreignCSV, nil)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/transactions/import (foreign format) = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/transactions/import (foreign format) = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	mapping := decodeJSON[struct {
 		NeedsMapping bool     `json:"needsMapping"`

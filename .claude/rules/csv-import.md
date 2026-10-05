@@ -37,11 +37,11 @@ paths:
 
 ## One endpoint, three outcomes
 
-- `POST /api/transactions/import` is upload, mapping, and preview collapsed into one endpoint a client drives by what it sends: no `mapped` field yet gets a `needsMapping` response (skipped entirely for a file shaped like this app's own export); a mapping without `confirm` gets a preview; `confirm=1` with a matching `fingerprint` applies the plan. `ImportPage.tsx` is the one component that drives all three.
+- `POST /api/v1/transactions/import` is upload, mapping, and preview collapsed into one endpoint a client drives by what it sends: no `mapped` field yet gets a `needsMapping` response (skipped entirely for a file shaped like this app's own export); a mapping without `confirm` gets a preview; `confirm=1` with a matching `fingerprint` applies the plan. `ImportPage.tsx` is the one component that drives all three.
 - Import is all-or-nothing: one bad line blocks the file. A partial import would mean fixing three lines and re-importing a file whose other 197 are already in, and nothing in the schema can tell the second copy apart.
 - Exact duplicates are counted and reported, not refused (`countImportDuplicates`, one query over the file's date range). Two identical coffees on one day are real.
 - There is no server-side state between the three outcomes: the client re-sends the file (and, once known, the mapping) on every request, and the file is sniffed fresh each time, then rewound and planned.
 - `Import.Fingerprint` is a digest of what was read; the client echoes it back on confirm, so a file swapped between steps is refused rather than imported unseen.
-- Row validation enforces what `POST /api/transactions` enforces (amount, type, note length, future limit). Don't add a laxer way in.
+- Row validation enforces what `POST /api/v1/transactions` enforces (amount, type, note length, future limit). Don't add a laxer way in.
 - The two numeric limits live in `server/internal/txnrule` and are read from there by the transaction handlers and the importer alike. Never copy the numbers.
-- `GET /api/transactions/export` answers a CSV, but a plain `<a href>` can't carry this request's `Authorization` header -- `lib/api/import.ts`'s `downloadTransactionsExport` fetches it with the access token attached and turns the response into a download itself (an object URL + a synthetic `<a download>`).
+- `GET /api/v1/transactions/export` answers a CSV, but a plain `<a href>` can't carry this request's `Authorization` header -- `lib/api/import.ts`'s `downloadTransactionsExport` fetches it with the access token attached and turns the response into a download itself (an object URL + a synthetic `<a download>`).

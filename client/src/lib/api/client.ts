@@ -44,7 +44,7 @@ async function doFetch(path: string, options: RequestOptions): Promise<Response>
   })
 }
 
-// refreshInFlight collapses concurrent 401s into one /api/refresh call:
+// refreshInFlight collapses concurrent 401s into one /api/v1/refresh call:
 // several requests failing at once (e.g. a page that fires off three
 // queries on load with an access token that just expired) would otherwise
 // each race their own refresh and invalidate each other's new token.
@@ -54,7 +54,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight
   refreshInFlight = (async () => {
     try {
-      const res = await doFetch('/api/refresh', { method: 'POST', skipAuth: true })
+      const res = await doFetch('/api/v1/refresh', { method: 'POST', skipAuth: true })
       if (!res.ok) return null
       const data = (await res.json()) as { accessToken: string }
       setAccessToken(data.accessToken)

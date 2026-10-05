@@ -25,7 +25,7 @@ paths:
 - `RecordFailedLogin` counts and locks in one UPDATE. Don't do a read-modify-write in Go: a parallel flood would spend far more than 5 guesses.
 - Check the lock *before* the password, so guessing at a locked account can't extend the window. A completed password reset clears the lock; that is the only way out besides waiting.
 
-## Active sessions (`GET /api/settings`)
+## Active sessions (`GET /api/v1/settings`)
 
 - `created_at` and `user_agent` (migration 000012) exist only for this list. `user_agent` is nullable because sessions older than the migration have none.
 - `format.DeviceLabel` (`server/internal/format/device.go`) turns the raw UA into "Chrome on Windows" by matching a few common substrings. Fall back to the raw string rather than guess wrong.

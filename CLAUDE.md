@@ -1,9 +1,6 @@
 # $pend
 
-Server-rendered no more: `$pend` is a monorepo with a Gin JSON API in
-`server/` and a React SPA in `client/`, talking to each other over
-`/api/*` with JWT auth. The project knowledge lives under `.claude/`; read
-only what the task needs.
+Server-rendered no more: `$pend` is a monorepo with a Gin JSON API in `server/` and a React SPA in `client/`, talking to each other over `/api/v1/*` with JWT auth. The project knowledge lives under `.claude/`; read only what the task needs.
 
 @.claude/context/README.md
 

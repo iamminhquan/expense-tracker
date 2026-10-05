@@ -17,7 +17,7 @@ func TestExportTransactionsCSV(t *testing.T) {
 	categoryID := createTestCategory(t, deps, router, userID, "Groceries", "expense")
 	today := time.Now().Format("2006-01-02")
 
-	req := authedRequest(t, deps, http.MethodPost, "/api/transactions", userID)
+	req := authedRequest(t, deps, http.MethodPost, "/api/v1/transactions", userID)
 	req.Body = jsonBody(t, map[string]any{
 		"categoryId": categoryID, "amount": 50000, "type": "expense",
 		"occurredOn": today, "description": "Export me",
@@ -26,13 +26,13 @@ func TestExportTransactionsCSV(t *testing.T) {
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("seed POST /api/transactions = %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("seed POST /api/v1/transactions = %d %s", rec.Code, rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/transactions/export", userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/transactions/export", userID))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /api/transactions/export = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("GET /api/v1/transactions/export = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
 		t.Errorf("Content-Type = %q, want text/csv prefix", ct)
@@ -56,10 +56,10 @@ func TestExportRequiresAuthentication(t *testing.T) {
 	deps := newTestDeps(t)
 	router := api.NewRouter(deps)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/transactions/export", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions/export", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("GET /api/transactions/export with no token = %d, want 401", rec.Code)
+		t.Errorf("GET /api/v1/transactions/export with no token = %d, want 401", rec.Code)
 	}
 }

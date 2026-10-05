@@ -33,7 +33,7 @@ type sessionDTO struct {
 	IsCurrent bool      `json:"isCurrent"`
 }
 
-// settingsResponse is GET /api/settings' body: the profile fields every
+// settingsResponse is GET /api/v1/settings' body: the profile fields every
 // form on the HTML settings page pre-fills itself with, plus the active
 // sessions list. There is no Saved/error-message field here the way
 // handlers.settingsView has -- that existed only to survive a

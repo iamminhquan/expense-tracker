@@ -23,7 +23,7 @@ function applyTheme(theme: Theme) {
 }
 
 // ThemeProvider must be nested inside AuthProvider: the signed-in user's
-// preference (user.theme, carried on /api/me and /api/refresh's response
+// preference (user.theme, carried on /api/v1/me and /api/v1/refresh's response
 // -- see server/internal/api/auth_handlers.go's userDTO) is the source of
 // truth once authenticated. Pre-auth (login/register pages) there is no
 // user to load one from, so it defaults to "auto" the same way

@@ -16,4 +16,4 @@ paths:
 - `transactions.category_id` has no `ON DELETE` clause, on purpose: a category can't be removed while transactions reference it unless the app reassigns those rows first.
 - A migration that touches a default updates it in place; never delete and reinsert it.
 - Add a new default through a migration that follows the 000006 / 000008 / 000014 pattern (an idempotent insert guarded by `WHERE NOT EXISTS`, a `slug` from day one), together with its entry in `categoryNames`. See `database.md` for the schema side.
-- `PATCH /api/categories/:id` takes an optional `name` and/or `color` in one request -- a default category can be recolored by anyone but never renamed (`isDefault` on `categoryDTO` is what the client checks before offering that action at all).
+- `PATCH /api/v1/categories/:id` takes an optional `name` and/or `color` in one request -- a default category can be recolored by anyone but never renamed (`isDefault` on `categoryDTO` is what the client checks before offering that action at all).

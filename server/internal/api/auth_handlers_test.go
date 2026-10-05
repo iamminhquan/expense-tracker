@@ -112,69 +112,69 @@ func TestRegisterLoginRefreshLogout(t *testing.T) {
 	name, email, username, password := testUser(t, deps)
 
 	// Register issues an access token and a refresh-token cookie.
-	rec := doJSON(t, router, http.MethodPost, "/api/register", map[string]string{
+	rec := doJSON(t, router, http.MethodPost, "/api/v1/register", map[string]string{
 		"name": name, "email": email, "username": username,
 		"password": password, "passwordConfirm": password,
 	})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/register = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/register = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	accessToken, refreshCookie := decodeAuthResponse(t, rec)
 
-	// That access token authenticates GET /api/me.
-	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
+	// That access token authenticates GET /api/v1/me.
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /api/me = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("GET /api/v1/me = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	var me struct {
 		Email string `json:"email"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
-		t.Fatalf("decode /api/me response: %v", err)
+		t.Fatalf("decode /api/v1/me response: %v", err)
 	}
 	if me.Email != email {
-		t.Errorf("GET /api/me email = %q, want %q", me.Email, email)
+		t.Errorf("GET /api/v1/me email = %q, want %q", me.Email, email)
 	}
 
 	// Logging in again (fresh request, no access token yet) works too, and
 	// issues its own independent refresh-token cookie.
-	rec = doJSON(t, router, http.MethodPost, "/api/login", map[string]string{
+	rec = doJSON(t, router, http.MethodPost, "/api/v1/login", map[string]string{
 		"email": email, "password": password,
 	})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/login = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/login = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	decodeAuthResponse(t, rec)
 
 	// The refresh-token cookie from registration exchanges for a new
 	// access token without resending the password.
-	req = httptest.NewRequest(http.MethodPost, "/api/refresh", nil)
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/refresh", nil)
 	req.AddCookie(refreshCookie)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/refresh = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/refresh = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	decodeAccessToken(t, rec)
 
 	// Logout revokes that refresh token.
-	req = httptest.NewRequest(http.MethodPost, "/api/logout", nil)
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/logout", nil)
 	req.AddCookie(refreshCookie)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("POST /api/logout = %d, want 204", rec.Code)
+		t.Fatalf("POST /api/v1/logout = %d, want 204", rec.Code)
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/api/refresh", nil)
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/refresh", nil)
 	req.AddCookie(refreshCookie)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("POST /api/refresh after logout = %d, want 401 (refresh token should be revoked)", rec.Code)
+		t.Errorf("POST /api/v1/refresh after logout = %d, want 401 (refresh token should be revoked)", rec.Code)
 	}
 }
 
@@ -183,19 +183,19 @@ func TestLoginRejectsWrongPassword(t *testing.T) {
 	router := api.NewRouter(deps)
 	name, email, username, password := testUser(t, deps)
 
-	rec := doJSON(t, router, http.MethodPost, "/api/register", map[string]string{
+	rec := doJSON(t, router, http.MethodPost, "/api/v1/register", map[string]string{
 		"name": name, "email": email, "username": username,
 		"password": password, "passwordConfirm": password,
 	})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/register = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/register = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
-	rec = doJSON(t, router, http.MethodPost, "/api/login", map[string]string{
+	rec = doJSON(t, router, http.MethodPost, "/api/v1/login", map[string]string{
 		"email": email, "password": "wrong-password",
 	})
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("POST /api/login (wrong password) = %d %s, want 401", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/login (wrong password) = %d %s, want 401", rec.Code, rec.Body.String())
 	}
 }
 
@@ -208,14 +208,14 @@ func TestRegisterRejectsDuplicateEmail(t *testing.T) {
 		"name": name, "email": email, "username": username,
 		"password": password, "passwordConfirm": password,
 	}
-	if rec := doJSON(t, router, http.MethodPost, "/api/register", body); rec.Code != http.StatusOK {
-		t.Fatalf("first POST /api/register = %d %s, want 200", rec.Code, rec.Body.String())
+	if rec := doJSON(t, router, http.MethodPost, "/api/v1/register", body); rec.Code != http.StatusOK {
+		t.Fatalf("first POST /api/v1/register = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	body["username"] = username + "2"
-	rec := doJSON(t, router, http.MethodPost, "/api/register", body)
+	rec := doJSON(t, router, http.MethodPost, "/api/v1/register", body)
 	if rec.Code != http.StatusConflict {
-		t.Fatalf("second POST /api/register (duplicate email) = %d %s, want 409", rec.Code, rec.Body.String())
+		t.Fatalf("second POST /api/v1/register (duplicate email) = %d %s, want 409", rec.Code, rec.Body.String())
 	}
 }
 
@@ -223,10 +223,10 @@ func TestMeRequiresAuthentication(t *testing.T) {
 	deps := newTestDeps(t)
 	router := api.NewRouter(deps)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("GET /api/me with no Authorization header = %d, want 401", rec.Code)
+		t.Errorf("GET /api/v1/me with no Authorization header = %d, want 401", rec.Code)
 	}
 }

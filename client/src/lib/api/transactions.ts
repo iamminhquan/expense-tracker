@@ -16,17 +16,17 @@ function queryString(filters: TransactionFilters): string {
 }
 
 export function listTransactions(filters: TransactionFilters = {}) {
-  return api.get<TransactionsResponse>(`/api/transactions${queryString(filters)}`)
+  return api.get<TransactionsResponse>(`/api/v1/transactions${queryString(filters)}`)
 }
 
 export function createTransaction(input: TransactionWrite) {
-  return api.post<Transaction>('/api/transactions', input)
+  return api.post<Transaction>('/api/v1/transactions', input)
 }
 
 export function updateTransaction(id: number, input: TransactionWrite) {
-  return api.patch<Transaction>(`/api/transactions/${id}`, input)
+  return api.patch<Transaction>(`/api/v1/transactions/${id}`, input)
 }
 
 export function deleteTransaction(id: number) {
-  return api.delete<void>(`/api/transactions/${id}`)
+  return api.delete<void>(`/api/v1/transactions/${id}`)
 }

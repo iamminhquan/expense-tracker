@@ -3,5 +3,5 @@ import type { DashboardResponse } from './types'
 
 export function getDashboard(month?: string) {
   const qs = month ? `?month=${encodeURIComponent(month)}` : ''
-  return api.get<DashboardResponse>(`/api/dashboard${qs}`)
+  return api.get<DashboardResponse>(`/api/v1/dashboard${qs}`)
 }

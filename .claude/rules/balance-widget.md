@@ -9,7 +9,7 @@ paths:
 
 ## Server (`dashboard_handlers.go`)
 
-- `headerBalance` on `GET /api/dashboard`'s response always reports the real current month, never the month being browsed -- unlike every other field in that response, which describes whatever month the request asked for. There is no separate endpoint for it; a JSON client that needs the widget on a page other than Dashboard still calls `/api/dashboard` for it (see `Layout.tsx` below).
+- `headerBalance` on `GET /api/v1/dashboard`'s response always reports the real current month, never the month being browsed -- unlike every other field in that response, which describes whatever month the request asked for. There is no separate endpoint for it; a JSON client that needs the widget on a page other than Dashboard still calls `/api/v1/dashboard` for it (see `Layout.tsx` below).
 - It carries forward across months: what a month closes at is what the next one opens with. `MonthlyTotals` returns the carried-in figure as a third column (`carried_over`) next to the month's own two totals. Its `WHERE` reaches over the user's whole history and each column narrows through its own `FILTER`; read it carefully before changing it.
 - Keep the `::bigint` around the whole subtraction in that query. Without it sqlc types the result `int32`, which overflows past 2.1 tỷ đồng.
 - `newBalanceDTO` resolves the spent-percentage in Go, not the client: every case here (a month with no income, a month that overspent) needs a divide-by-zero guard, and doing it once server-side means every client agrees.

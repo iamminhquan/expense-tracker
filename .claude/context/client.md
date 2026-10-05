@@ -50,7 +50,7 @@
   - `types.ts` — hand-written TypeScript types mirroring `server/internal/api`'s DTOs (the migration's locked type-sync decision: no codegen).
   - One file per resource: `auth.ts`, `categories.ts`, `transactions.ts`, `dashboard.ts`, `settings.ts`, `import.ts` (the one multipart/file-upload exception, bypassing `client.ts`'s always-JSON `request()`).
 - `client/src/lib/auth/AuthContext.tsx`: owns login/register/logout and the silent-refresh bootstrap every page load runs (the access token doesn't survive a reload by design; the refresh-token cookie does). `ProtectedRoute.tsx` gates every authenticated route on its `status`.
-- `client/src/lib/theme/ThemeContext.tsx`: applies the signed-in user's theme (carried on `/api/me`/`/api/refresh`'s response) to `<html>`. Must be nested inside `AuthProvider`.
+- `client/src/lib/theme/ThemeContext.tsx`: applies the signed-in user's theme (carried on `/api/v1/me`/`/api/v1/refresh`'s response) to `<html>`. Must be nested inside `AuthProvider`.
 - `client/src/hooks/`: one TanStack Query hook module per resource (`useCategories`, `useTransactions`, `useDashboard`, `useSettings`) — queries plus mutations, with mutations invalidating whatever else their write affects (see Data Layer below).
 - `client/src/components/layout/`: `Layout`, `ProtectedRoute`, `AuthLayout` (the pre-auth card shell), `BalanceWidget`, `UserMenu`.
 - `client/src/components/`: `MonthPicker`, `BottomSheet` (drag-to-dismiss).
@@ -60,7 +60,7 @@
 
 ## Important Reality Checks
 
-- The access token lives in memory only (a module variable in `tokenStore.ts`) and does not survive a page reload by design. Every page load runs `AuthContext`'s silent-refresh bootstrap (a `POST /api/refresh` using the httpOnly cookie) before rendering anything behind `ProtectedRoute`. Don't "fix" a reload losing auth state by persisting the access token to storage — that's the locked decision this migration made, not a bug.
+- The access token lives in memory only (a module variable in `tokenStore.ts`) and does not survive a page reload by design. Every page load runs `AuthContext`'s silent-refresh bootstrap (a `POST /api/v1/refresh` using the httpOnly cookie) before rendering anything behind `ProtectedRoute`. Don't "fix" a reload losing auth state by persisting the access token to storage — that's the locked decision this migration made, not a bug.
 - `TransactionsPage` and `DashboardPage` keep their filters/month in the URL's own query string (`useSearchParams`), never local `useState`. This isn't a style preference — a real browser test caught the bug that happens otherwise (a link to a specific month silently reset to the current one because nothing read the URL it landed on). See `.claude/rules/req-value-objects.md`.
 - A mutation (create/update/delete a transaction or category) invalidates more than its own TanStack Query key: deleting a category can reassign transactions, a transaction changes totals the dashboard and a category's `transactionCount` both depend on. See each `hooks/use*.ts` file's invalidation calls rather than assuming one key is enough when adding a new mutation.
 - Chart.js cannot react to a CSS variable changing — `DashboardPage.tsx`'s chart colors are currently hardcoded to the light palette and do **not** rebuild on a theme switch. Known gap, not a deliberate choice — see `.claude/rules/dashboard.md`.

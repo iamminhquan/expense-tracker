@@ -2,7 +2,7 @@ import { api } from './client'
 import type { CategoriesResponse, Category } from './types'
 
 export function listCategories() {
-  return api.get<CategoriesResponse>('/api/categories')
+  return api.get<CategoriesResponse>('/api/v1/categories')
 }
 
 export interface CreateCategoryInput {
@@ -12,7 +12,7 @@ export interface CreateCategoryInput {
 }
 
 export function createCategory(input: CreateCategoryInput) {
-  return api.post<Category>('/api/categories', input)
+  return api.post<Category>('/api/v1/categories', input)
 }
 
 export interface UpdateCategoryInput {
@@ -21,9 +21,9 @@ export interface UpdateCategoryInput {
 }
 
 export function updateCategory(id: number, input: UpdateCategoryInput) {
-  return api.patch<Category>(`/api/categories/${id}`, input)
+  return api.patch<Category>(`/api/v1/categories/${id}`, input)
 }
 
 export function deleteCategory(id: number) {
-  return api.delete<void>(`/api/categories/${id}`)
+  return api.delete<void>(`/api/v1/categories/${id}`)
 }

@@ -75,12 +75,12 @@ func TestCreateAndListCategories(t *testing.T) {
 	userID := createTestUser(t, deps)
 
 	rec := httptest.NewRecorder()
-	req := authedRequest(t, deps, http.MethodPost, "/api/categories", userID)
+	req := authedRequest(t, deps, http.MethodPost, "/api/v1/categories", userID)
 	req.Body = jsonBody(t, map[string]string{"name": "Groceries", "type": "expense", "color": "#D97757"})
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("POST /api/categories = %d %s, want 201", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/categories = %d %s, want 201", rec.Code, rec.Body.String())
 	}
 	created := decodeJSON[struct {
 		ID        int64  `json:"id"`
@@ -95,9 +95,9 @@ func TestCreateAndListCategories(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/categories", userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/categories", userID))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /api/categories = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("GET /api/v1/categories = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	list := decodeJSON[struct {
 		ExpenseCategories   []struct{ ID int64 } `json:"expenseCategories"`
@@ -123,19 +123,19 @@ func TestUpdateCategoryRenameAndRecolor(t *testing.T) {
 	userID := createTestUser(t, deps)
 
 	rec := httptest.NewRecorder()
-	req := authedRequest(t, deps, http.MethodPost, "/api/categories", userID)
+	req := authedRequest(t, deps, http.MethodPost, "/api/v1/categories", userID)
 	req.Body = jsonBody(t, map[string]string{"name": "Old Name", "type": "expense", "color": "#D97757"})
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(rec, req)
 	created := decodeJSON[struct{ ID int64 }](t, rec)
 
 	rec = httptest.NewRecorder()
-	req = authedRequest(t, deps, http.MethodPatch, fmt.Sprintf("/api/categories/%d", created.ID), userID)
+	req = authedRequest(t, deps, http.MethodPatch, fmt.Sprintf("/api/v1/categories/%d", created.ID), userID)
 	req.Body = jsonBody(t, map[string]string{"name": "New Name", "color": "#5B8DEF"})
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("PATCH /api/categories/%d = %d %s, want 200", created.ID, rec.Code, rec.Body.String())
+		t.Fatalf("PATCH /api/v1/categories/%d = %d %s, want 200", created.ID, rec.Code, rec.Body.String())
 	}
 	updated := decodeJSON[struct {
 		Name  string `json:"name"`
@@ -155,20 +155,20 @@ func TestDeleteCategory(t *testing.T) {
 	userID := createTestUser(t, deps)
 
 	rec := httptest.NewRecorder()
-	req := authedRequest(t, deps, http.MethodPost, "/api/categories", userID)
+	req := authedRequest(t, deps, http.MethodPost, "/api/v1/categories", userID)
 	req.Body = jsonBody(t, map[string]string{"name": "To Delete", "type": "expense", "color": "#D97757"})
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(rec, req)
 	created := decodeJSON[struct{ ID int64 }](t, rec)
 
 	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodDelete, fmt.Sprintf("/api/categories/%d", created.ID), userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodDelete, fmt.Sprintf("/api/v1/categories/%d", created.ID), userID))
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("DELETE /api/categories/%d = %d %s, want 204", created.ID, rec.Code, rec.Body.String())
+		t.Fatalf("DELETE /api/v1/categories/%d = %d %s, want 204", created.ID, rec.Code, rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()
-	req = authedRequest(t, deps, http.MethodPatch, fmt.Sprintf("/api/categories/%d", created.ID), userID)
+	req = authedRequest(t, deps, http.MethodPatch, fmt.Sprintf("/api/v1/categories/%d", created.ID), userID)
 	req.Body = jsonBody(t, map[string]string{"name": "Should Fail"})
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(rec, req)
@@ -183,7 +183,7 @@ func TestDeleteDefaultCategoryForbidden(t *testing.T) {
 	userID := createTestUser(t, deps)
 
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/categories", userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/categories", userID))
 	list := decodeJSON[struct {
 		ExpenseCategories []struct {
 			ID        int64 `json:"id"`
@@ -203,7 +203,7 @@ func TestDeleteDefaultCategoryForbidden(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodDelete, fmt.Sprintf("/api/categories/%d", defaultID), userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodDelete, fmt.Sprintf("/api/v1/categories/%d", defaultID), userID))
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("DELETE default category = %d, want 403", rec.Code)
 	}

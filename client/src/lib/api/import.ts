@@ -89,7 +89,7 @@ export async function importTransactions(
   }
 
   const token = getAccessToken()
-  const res = await fetch(`${API_BASE}/api/transactions/import`, {
+  const res = await fetch(`${API_BASE}/api/v1/transactions/import`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     credentials: 'include',
@@ -108,7 +108,7 @@ export async function importTransactions(
 // standard pattern for an authenticated file download from a SPA.
 export async function downloadTransactionsExport(query: string): Promise<void> {
   const token = getAccessToken()
-  const res = await fetch(`${API_BASE}/api/transactions/export${query}`, {
+  const res = await fetch(`${API_BASE}/api/v1/transactions/export${query}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     credentials: 'include',
   })

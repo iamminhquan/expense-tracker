@@ -55,7 +55,7 @@ func newCategoryDTO(c sqlcgen.Category, txnCount int64) categoryDTO {
 	}
 }
 
-// categoriesListResponse is GET /api/categories' body: both lists, plus
+// categoriesListResponse is GET /api/v1/categories' body: both lists, plus
 // whether the account has a category of its own -- the client-side
 // equivalent of the HTML side's "you have no custom categories yet" empty
 // state, computed the same way (a non-null user_id on any row).
@@ -164,7 +164,7 @@ func categoryIDParam(c *gin.Context) (int64, bool) {
 	return id, true
 }
 
-// updateCategoryRequest is PATCH /api/categories/:id's body. Both fields
+// updateCategoryRequest is PATCH /api/v1/categories/:id's body. Both fields
 // are optional and independent -- send Color alone to recolor (allowed on
 // a default category too), Name alone to rename (never allowed on a
 // default), or both. This is one endpoint where the HTML side has two

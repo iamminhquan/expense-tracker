@@ -3,7 +3,7 @@
 ## Purpose
 
 - This file is the backend/server source-of-truth for agent work on $pend.
-- The backend is a Gin-routed JSON API (`server/internal/api`) with no server-rendered HTML, no templates, and no separate session-cookie auth — a client (today, `client/`'s React SPA) talks to it entirely over `/api/*` with a JWT access token plus a refresh-token cookie.
+- The backend is a Gin-routed JSON API (`server/internal/api`) with no server-rendered HTML, no templates, and no separate session-cookie auth — a client (today, `client/`'s React SPA) talks to it entirely over `/api/v1/*` with a JWT access token plus a refresh-token cookie.
 - The most complete flow is the core ledger: creating/editing/deleting transactions and categories, the dashboard, the full auth lifecycle (register/login/refresh/logout/forgot-reset-password/email verification), settings, and CSV import/export.
 
 ## Read This First
@@ -46,19 +46,19 @@
 
 ## What Is Actually Implemented
 
-Every route is under `/api`, except `GET /healthz` at the root (Render's health check and the keep-alive cron probe that exact path — keep it there). Public:
+Every route is under `/api/v1`, except `GET /healthz` at the root (Render's health check and the keep-alive cron probe that exact path — keep it there). Public:
 
-- `POST /api/register`, `POST /api/login`, `POST /api/refresh`, `POST /api/logout`
-- `POST /api/forgot-password`, `GET|POST /api/reset-password`
-- `POST /api/verify-email`
+- `POST /api/v1/register`, `POST /api/v1/login`, `POST /api/v1/refresh`, `POST /api/v1/logout`
+- `POST /api/v1/forgot-password`, `GET|POST /api/v1/reset-password`
+- `POST /api/v1/verify-email`
 
 Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <access token>` header):
 
-- `GET /api/me`
-- Categories: `GET|POST /api/categories`, `PATCH|DELETE /api/categories/{id}`
-- Transactions: `GET|POST /api/transactions`, `PATCH|DELETE /api/transactions/{id}`, `GET /api/transactions/export`, `POST /api/transactions/import`
-- `GET /api/dashboard`
-- Settings: `GET /api/settings`, `PATCH /api/settings/profile`, `PATCH /api/settings/email`, `POST /api/settings/resend-verification`, `PATCH /api/settings/password`, `POST /api/settings/delete-account`, `DELETE /api/settings/sessions/{id}`, `POST /api/settings/sessions/revoke-others`, `PUT /api/settings/theme`
+- `GET /api/v1/me`
+- Categories: `GET|POST /api/v1/categories`, `PATCH|DELETE /api/v1/categories/{id}`
+- Transactions: `GET|POST /api/v1/transactions`, `PATCH|DELETE /api/v1/transactions/{id}`, `GET /api/v1/transactions/export`, `POST /api/v1/transactions/import`
+- `GET /api/v1/dashboard`
+- Settings: `GET /api/v1/settings`, `PATCH /api/v1/settings/profile`, `PATCH /api/v1/settings/email`, `POST /api/v1/settings/resend-verification`, `PATCH /api/v1/settings/password`, `POST /api/v1/settings/delete-account`, `DELETE /api/v1/settings/sessions/{id}`, `POST /api/v1/settings/sessions/revoke-others`, `PUT /api/v1/settings/theme`
 
 ## Important Reality Checks
 
@@ -86,7 +86,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 
 - Every response is JSON. Error responses are always `{"error": "a lowercase, unpunctuated message"}` — see `.claude/rules/json-api-conventions.md` for the full set of conventions this package follows, several of them written up *because* a real bug violated them (never ship `null` for an array field a client expects `[]` from, never embed another package's untagged struct directly in a response).
 - Ship raw numbers, not pre-formatted display strings. A money amount is a plain `int64` (VND, whole đồng), a percentage a plain `int`, a date `"2006-01-02"` — never a formatted `"50.000₫"` or a pre-composed sentence. The client owns formatting and i18n of its own UI text; this backend only resolves what it alone has the data for (a default category's display name via `i18n`, a User-Agent string via `format.DeviceLabel`).
-- Authentication is a header, not a cookie, for every authenticated endpoint: `Authorization: Bearer <access token>`. The one exception is `POST /api/refresh` and `POST /api/logout`, which read the refresh-token httpOnly cookie instead — see Authentication Model.
+- Authentication is a header, not a cookie, for every authenticated endpoint: `Authorization: Bearer <access token>`. The one exception is `POST /api/v1/refresh` and `POST /api/v1/logout`, which read the refresh-token httpOnly cookie instead — see Authentication Model.
 - Localization: none — every message this API writes is English. Only default-category *names* are resolved through `server/internal/i18n`, keyed by a stable slug rather than the displayed string.
 
 ## Authentication Model
@@ -94,7 +94,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 - Plain email+password login, no OAuth/SSO. Two tokens, not one:
   - **Access token** (`internal/auth/jwt.go`): a stateless, HS256-signed JWT naming a user ID, 15-minute TTL. Never checked against the database — it self-expires, and that's the entire point: it can't be revoked before it does, which is why it's kept short-lived.
   - **Refresh token**: the pre-existing opaque session-row token (`sessions` table, `internal/auth/session.go`), reused as-is rather than built as a second mechanism — see `jwt.go`'s doc comment for the full reasoning. Sent as an httpOnly, `Path=/api` cookie; 7-day TTL (`sessions.expires_at`).
-- `POST /api/refresh` exchanges a valid refresh-token cookie for a fresh access token without re-checking the password. It does not rotate the refresh token itself.
+- `POST /api/v1/refresh` exchanges a valid refresh-token cookie for a fresh access token without re-checking the password. It does not rotate the refresh token itself.
 - A password change deletes every *other* session (refresh token) for the user but keeps the current one; "Log out everywhere else" in Settings calls the same deletion deliberately, as a user action rather than a side effect.
 - Login lockout: 5 consecutive wrong passwords lock the account for 15 minutes (`users.failed_login_attempts`, `users.locked_until`), checked *before* password comparison so a locked account can't be used to extend its own lock. A completed password reset clears it.
 - Password reset: `password_reset_tokens`, 1-hour TTL, single-use, emailed via Brevo. Resetting signs the visitor in (a fresh access token + refresh cookie), matching register/login.
@@ -215,6 +215,7 @@ sqlc generate
 
 ## Change Log
 
+- `2026-10-05`: every API route moved from `/api/*` to `/api/v1/*` (`router.go`'s group, `client/src/lib/api/*`, tests, docs); `/healthz` stays at the root. No unversioned alias is kept. The refresh-token cookie keeps `Path=/api` on purpose — it still matches `/api/v1/refresh` and `/logout`, and survives a future `/api/v2`.
 - `2026-10-05`: `/healthz` moved from `/api/healthz` to the root. `render.yaml`'s `healthCheckPath` and the keep-alive cron both probe `/healthz`, which the deleted Chi app used to serve; after the cutover cleanup nothing answered it and Render would have marked every deploy unhealthy. `TestHealthzAtRoot` pins it.
 - `2026-10-05`: `APP_BASE_URL` now documented (and defaulted, to `http://localhost:5173`) as `client/`'s URL, not this server's — email links point at client routes.
 - `2026-10-05`: this file renamed from `backend.md` to `server.md` to match the `server/` directory it describes.

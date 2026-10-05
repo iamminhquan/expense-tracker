@@ -13,10 +13,10 @@ Salary, ...).
 Two packages:
 
 - **`server/`** — the backend. A Gin-routed JSON API (`internal/api`)
-  under `/api/*`, JWT access tokens + an httpOnly-cookie refresh token, no
+  under `/api/v1/*`, JWT access tokens + an httpOnly-cookie refresh token, no
   server-rendered HTML; PostgreSQL via `sqlc`-generated queries.
 - **`client/`** — the frontend. A Vite + React + TypeScript + Tailwind v4
-  single-page app that talks to `server/` entirely over `/api/*`.
+  single-page app that talks to `server/` entirely over `/api/v1/*`.
 
 See `.claude/context/server.md` and `.claude/context/client.md` for the
 full picture of each half.
@@ -82,7 +82,7 @@ full picture of each half.
    separate migration step to run by hand, whether against a brand-new
    empty database or an already-migrated one restarting.
 
-4. The server now only answers `/api/*` and `/healthz` — there's nothing to
+4. The server now only answers `/api/v1/*` and `/healthz` — there's nothing to
    visit directly in a browser. Run `client/` (below) and visit *that*
    dev server instead; it proxies `/api/*` to this one.
 

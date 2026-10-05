@@ -18,7 +18,7 @@ func NewRouter(deps Deps) *gin.Engine {
 
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 
-	api := r.Group("/api")
+	api := r.Group("/api/v1")
 	{
 		api.POST("/register", registerHandler(deps))
 		api.POST("/login", loginHandler(deps))

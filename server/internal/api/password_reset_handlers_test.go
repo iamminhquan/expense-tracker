@@ -14,9 +14,9 @@ func TestForgotAndResetPassword(t *testing.T) {
 	router := api.NewRouter(deps)
 	email, _, _, _ := registerTestAccount(t, deps, router)
 
-	rec := doJSON(t, router, http.MethodPost, "/api/forgot-password", map[string]string{"email": email})
+	rec := doJSON(t, router, http.MethodPost, "/api/v1/forgot-password", map[string]string{"email": email})
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("POST /api/forgot-password = %d %s, want 204", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/forgot-password = %d %s, want 204", rec.Code, rec.Body.String())
 	}
 
 	// The mailer isn't configured in tests (newTestDeps uses mailer.New
@@ -33,24 +33,24 @@ func TestForgotAndResetPassword(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/reset-password?token="+token, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reset-password?token="+token, nil)
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("GET /api/reset-password?token=... = %d %s, want 204", rec.Code, rec.Body.String())
+		t.Fatalf("GET /api/v1/reset-password?token=... = %d %s, want 204", rec.Code, rec.Body.String())
 	}
 
 	const newPassword = "a-brand-new-password"
-	rec = doJSON(t, router, http.MethodPost, "/api/reset-password", map[string]string{
+	rec = doJSON(t, router, http.MethodPost, "/api/v1/reset-password", map[string]string{
 		"token": token, "password": newPassword, "passwordConfirm": newPassword,
 	})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/reset-password = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/reset-password = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	decodeAuthResponse(t, rec) // signs the visitor in on success
 
-	rec = doJSON(t, router, http.MethodPost, "/api/login", map[string]string{"email": email, "password": newPassword})
+	rec = doJSON(t, router, http.MethodPost, "/api/v1/login", map[string]string{"email": email, "password": newPassword})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/login with the new password = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/login with the new password = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 }
 
@@ -59,17 +59,17 @@ func TestResetPasswordRejectsInvalidToken(t *testing.T) {
 	router := api.NewRouter(deps)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/reset-password?token=not-a-real-token", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reset-password?token=not-a-real-token", nil)
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
-		t.Errorf("GET /api/reset-password (bad token) = %d, want 404", rec.Code)
+		t.Errorf("GET /api/v1/reset-password (bad token) = %d, want 404", rec.Code)
 	}
 
-	rec = doJSON(t, router, http.MethodPost, "/api/reset-password", map[string]string{
+	rec = doJSON(t, router, http.MethodPost, "/api/v1/reset-password", map[string]string{
 		"token": "not-a-real-token", "password": "whatever123", "passwordConfirm": "whatever123",
 	})
 	if rec.Code != http.StatusNotFound {
-		t.Errorf("POST /api/reset-password (bad token) = %d, want 404", rec.Code)
+		t.Errorf("POST /api/v1/reset-password (bad token) = %d, want 404", rec.Code)
 	}
 }
 
@@ -87,9 +87,9 @@ func TestVerifyEmail(t *testing.T) {
 		t.Fatalf("query verification token (register should have queued one): %v", err)
 	}
 
-	rec := doJSON(t, router, http.MethodPost, "/api/verify-email", map[string]string{"token": token})
+	rec := doJSON(t, router, http.MethodPost, "/api/v1/verify-email", map[string]string{"token": token})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/verify-email = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/verify-email = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	result := decodeJSON[struct {
 		Verified bool `json:"verified"`
@@ -107,9 +107,9 @@ func TestVerifyEmailInvalidTokenIsNotAnError(t *testing.T) {
 	deps := newTestDeps(t)
 	router := api.NewRouter(deps)
 
-	rec := doJSON(t, router, http.MethodPost, "/api/verify-email", map[string]string{"token": "not-a-real-token"})
+	rec := doJSON(t, router, http.MethodPost, "/api/v1/verify-email", map[string]string{"token": "not-a-real-token"})
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /api/verify-email (bad token) = %d %s, want 200 (mirrors handlers.verifyEmailPage's zero-value outcome)", rec.Code, rec.Body.String())
+		t.Fatalf("POST /api/v1/verify-email (bad token) = %d %s, want 200 (mirrors handlers.verifyEmailPage's zero-value outcome)", rec.Code, rec.Body.String())
 	}
 	result := decodeJSON[struct {
 		Verified bool `json:"verified"`

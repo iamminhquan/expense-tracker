@@ -26,7 +26,7 @@ func TestDashboardReflectsTransactions(t *testing.T) {
 		{expenseCat, "expense", 30000},
 		{incomeCat, "income", 100000},
 	} {
-		req := authedRequest(t, deps, http.MethodPost, "/api/transactions", userID)
+		req := authedRequest(t, deps, http.MethodPost, "/api/v1/transactions", userID)
 		req.Body = jsonBody(t, map[string]any{
 			"categoryId": tc.categoryID, "amount": tc.amount, "type": tc.typ,
 			"occurredOn": today, "description": "",
@@ -35,14 +35,14 @@ func TestDashboardReflectsTransactions(t *testing.T) {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 		if rec.Code != http.StatusCreated {
-			t.Fatalf("seed POST /api/transactions (%s) = %d %s", tc.typ, rec.Code, rec.Body.String())
+			t.Fatalf("seed POST /api/v1/transactions (%s) = %d %s", tc.typ, rec.Code, rec.Body.String())
 		}
 	}
 
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/dashboard", userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/dashboard", userID))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /api/dashboard = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("GET /api/v1/dashboard = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	dash := decodeJSON[struct {
@@ -115,9 +115,9 @@ func TestDashboardEmptyMonthReportsEmpty(t *testing.T) {
 	userID := createTestUser(t, deps)
 
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/dashboard", userID))
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/dashboard", userID))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /api/dashboard = %d %s, want 200", rec.Code, rec.Body.String())
+		t.Fatalf("GET /api/v1/dashboard = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 	dash := decodeJSON[struct {
 		CurrentMonthEmpty bool                 `json:"currentMonthEmpty"`

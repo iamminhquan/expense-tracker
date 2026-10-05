@@ -69,7 +69,7 @@ func markDuplicates(rows []transactionDTO) {
 	}
 }
 
-// listTransactionsResponse is GET /api/transactions' body: the requested
+// listTransactionsResponse is GET /api/v1/transactions' body: the requested
 // page of rows, enough to draw pagination, and the month-picker state the
 // transactions page needs (which months have data, which one is "now").
 type listTransactionsResponse struct {
@@ -135,7 +135,7 @@ func listTransactionsHandler(deps Deps) gin.HandlerFunc {
 	}
 }
 
-// txnWriteRequest is the body shape POST and PATCH /api/transactions both
+// txnWriteRequest is the body shape POST and PATCH /api/v1/transactions both
 // bind -- see createTransactionHandler/updateTransactionHandler for which
 // fields each actually uses. Type is a *string (not plain string) only so
 // create can tell "absent" apart from "": update ignores it entirely,

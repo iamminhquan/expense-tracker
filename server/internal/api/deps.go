@@ -1,4 +1,4 @@
-// Package api is the Gin-routed JSON API ("/api/*") that is the whole
+// Package api is the Gin-routed JSON API ("/api/v1/*") that is the whole
 // backend -- it replaced the Chi-routed, html/template-rendered
 // internal/handlers package, which no longer exists (see
 // .claude/context/server.md for the current architecture and git history
@@ -13,7 +13,7 @@ import (
 )
 
 // Deps holds the shared dependencies for the JSON API handlers -- the
-// /api/* counterpart to handlers.Deps. It carries no Templates field (this
+// /api/v1/* counterpart to handlers.Deps. It carries no Templates field (this
 // package never renders HTML) and adds the JWT/CORS config the HTML side
 // has no use for.
 type Deps struct {
