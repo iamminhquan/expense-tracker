@@ -1,0 +1,44 @@
+name: CI
+
+# Deployment itself is not done here: Render auto-deploys server/ on push to
+# main (render.yaml, rootDir: server), and Vercel auto-deploys client/ via
+# its own GitHub integration. This workflow is the pre-merge gate for both
+# halves of the monorepo.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    name: server (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+
+  client:
+    name: client (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
