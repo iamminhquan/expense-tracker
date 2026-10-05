@@ -85,8 +85,12 @@ Gin JSON API in `server/` and a React SPA in `client/`.
   polish (plain responsive layout instead), styling is a faithful-effort
   port of the design tokens rather than a pixel-exact match of every
   template, Dashboard's month picker is still local `useState` (not yet
-  brought in line with Transactions' URL-as-source-of-truth fix). No
-  dedicated context file yet — one gets written once the page set
+  brought in line with Transactions' URL-as-source-of-truth fix). Every
+  page is its own lazy-loaded chunk (`App.tsx`'s `lazy()` imports, one
+  `<Suspense>` boundary around the whole route tree) -- Chart.js alone is
+  ~170KB, and splitting by route means a signed-out visitor's first paint
+  never fetches it. No dedicated context file yet — one gets written once
+  the page set
   stabilizes.
 - Deploy target: `server/` on Render (`server/render.yaml`, `rootDir:
   server`), `client/` on Vercel (`client/vercel.json`) once cutover happens.
