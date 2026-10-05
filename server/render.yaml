@@ -73,10 +73,11 @@ services:
         value: session_id
       # PORT is intentionally absent: Render injects it into the container and
       # config.Load() already reads it, defaulting to 8080 only for local runs.
-      # The password-reset email needs an absolute link back to this service;
-      # set by hand once the Render URL is known (e.g.
-      # https://expense-tracker.onrender.com), since it isn't knowable at
-      # blueprint-write time and isn't a secret either way.
+      # The password-reset/verify-email emails link to client/'s
+      # /reset-password and /verify-email routes -- this must be the
+      # Vercel domain (e.g. https://expense-tracker.vercel.app), NOT this
+      # Render service's own URL, which has no such route. Set by hand
+      # once that domain is known, since it isn't a secret either way.
       - key: APP_BASE_URL
         sync: false
       # Set by hand in the Render dashboard: a Brevo API key (Settings ->

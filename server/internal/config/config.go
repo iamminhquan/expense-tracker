@@ -30,9 +30,11 @@ type Config struct {
 	// production once the app is served over HTTPS, otherwise browsers
 	// will silently refuse to store the cookie.
 	SecureCookies bool
-	// BaseURL is the scheme+host the app is reachable at, used to build
-	// absolute links (the password-reset email) that make sense read
-	// outside the browser session that requested them.
+	// BaseURL is the scheme+host of client/, not server/ -- the
+	// password-reset and verification emails link to /reset-password and
+	// /verify-email, which are React Router routes the SPA serves, not
+	// anything this API answers. Getting this backwards means a perfectly
+	// sent email with a link to nowhere (the API has no such GET route).
 	BaseURL string
 	// BrevoAPIKey and MailFrom configure the Brevo account password-reset
 	// email is sent through (see internal/mailer). Both optional: an empty
@@ -70,11 +72,13 @@ func Load() (Config, error) {
 	port := getEnv("PORT", "8080")
 
 	return Config{
-		DatabaseURL:        databaseURL,
-		Port:               port,
-		SessionCookieName:  getEnv("SESSION_COOKIE_NAME", "session_id"),
-		SecureCookies:      getEnvBool("SECURE_COOKIES", false),
-		BaseURL:            getEnv("APP_BASE_URL", "http://localhost:"+port),
+		DatabaseURL:       databaseURL,
+		Port:              port,
+		SessionCookieName: getEnv("SESSION_COOKIE_NAME", "session_id"),
+		SecureCookies:     getEnvBool("SECURE_COOKIES", false),
+		// Default assumes the client/ dev server at Vite's default port,
+		// not this server's own port -- see BaseURL's doc comment above.
+		BaseURL:            getEnv("APP_BASE_URL", "http://localhost:5173"),
 		BrevoAPIKey:        getEnv("BREVO_API_KEY", ""),
 		MailFrom:           getEnv("MAIL_FROM", ""),
 		JWTSecret:          []byte(jwtSecret),

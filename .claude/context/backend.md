@@ -171,7 +171,7 @@ sqlc generate
 ## Environment Variables That Matter
 
 - `DATABASE_URL`, `PORT`, `SESSION_COOKIE_NAME`, `SECURE_COOKIES` — core wiring. `SESSION_COOKIE_NAME` names the refresh-token cookie (the name predates it being the only cookie this server sets). `SECURE_COOKIES=true` is required once served over HTTPS, or the refresh-token cookie is silently refused.
-- `APP_BASE_URL` — absolute link base for password-reset/verification emails; defaults to `http://localhost:$PORT`.
+- `APP_BASE_URL` — scheme+host of **`client/`, not this server** — password-reset/verification emails link to its `/reset-password`/`/verify-email` React Router routes, which this API doesn't answer itself. Defaults to `http://localhost:5173` (Vite's default port); set to the Vercel domain in production.
 - `BREVO_API_KEY`, `MAIL_FROM` — password-reset/verification email, sent over Brevo's HTTP API rather than SMTP, because Render's free tier blocks outbound SMTP ports but never 443. Optional — blank leaves forgot-password working end to end except the actual send, which is logged instead.
 - `JWT_SECRET` — signs/verifies access tokens (`internal/auth/jwt.go`). Required, no fallback, same reasoning as `DATABASE_URL`: `config.Load()` refuses to start without it rather than sign tokens with a key baked into the source tree.
 - `CORS_ALLOWED_ORIGINS` — comma-separated origins the API's CORS middleware accepts credentialed cross-origin requests from (the `client/` deployment's domain). Optional; blank means none, correct until `client/` has a real deployment to allow.
