@@ -1,5 +1,2 @@
 .env
-# The Go server binary Render builds (see server/render.yaml), now built
-# inside server/ instead of the old repo root.
 /server/server
-.agents/
