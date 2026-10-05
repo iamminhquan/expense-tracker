@@ -35,9 +35,8 @@ Both overlap the `.claude/rules/*.md` files by design (same facts, read in one p
 - `internal/web/`: `go:embed`ed templates and static assets.
 - `internal/database/`: migrations and hand-written SQL queries; `internal/sqlcgen/` holds the generated bindings (never hand-edited — edit the `.sql` and regenerate).
 - `internal/auth/`, `internal/csrf/`: sessions, passwords, lockout, CSRF.
-- `internal/csvimport/`, `internal/bankmail/`, `internal/classify/`, `internal/inbound/`, `internal/inboxproc/`: CSV import and bank-email ingestion.
+- `internal/csvimport/`: CSV import.
 - `internal/format/`, `internal/i18n/`, `internal/txnrule/`, `internal/pgval/`: shared helpers (display formatting, category names, transaction limits, pgtype wrappers).
-- `emailworker/`: the Cloudflare Email Worker — a second deploy target, not touched by a normal `git push`.
 - `.claude/rules/`: path-scoped coding rules, one file per area.
 - `.claude/skills/`: step-by-step processes (committing changes, opening a pull request).
 
@@ -46,6 +45,7 @@ Both overlap the `.claude/rules/*.md` files by design (same facts, read in one p
 - Prefer code and the files in `.claude/context/` and `.claude/rules/` when documentation conflicts.
 
 ## Change Log
+- `2026-10-05`: bank-email auto-tracking feature removed in full — `internal/bankmail`, `internal/classify`, `internal/inbound`, `internal/inboxproc`, and `emailworker/` deleted; `bank_emails`, `category_hints`, `bank_accounts` tables and `transactions.source`/`bank_email_id`/`users.inbox_token` columns dropped via a new migration; `other_income` category kept. Repository Map entry above updated to match. `.claude/rules/email-ingestion.md` deleted; `deployment.md` and `categories.md` trimmed.
 - `2026-10-04`: `CLAUDE.md` split into `.claude/context/` (this directory), `.claude/rules/`, and `.claude/skills/`; this `README.md` added as the context directory's index.
 - `2026-10-04`: `backend.md` added — a single comprehensive backend reference (routes, schema, auth/authorization, env vars, deploy, known gaps, agent playbooks).
 - `2026-10-04`: `frontend.md` added — a single comprehensive frontend reference (templates, static assets, the render pipeline, theming, htmx, charts, mobile nav), the browser-facing counterpart to `backend.md`.

@@ -13,4 +13,4 @@ paths:
 - A mutating request must echo the cookie back, either:
   - as the `X-CSRF-Token` header for htmx requests (the `htmx:configRequest` listener in `static/app.js` copies the `<meta name="csrf-token">` value into it), or
   - as a hidden `csrf_token` field for plain `<form method="POST">` submissions, e.g. logout.
-- `/inbox/{token}` is the one route exempt from CSRF; see `email-ingestion.md`.
+- Every route goes through `csrf.Middleware`; there is no exempt route.

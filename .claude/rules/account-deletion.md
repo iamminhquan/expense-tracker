@@ -13,7 +13,7 @@ Deleting an account is a hard delete (`deleteAccountHandler` / `deleteAccount` i
 ## Rules
 
 - No `deleted_at` flag and no grace period. It would put an "is this account still alive" predicate on every query, and $pend has no billing, audit trail or support desk that a recoverable window would serve.
-- `deleteAccount` removes, in one DB transaction and in this order: transactions, bank emails, category hints, the account's own categories, then the user row. Keep those steps explicit; don't lean on the `ON DELETE CASCADE` on `users`.
+- `deleteAccount` removes, in one DB transaction and in this order: transactions, then the account's own categories, then the user row. Keep those steps explicit; don't lean on the `ON DELETE CASCADE` on `users`.
 - Never touch the shared defaults. They carry a NULL `user_id`, so `WHERE user_id = $1` cannot reach them.
 - Sessions and both token tables cascade; leave them to it.
 - Gate the delete on the current password, like the email and password forms. On success redirect to `/login?deleted=1`, since no account is left to show the message to.
