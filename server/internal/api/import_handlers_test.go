@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"expensetracker/internal/api"
@@ -133,5 +134,22 @@ func TestImportUnknownFormatAsksForMapping(t *testing.T) {
 	}
 	if len(mapping.Columns) != 3 {
 		t.Errorf("Columns = %v, want 3 columns", mapping.Columns)
+	}
+
+	// Regression test for a third instance of the bug class
+	// .claude/rules/json-api-conventions.md documents (alongside the
+	// nil-slice-serializes-as-null one): csvimport.DateFormat,
+	// NewCategory, and RowError carry no JSON tags of their own, so
+	// embedding them directly would leak their Go field names
+	// ("Key"/"Label", "Name"/"Type", "Line"/"Message") instead of this
+	// API's camelCase convention. dateFormatDTO/importNewCategoryDTO/
+	// rowErrorDTO wrap them; this pins that the wrapping actually
+	// happened for the one of the three this response carries.
+	body := rec.Body.String()
+	if !strings.Contains(body, `"key"`) || !strings.Contains(body, `"label"`) {
+		t.Errorf("dateFormats entries are missing camelCase key/label fields -- a PascalCase leak from csvimport.DateFormat?\nbody: %s", body)
+	}
+	if strings.Contains(body, `"Key"`) || strings.Contains(body, `"Label"`) {
+		t.Errorf("response body contains PascalCase Key/Label -- csvimport.DateFormat serialized directly instead of through dateFormatDTO\nbody: %s", body)
 	}
 }

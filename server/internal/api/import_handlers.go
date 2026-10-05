@@ -46,15 +46,35 @@ var mappingFields = []struct {
 // everything the mapping screen needs to draw itself and nothing it
 // doesn't.
 type mappingNeededResponse struct {
-	NeedsMapping  bool                   `json:"needsMapping"`
-	Columns       []string               `json:"columns"`
-	Sample        [][]string             `json:"sample"`
-	Rows          int                    `json:"rows"`
-	Guess         mappingDTO             `json:"guess"`
-	DateFormats   []csvimport.DateFormat `json:"dateFormats"`
-	AmbiguousDate bool                   `json:"ambiguousDate"`
-	CategoryNames []string               `json:"categoryNames"`
-	Fingerprint   string                 `json:"fingerprint"`
+	NeedsMapping  bool            `json:"needsMapping"`
+	Columns       []string        `json:"columns"`
+	Sample        [][]string      `json:"sample"`
+	Rows          int             `json:"rows"`
+	Guess         mappingDTO      `json:"guess"`
+	DateFormats   []dateFormatDTO `json:"dateFormats"`
+	AmbiguousDate bool            `json:"ambiguousDate"`
+	CategoryNames []string        `json:"categoryNames"`
+	Fingerprint   string          `json:"fingerprint"`
+}
+
+// dateFormatDTO wraps csvimport.DateFormat, which has no JSON tags of its
+// own (it was never meant to leave the HTML template that ranges over
+// DateFormats directly) and would otherwise serialize its exported fields
+// as "Key"/"Label" -- inconsistent with every other camelCase field this
+// API returns. Key is what the client submits back as date_layout; the
+// unexported layout (the actual time.Parse format string) stays
+// server-side, which is exactly right -- the client never needs it.
+type dateFormatDTO struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
+func newDateFormatDTOs(formats []csvimport.DateFormat) []dateFormatDTO {
+	out := make([]dateFormatDTO, len(formats))
+	for i, f := range formats {
+		out[i] = dateFormatDTO{Key: f.Key, Label: f.Label}
+	}
+	return out
 }
 
 // mappingDTO is csvimport.Mapping's column-role fields addressed by name
@@ -83,16 +103,46 @@ func newMappingDTO(m csvimport.Mapping) mappingDTO {
 // through the browser's own form submission -- a JSON client already
 // holds the mapping it sent and resends it with confirm=1 itself).
 type importPreviewResponse struct {
-	Preview       bool                    `json:"preview"`
-	RowCount      int                     `json:"rowCount"`
-	NewCategories []csvimport.NewCategory `json:"newCategories"`
-	Errors        []csvimport.RowError    `json:"errors"`
-	MoreErrors    int                     `json:"moreErrors"`
-	Rounded       int                     `json:"rounded"`
-	Duplicates    int                     `json:"duplicates"`
-	Fingerprint   string                  `json:"fingerprint"`
-	Importable    bool                    `json:"importable"`
-	DateSuspect   bool                    `json:"dateSuspect"`
+	Preview       bool                   `json:"preview"`
+	RowCount      int                    `json:"rowCount"`
+	NewCategories []importNewCategoryDTO `json:"newCategories"`
+	Errors        []rowErrorDTO          `json:"errors"`
+	MoreErrors    int                    `json:"moreErrors"`
+	Rounded       int                    `json:"rounded"`
+	Duplicates    int                    `json:"duplicates"`
+	Fingerprint   string                 `json:"fingerprint"`
+	Importable    bool                   `json:"importable"`
+	DateSuspect   bool                   `json:"dateSuspect"`
+}
+
+// importNewCategoryDTO and rowErrorDTO wrap csvimport.NewCategory/RowError,
+// which -- like csvimport.DateFormat above -- have no JSON tags of their
+// own and would otherwise serialize as "Name"/"Type" and "Line"/"Message"
+// instead of this API's camelCase convention.
+type importNewCategoryDTO struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type rowErrorDTO struct {
+	Line    int    `json:"line"`
+	Message string `json:"message"`
+}
+
+func newImportNewCategoryDTOs(categories []csvimport.NewCategory) []importNewCategoryDTO {
+	out := make([]importNewCategoryDTO, len(categories))
+	for i, c := range categories {
+		out[i] = importNewCategoryDTO{Name: c.Name, Type: c.Type}
+	}
+	return out
+}
+
+func newRowErrorDTOs(errs []csvimport.RowError) []rowErrorDTO {
+	out := make([]rowErrorDTO, len(errs))
+	for i, e := range errs {
+		out[i] = rowErrorDTO{Line: e.Line, Message: e.Message}
+	}
+	return out
 }
 
 // maxShownErrors mirrors handlers.maxShownErrors.
@@ -153,7 +203,7 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 			}
 			c.JSON(http.StatusOK, mappingNeededResponse{
 				NeedsMapping: true, Columns: sheet.Columns, Sample: sheet.Sample, Rows: sheet.Rows,
-				Guess: newMappingDTO(sheet.Guess), DateFormats: csvimport.DateFormats,
+				Guess: newMappingDTO(sheet.Guess), DateFormats: newDateFormatDTOs(csvimport.DateFormats),
 				AmbiguousDate: sheet.AmbiguousDate, CategoryNames: names, Fingerprint: sheet.Fingerprint,
 			})
 			return
@@ -183,25 +233,18 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 		}
 
 		if c.PostForm("confirm") == "" {
-			// csvimport.Plan builds Errors/NewCategories via `append` onto a
-			// zero-value *Import, so a clean file (no errors) or one that
-			// names no new category leaves the corresponding field nil --
-			// which would otherwise ship as JSON null instead of [].
-			// See .claude/rules/json-api-conventions.md.
-			newCategories := plan.NewCategories
-			if newCategories == nil {
-				newCategories = []csvimport.NewCategory{}
-			}
 			shown, more := plan.Errors, 0
-			if shown == nil {
-				shown = []csvimport.RowError{}
-			}
 			if len(shown) > maxShownErrors {
 				shown, more = shown[:maxShownErrors], len(plan.Errors)-maxShownErrors
 			}
+			// newImportNewCategoryDTOs/newRowErrorDTOs build via make([]T,
+			// len(...)), which is never nil even for a 0-length input --
+			// unlike csvimport.Plan's own Errors/NewCategories fields,
+			// which go nil (not just empty) for a clean file or one that
+			// names no new category. See .claude/rules/json-api-conventions.md.
 			c.JSON(http.StatusOK, importPreviewResponse{
-				Preview: true, RowCount: len(plan.Rows), NewCategories: newCategories,
-				Errors: shown, MoreErrors: more, Rounded: plan.Rounded, Duplicates: duplicates,
+				Preview: true, RowCount: len(plan.Rows), NewCategories: newImportNewCategoryDTOs(plan.NewCategories),
+				Errors: newRowErrorDTOs(shown), MoreErrors: more, Rounded: plan.Rounded, Duplicates: duplicates,
 				Fingerprint: plan.Fingerprint, Importable: importable(plan), DateSuspect: mostlyDateErrors(plan.Errors),
 			})
 			return
