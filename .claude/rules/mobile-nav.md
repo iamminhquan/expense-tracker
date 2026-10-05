@@ -9,7 +9,7 @@ paths:
 
 ## Layout (`Layout.tsx`)
 
-- Both nav bars exist in the DOM at once -- a desktop `<nav>` and a mobile `<header>`/bottom `<nav>` -- each hidden at the breakpoint the other owns via Tailwind's `md:` prefix, rather than mounting/unmounting one on resize. This mirrors `nav.html`'s original `nav_desktop`/`nav_mobile` split.
+- Both nav bars exist in the DOM at once -- a desktop `<nav>` and a mobile `<header>`/bottom `<nav>` -- each hidden at the breakpoint the other owns via Tailwind's `md:` prefix, rather than mounting/unmounting one on resize. This mirrors the deleted HTML app's `nav_desktop`/`nav_mobile` split.
 - The mobile bottom bar is icon-free right now (text labels only) -- a simplification from the original SVG-icon bar, not a deliberate redesign. Add icons back if you pick this up.
 - `useDashboard()` is called once at the top of `Layout`, shared by every page below it (see `.claude/rules/balance-widget.md`) -- there is exactly one request for `headerBalance`, not one per page.
 

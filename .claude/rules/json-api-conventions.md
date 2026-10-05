@@ -5,7 +5,7 @@ paths:
 
 # `internal/api` conventions
 
-`internal/api` is the whole backend -- the Gin-routed JSON API every page in `client/` talks to. See `CLAUDE.md` for how it got here (a migration off an older Chi + `html/template` app, both deleted once this package reached full parity).
+`internal/api` is the whole backend -- the Gin-routed JSON API every page in `client/` talks to. See `.claude/context/server.md` for the full backend picture (it replaced an older Chi + `html/template` app, deleted once this package reached full parity).
 
 ## Rules
 

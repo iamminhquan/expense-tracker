@@ -68,7 +68,7 @@ Always use the prefix; the few unprefixed commits in history are drift.
 
 **Body**: say *why*, not *what* — what would break without this, what alternative was rejected, what constraint shaped it. Write prose paragraphs, not bullet changelogs. Skip it when the diff is self-explanatory.
 
-**No footer**: end the message at the body. No `Co-Authored-By` trailer, no "🤖 Generated with Claude Code" line and no `Claude-Session:` link (`CLAUDE.md` rules them out, even though older commits carry a session link).
+**No footer**: end the message at the body. No `Co-Authored-By` trailer, no "🤖 Generated with Claude Code" line and no `Claude-Session:` link (this repo's convention, even though older commits carry a session link).
 
 ### 6. Commit and Confirm
 

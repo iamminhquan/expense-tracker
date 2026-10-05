@@ -138,6 +138,7 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 - No long-press/drag-to-dismiss pixel-perfect parity audit beyond the gesture logic itself (thresholds/timing match the deleted original; visual polish like SVG nav icons was simplified to text labels).
 - Dashboard's Chart.js colors don't react to a theme switch (see Important Reality Checks above).
 - No client-side email-verification reminder (see Important Reality Checks above).
+- Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
 - No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.
 
