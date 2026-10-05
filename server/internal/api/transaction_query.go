@@ -79,8 +79,15 @@ type monthOptionDTO struct {
 	Label string `json:"label"`
 }
 
+// monthOptions starts from an empty (never nil) slice -- encoding/json
+// renders a nil slice as JSON null, not [], and a brand-new account (or
+// one with transactions in only the current month) hits exactly this: zero
+// months to list. The client indexes straight into availableMonths
+// (.filter, .length) without a null check, same as every other array
+// field in this package's responses -- see buildPieData's identical fix
+// and comment for the fuller account of why this convention matters here.
 func monthOptions(months []pgtype.Date, current pgtype.Date) []monthOptionDTO {
-	var options []monthOptionDTO
+	options := []monthOptionDTO{}
 	for _, m := range months {
 		if m.Time.Year() == current.Time.Year() && m.Time.Month() == current.Time.Month() {
 			continue

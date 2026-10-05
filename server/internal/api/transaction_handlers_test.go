@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +27,26 @@ func createTestCategory(t *testing.T, deps api.Deps, router http.Handler, userID
 	}
 	created := decodeJSON[struct{ ID int64 }](t, rec)
 	return created.ID
+}
+
+// Regression test for a real bug a browser smoke test caught: see
+// dashboard_handlers_test.go's identical check for the full explanation.
+// monthOptions() (availableMonths here) is the one array field this
+// endpoint shares the same nil-slice risk on; a brand-new account with no
+// transaction history anywhere hits it on its very first page load.
+func TestListTransactionsEmptyAccountHasNoNullArrays(t *testing.T) {
+	deps := newTestDeps(t)
+	router := api.NewRouter(deps)
+	userID := createTestUser(t, deps)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/transactions", userID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/transactions = %d %s, want 200", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"availableMonths":null`) {
+		t.Errorf("availableMonths serialized as JSON null instead of []\nbody: %s", rec.Body.String())
+	}
 }
 
 func TestCreateAndListTransactions(t *testing.T) {

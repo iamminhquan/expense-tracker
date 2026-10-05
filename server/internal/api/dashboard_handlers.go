@@ -22,19 +22,27 @@ const otherSlug = "other"
 // balanceDTO mirrors handlers.balanceSummary, dropping RatioLabel: that was
 // a pre-formatted sentence ("Spent 42% of this month's income") for a
 // template that cannot itself compute one. A JSON client has SpentPct and
-// TotalIncome==0 (via Empty) to build whatever sentence it wants, in
-// whatever language it wants, without this API baking English prose into
-// the response -- the same reasoning that kept pie/bar data as plain
-// numbers below instead of handlers.go's template.JS-wrapped JSON strings.
+// HasIncome to build whatever sentence it wants, in whatever language it
+// wants, without this API baking English prose into the response -- the
+// same reasoning that kept pie/bar data as plain numbers below instead of
+// handlers.go's template.JS-wrapped JSON strings.
+//
+// HasIncome exists because SpentPct alone is ambiguous at zero: "no income
+// this month" and "income, but nothing spent of it yet" both leave
+// SpentPct at its zero value, and a client showing the header widget (every
+// page, not just the dashboard, which is the only place TotalIncome is
+// otherwise visible) has no other way to tell the two apart.
 type balanceDTO struct {
 	Remaining int64 `json:"remaining"`
 	SpentPct  int   `json:"spentPct"`
+	HasIncome bool  `json:"hasIncome"`
 	Empty     bool  `json:"empty"`
 }
 
 func newBalanceDTO(expense, income, carriedOver int64) balanceDTO {
 	d := balanceDTO{
 		Remaining: carriedOver + income - expense,
+		HasIncome: income > 0,
 		Empty:     carriedOver == 0 && expense == 0 && income == 0,
 	}
 	if income <= 0 {
@@ -188,7 +196,16 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 		}
 	}
 
-	var d pieDataDTO
+	// Every field starts as an empty (never nil) slice: encoding/json
+	// renders a nil slice as JSON null rather than [], and a month with no
+	// expenses at all -- the dashboard every brand-new account lands on --
+	// hits exactly that (the loop below never runs, otherSum stays 0, so a
+	// `var d pieDataDTO` zero value would ship every field as null). The
+	// client indexes straight into these arrays (.length, .map) without a
+	// null check, same as monthOptions and every other array field this
+	// package returns -- that's the actual reason to follow this
+	// convention everywhere, not just where it happens to matter today.
+	d := pieDataDTO{Labels: []string{}, Values: []int64{}, Colors: []string{}, Legend: []pieLegendEntryDTO{}}
 	for _, row := range shown {
 		name := i18n.CategoryName(row.CategorySlug, row.CategoryName)
 		d.Labels = append(d.Labels, name)
@@ -227,7 +244,12 @@ func buildBarSeries(series []sqlcgen.MonthlyTotalsSeriesRow, currentMonthStart t
 	for _, row := range series {
 		byMonth[row.Month.Time.Format("2006-01")] = row
 	}
-	var d barDataDTO
+	// Always ends up with exactly `months` entries via the loop below, so
+	// this can't actually go out nil -- initialized as empty slices anyway
+	// to keep the convention uniform across every array field in this
+	// package rather than leaving a reader to wonder why this one DTO is
+	// the exception.
+	d := barDataDTO{Labels: []string{}, Expense: []int64{}, Income: []int64{}}
 	for i := months - 1; i >= 0; i-- {
 		m := currentMonthStart.AddDate(0, -i, 0)
 		d.Labels = append(d.Labels, m.Format("Jan"))

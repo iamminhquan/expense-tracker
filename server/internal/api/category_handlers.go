@@ -74,7 +74,13 @@ func listCategoriesHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 
-		resp := categoriesListResponse{}
+		// Both lists start empty (never nil) for the same reason
+		// transaction_query.go's monthOptions and dashboard_handlers.go's
+		// buildPieData do: encoding/json renders a nil slice as null, and
+		// the client indexes straight into these arrays with no null
+		// check. In practice the default categories mean neither list is
+		// ever truly empty, but nothing guarantees that stays true.
+		resp := categoriesListResponse{ExpenseCategories: []categoryDTO{}, IncomeCategories: []categoryDTO{}}
 		for _, row := range rows {
 			dto := categoryDTO{
 				ID:               row.ID,

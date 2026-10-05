@@ -54,10 +54,17 @@ type userDTO struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Username string `json:"username"`
+	// Theme rides along here rather than only in GET /api/settings: the
+	// client applies it as soon as it knows who's signed in (on
+	// bootstrap, via /api/refresh or /api/me), the same moment
+	// handlers.authPageView loads it for every authenticated page's nav
+	// on the HTML side. Waiting for a separate /api/settings call would
+	// mean every page flashes the wrong theme before it's ready.
+	Theme string `json:"theme"`
 }
 
 func newUserDTO(u sqlcgen.User) userDTO {
-	return userDTO{ID: u.ID, Name: u.Name, Email: u.Email, Username: u.Username}
+	return userDTO{ID: u.ID, Name: u.Name, Email: u.Email, Username: u.Username, Theme: u.Theme}
 }
 
 // authResponse is what register/login/refresh all return: a fresh access
@@ -279,6 +286,23 @@ func issueAuthResponse(c *gin.Context, deps Deps, user sqlcgen.User) {
 	c.JSON(http.StatusOK, authResponse{AccessToken: accessToken, ExpiresAt: accessExpiresAt, User: newUserDTO(user)})
 }
 
+// refreshCookieSameSite picks SameSite to match SecureCookies rather than
+// hardcoding None: None requires Secure on every modern browser
+// (Chrome rejects a SameSite=None cookie outright if Secure is missing,
+// regardless of same-site-ness), and SecureCookies is false for local HTTP
+// dev -- a hardcoded None silently dropped the cookie there entirely,
+// which surfaced as every hard page reload bouncing back to /login despite
+// a successful login. Lax is both valid without Secure and sufficient for
+// local dev, where the Vite proxy makes the browser see one origin anyway;
+// None+Secure is still what production (Vercel calling Render,
+// genuinely cross-site) needs, and SecureCookies is true there.
+func refreshCookieSameSite(secure bool) http.SameSite {
+	if secure {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
+}
+
 func setRefreshCookie(c *gin.Context, deps Deps, token string, expiresAt time.Time) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     deps.RefreshCookieName,
@@ -286,12 +310,7 @@ func setRefreshCookie(c *gin.Context, deps Deps, token string, expiresAt time.Ti
 		Expires:  expiresAt,
 		HttpOnly: true,
 		Path:     "/api",
-		// SameSite=None is what a genuinely cross-site refresh request
-		// (Vercel calling Render) needs; it requires Secure, which
-		// SecureCookies gates the same way the HTML side's session cookie
-		// does. Lax would silently stop the cookie being sent on the
-		// cross-origin fetch the refresh endpoint exists for.
-		SameSite: http.SameSiteNoneMode,
+		SameSite: refreshCookieSameSite(deps.SecureCookies),
 		Secure:   deps.SecureCookies,
 	})
 }
@@ -302,7 +321,7 @@ func clearRefreshCookie(c *gin.Context, deps Deps) {
 		Value:    "",
 		MaxAge:   -1,
 		Path:     "/api",
-		SameSite: http.SameSiteNoneMode,
+		SameSite: refreshCookieSameSite(deps.SecureCookies),
 		Secure:   deps.SecureCookies,
 	})
 }

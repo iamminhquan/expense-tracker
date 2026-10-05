@@ -3,6 +3,7 @@ package api_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,5 +128,24 @@ func TestDashboardEmptyMonthReportsEmpty(t *testing.T) {
 	}
 	if !dash.HeaderBalance.Empty {
 		t.Error("HeaderBalance.Empty = false for a brand-new account, want true")
+	}
+
+	// Regression test for a real bug a browser smoke test caught: a nil Go
+	// slice (the zero value buildPieData/buildBarSeries/monthOptions would
+	// produce for an account with no data at all) marshals to JSON null,
+	// not []. The client indexes straight into these arrays with no null
+	// check (matching every other array field this API returns), so a
+	// brand-new account's very first dashboard load crashed outright.
+	// Checking the raw body is deliberate: unmarshaling "null" into a Go
+	// []T field also reads back as nil, which would hide the regression
+	// from a struct-shaped assertion the way dash's decodeJSON above does.
+	for _, field := range []string{
+		`"availableMonths":null`,
+		`"labels":null`, `"values":null`, `"colors":null`, `"legend":null`,
+		`"expense":null`, `"income":null`,
+	} {
+		if strings.Contains(rec.Body.String(), field) {
+			t.Errorf("response body contains %q -- an empty array field serialized as JSON null instead of []\nbody: %s", field, rec.Body.String())
+		}
 	}
 }
