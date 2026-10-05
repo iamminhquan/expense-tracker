@@ -43,11 +43,13 @@ Gin JSON API in `server/` and a React SPA in `client/`.
     filters/month-scope/paging semantics as the HTML side
     (`transaction_query.go` duplicates `req_month.go`/`req_filters.go`/
     `req_paging.go`, minus the `HX-Current-URL` machinery a JSON client has
-    no use for; see `.claude/rules/req-value-objects.md`). CSV
-    import/export and dashboard/settings endpoints are still TODO. No
-    dedicated context file for `internal/api` yet — one gets written once
-    it covers the full route surface backend.md describes for the Chi side
-    today.
+    no use for; see `.claude/rules/req-value-objects.md`); and
+    `/api/dashboard` (`GET`) — same pie/bar-chart aggregation as the HTML
+    side, returning raw numbers instead of pre-formatted display strings
+    or `template.JS`-wrapped JSON (see `.claude/rules/dashboard.md`). CSV
+    import/export and settings endpoints are still TODO. No dedicated
+    context file for `internal/api` yet — one gets written once it covers
+    the full route surface backend.md describes for the Chi side today.
 - **`client/`** is a fresh Vite + React + TypeScript + Tailwind v4 scaffold
   (pnpm workspace) with no real pages yet — see `client/src/App.tsx`. It has
   no dedicated context file yet; one gets written once it has real pages to
