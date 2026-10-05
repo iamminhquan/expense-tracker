@@ -1,5 +1,10 @@
 .env
-/server
-emailworker/node_modules/
-emailworker/.wrangler/
+# The Go server binary Render builds (see server/render.yaml), now built
+# inside server/ instead of the old repo root.
+/server/server
 .agents/
+
+# pnpm workspace root -- client/ is the only workspace package today, but
+# pnpm still stores its content-addressable store/symlinks at the
+# workspace root rather than only under client/node_modules.
+node_modules/

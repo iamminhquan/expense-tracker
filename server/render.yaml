@@ -18,10 +18,16 @@ services:
     # in the same region so a query doesn't cross an ocean on every request.
     region: singapore
     branch: main
+    # This is the server/ half of a monorepo (client/ deploys separately to
+    # Vercel). rootDir makes Render cd into server/ before running either
+    # command below, so buildCommand/startCommand and every relative path
+    # they touch (go.mod, migrations) resolve the same way they did when the
+    # repo root was the module root.
+    rootDir: server
     # Templates and static assets are embedded in the binary, but the
     # migrations are still read from a path relative to the working
-    # directory, so the binary is built into -- and started from -- the repo
-    # root, which is where Render runs both commands.
+    # directory, so the binary is built into -- and started from -- rootDir
+    # (server/), which is where Render runs both commands.
     buildCommand: go build -o server ./cmd/server
     startCommand: ./server
     # Every push to main rebuilds and redeploys. The server applies pending
