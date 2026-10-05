@@ -1,14 +1,14 @@
 ---
 paths:
-  - "internal/csvimport/**"
-  - "internal/handlers/import_*.go"
-  - "internal/web/templates/import.html"
-  - "internal/handlers/txn_export.go"
+  - "server/internal/csvimport/**"
+  - "server/internal/handlers/import_*.go"
+  - "server/internal/web/templates/import.html"
+  - "server/internal/handlers/txn_export.go"
 ---
 
 # CSV import
 
-`internal/csvimport` with `import_handlers.go` and `import_mapping.go` reads any CSV that has one transaction per row.
+`server/internal/csvimport` with `import_handlers.go` and `import_mapping.go` reads any CSV that has one transaction per row.
 
 ## Model
 
@@ -40,4 +40,4 @@ paths:
 - All three steps are one handler with no server-side state. The upload form keeps the file in the DOM and every step re-sends it through `hx-include`, so the mapping travels as form fields. The file is sniffed on every request, then rewound and planned.
 - `Import.Fingerprint` is a digest of what was read, echoed in a hidden field, so a file swapped between steps is refused rather than imported unseen.
 - Row validation enforces what the quick-add form enforces (amount, type, note length, future limit). Don't add a laxer way in.
-- The two numeric limits live in `internal/txnrule` and are read from there by the form, the inline edit and the importer. Never copy the numbers.
+- The two numeric limits live in `server/internal/txnrule` and are read from there by the form, the inline edit and the importer. Never copy the numbers.

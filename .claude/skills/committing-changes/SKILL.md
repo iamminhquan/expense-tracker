@@ -15,12 +15,21 @@ Run `git status` and `git diff` (plus `git diff --staged` once something is stag
 
 ### 2. Run the Checks
 
-All three must pass **before** committing:
+This is a monorepo (`server/` + `client/`) — run the checks for whichever package the diff touches; run both if it touches both.
+
+Touched `server/`? All three must pass, run from inside `server/`:
 
 ```bash
 go build ./...
 gofmt -l .        # must print nothing
 go vet ./...
+```
+
+Touched `client/`? Both must pass, run from inside `client/`:
+
+```bash
+pnpm lint
+pnpm build
 ```
 
 Fix any failure first. A late commit beats a commit that breaks the build.

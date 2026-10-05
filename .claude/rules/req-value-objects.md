@@ -1,11 +1,11 @@
 ---
 paths:
-  - "internal/handlers/req_*.go"
+  - "server/internal/handlers/req_*.go"
 ---
 
 # Month, filters, paging
 
-The `req_` files in `internal/handlers/` are small value objects parsed out of a request.
+The `req_` files in `server/internal/handlers/` are small value objects parsed out of a request.
 
 ## Shared pattern
 

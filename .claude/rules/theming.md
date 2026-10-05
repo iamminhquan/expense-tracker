@@ -1,12 +1,12 @@
 ---
 paths:
-  - "internal/web/static/app.css"
-  - "internal/web/static/tailwind-config.js"
-  - "internal/web/static/charts.js"
-  - "internal/handlers/view_layout_test.go"
-  - "internal/web/static/app.js"
-  - "internal/handlers/settings_theme.go"
-  - "internal/handlers/category_handlers.go"
+  - "server/internal/web/static/app.css"
+  - "server/internal/web/static/tailwind-config.js"
+  - "server/internal/web/static/charts.js"
+  - "server/internal/handlers/view_layout_test.go"
+  - "server/internal/web/static/app.js"
+  - "server/internal/handlers/settings_theme.go"
+  - "server/internal/handlers/category_handlers.go"
 ---
 
 # Theming

@@ -21,7 +21,7 @@ Both overlap the `.claude/rules/*.md` files by design (same facts, read in one p
 ## Maintenance Rule
 - Any agent changing behavior or operational assumptions in this codebase MUST update the relevant file in `.claude/context/` or `.claude/rules/` before finishing.
 - Update context when changing:
-  - routes or the `internal/handlers` package layout
+  - routes or the `server/internal/handlers` package layout
   - auth or session behavior
   - the database schema or migrations
   - environment variables
@@ -30,14 +30,18 @@ Both overlap the `.claude/rules/*.md` files by design (same facts, read in one p
   - important conventions or source-of-truth files
 
 ## Repository Map
-- `cmd/server/`: the entrypoint; wires `handlers.Deps` and starts the server.
-- `internal/handlers/`: HTTP handlers — one flat package, grouped by filename prefix (see `backend.md`'s Backend Layout section).
-- `internal/web/`: `go:embed`ed templates and static assets.
-- `internal/database/`: migrations and hand-written SQL queries; `internal/sqlcgen/` holds the generated bindings (never hand-edited — edit the `.sql` and regenerate).
-- `internal/auth/`, `internal/csrf/`: sessions, passwords, lockout, CSRF.
-- `internal/csvimport/`: CSV import.
-- `internal/format/`, `internal/i18n/`, `internal/txnrule/`, `internal/pgval/`: shared helpers (display formatting, category names, transaction limits, pgtype wrappers).
-- `.claude/rules/`: path-scoped coding rules, one file per area.
+This repo is a monorepo in transition (full context: `CLAUDE.md`'s
+"Migration in Progress" section) — `server/` and `client/` are its two
+packages:
+- `server/cmd/server/`: the entrypoint; wires `handlers.Deps` and starts the server.
+- `server/internal/handlers/`: HTTP handlers — one flat package, grouped by filename prefix (see `backend.md`'s Backend Layout section).
+- `server/internal/web/`: `go:embed`ed templates and static assets.
+- `server/internal/database/`: migrations and hand-written SQL queries; `server/internal/sqlcgen/` holds the generated bindings (never hand-edited — edit the `.sql` and regenerate).
+- `server/internal/auth/`, `server/internal/csrf/`: sessions, passwords, lockout, CSRF.
+- `server/internal/csvimport/`: CSV import.
+- `server/internal/format/`, `server/internal/i18n/`, `server/internal/txnrule/`, `server/internal/pgval/`: shared helpers (display formatting, category names, transaction limits, pgtype wrappers).
+- `client/src/`: the React SPA (Vite + TypeScript + Tailwind v4 + pnpm). Currently a placeholder scaffold (`pages/`, `components/`, `api/`, `lib/` exist but are empty) — gets filled in once the frontend rewrite reaches each page. No dedicated context file yet.
+- `.claude/rules/`: path-scoped coding rules, one file per area. All of them currently scope to `server/` paths only (`client/` has no rules yet).
 - `.claude/skills/`: step-by-step processes (committing changes, opening a pull request).
 
 ## Documentation Trust Rule
@@ -45,7 +49,8 @@ Both overlap the `.claude/rules/*.md` files by design (same facts, read in one p
 - Prefer code and the files in `.claude/context/` and `.claude/rules/` when documentation conflicts.
 
 ## Change Log
-- `2026-10-05`: bank-email auto-tracking feature removed in full — `internal/bankmail`, `internal/classify`, `internal/inbound`, `internal/inboxproc`, and `emailworker/` deleted; `bank_emails`, `category_hints`, `bank_accounts` tables and `transactions.source`/`bank_email_id`/`users.inbox_token` columns dropped via a new migration; `other_income` category kept. Repository Map entry above updated to match. `.claude/rules/email-ingestion.md` deleted; `deployment.md` and `categories.md` trimmed.
+- `2026-10-05`: repo converted into a monorepo (`server/` + `client/`), start of a Chi→Gin / html-template→React migration. All Go code `git mv`'d from the repo root into `server/` with no behavior change (build/vet/tests pass identically); `render.yaml` gained `rootDir: server`. `client/` scaffolded fresh (Vite + React + TypeScript + Tailwind v4 + pnpm workspace), currently a placeholder with no real pages. Every `paths:` frontmatter entry and path reference across `.claude/rules/*.md`, `backend.md`, and `frontend.md` gained a `server/` prefix to match the move — the rules still describe the *current* Chi/html-template backend, not a future Gin/JSON one. Root `CLAUDE.md` and `README.md` rewritten for the monorepo layout. See `CLAUDE.md`'s "Migration in Progress" section for what's actually done vs. still pending.
+- `2026-10-05`: bank-email auto-tracking feature removed in full — `server/internal/bankmail`, `server/internal/classify`, `server/internal/inbound`, `server/internal/inboxproc`, and `emailworker/` deleted; `bank_emails`, `category_hints`, `bank_accounts` tables and `transactions.source`/`bank_email_id`/`users.inbox_token` columns dropped via a new migration; `other_income` category kept. Repository Map entry above updated to match. `.claude/rules/email-ingestion.md` deleted; `deployment.md` and `categories.md` trimmed.
 - `2026-10-04`: `CLAUDE.md` split into `.claude/context/` (this directory), `.claude/rules/`, and `.claude/skills/`; this `README.md` added as the context directory's index.
 - `2026-10-04`: `backend.md` added — a single comprehensive backend reference (routes, schema, auth/authorization, env vars, deploy, known gaps, agent playbooks).
 - `2026-10-04`: `frontend.md` added — a single comprehensive frontend reference (templates, static assets, the render pipeline, theming, htmx, charts, mobile nav), the browser-facing counterpart to `backend.md`.

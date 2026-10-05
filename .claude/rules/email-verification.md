@@ -1,16 +1,16 @@
 ---
 paths:
-  - "internal/auth/email_verification.go"
-  - "internal/handlers/auth_email_verification.go"
-  - "internal/web/templates/layout.html"
-  - "internal/web/templates/verify_email.html"
-  - "internal/mailer/**"
-  - "internal/handlers/settings_handlers.go"
+  - "server/internal/auth/email_verification.go"
+  - "server/internal/handlers/auth_email_verification.go"
+  - "server/internal/web/templates/layout.html"
+  - "server/internal/web/templates/verify_email.html"
+  - "server/internal/mailer/**"
+  - "server/internal/handlers/settings_handlers.go"
 ---
 
 # Email verification
 
-Code: `internal/auth/email_verification.go` and `internal/handlers/auth_email_verification.go`.
+Code: `server/internal/auth/email_verification.go` and `server/internal/handlers/auth_email_verification.go`.
 
 ## Rules
 

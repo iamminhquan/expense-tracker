@@ -1,9 +1,9 @@
 ---
 paths:
-  - "internal/handlers/settings_handlers.go"
-  - "internal/database/queries/users.sql"
-  - "internal/database/queries/transactions.sql"
-  - "internal/database/queries/categories.sql"
+  - "server/internal/handlers/settings_handlers.go"
+  - "server/internal/database/queries/users.sql"
+  - "server/internal/database/queries/transactions.sql"
+  - "server/internal/database/queries/categories.sql"
 ---
 
 # Account deletion

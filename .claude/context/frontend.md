@@ -2,23 +2,23 @@
 
 ## Purpose
 
-- This file is the browser-facing source-of-truth for agent work on $pend: everything under `internal/web` (templates, CSS, JS) plus the slice of `internal/handlers` that exists only to feed it (`view_render.go`, `view_funcs.go`, `view_layout_test.go`) and `internal/format` (display strings).
-- $pend is a single Go monolith — there is no separate frontend build, no JS framework, no JSON API. A "frontend change" here means a `.html` template, `app.css`, or a file under `internal/web/static/*.js`; it never means a new client project. See `.claude/context/backend.md` for the server/database half of the same monolith — the two files split one codebase by concern, not by deploy target.
+- This file is the browser-facing source-of-truth for agent work on $pend: everything under `server/internal/web` (templates, CSS, JS) plus the slice of `server/internal/handlers` that exists only to feed it (`view_render.go`, `view_funcs.go`, `view_layout_test.go`) and `server/internal/format` (display strings).
+- $pend is a single Go monolith — there is no separate frontend build, no JS framework, no JSON API. A "frontend change" here means a `.html` template, `app.css`, or a file under `server/internal/web/static/*.js`; it never means a new client project. See `.claude/context/backend.md` for the server/database half of the same monolith — the two files split one codebase by concern, not by deploy target.
 - The four pages are `/dashboard`, `/transactions`, `/categories`, `/settings`, plus the pre-auth pages (`/login` /`/register`, `/forgot-password`, `/reset-password`, `/verify-email`). Every one of them is a full `html/template` page on first load and an htmx-swapped fragment on every interaction after.
 
 ## Read This First
 
 - Treat this file as the frontend source-of-truth for agent work, alongside `.claude/context/backend.md` (server/DB half) and `.claude/context/README.md` (the directory's own index).
 - The detailed rules live in `.claude/rules/*.md`, auto-loaded for the file being touched: `templates-static.md` (the render pipeline and the shared-partial list), `htmx-conventions.md` (fragments, OOB swaps, session-expiry redirects), `mobile-nav.md` (the two-tier mobile header), `theming.md` (CSS variables, the three theme preferences), `balance-widget.md` (the one balance partial both nav bars render), `dashboard.md` (the chart data handoff), `csrf.md` (the header/field a form or htmx request must echo back).
-- Prefer reading the actual templates/CSS/JS over this prose — including this file — when they disagree. `internal/web/web.go`'s `pageTemplates` map and `internal/handlers/view_render.go` are the two files that cannot drift without something breaking at parse or execute time, so they are the most reliable sources.
+- Prefer reading the actual templates/CSS/JS over this prose — including this file — when they disagree. `server/internal/web/web.go`'s `pageTemplates` map and `server/internal/handlers/view_render.go` are the two files that cannot drift without something breaking at parse or execute time, so they are the most reliable sources.
 
 ## Maintenance Rule
 
 - Any agent that changes frontend behavior MUST review and update this file (and the relevant `.claude/rules/*.md` file) before finishing work.
 - Update this file when any of these change:
   - the page/route surface a template serves (a new page, a renamed fragment)
-  - the shared-partial list in `internal/web/web.go` (`sharedTemplates`, `pageTemplates`)
-  - the render entry points or `viewData`/`pageView` contract in `internal/handlers/view_render.go`
+  - the shared-partial list in `server/internal/web/web.go` (`sharedTemplates`, `pageTemplates`)
+  - the render entry points or `viewData`/`pageView` contract in `server/internal/handlers/view_render.go`
   - the CSS variable palette or the theme mechanism
   - the CDN dependencies pinned in `layout.html` (htmx, Chart.js, Tailwind Play CDN, fonts)
   - the delegated-listener set in `app.js`, or which script loads from `<head>` vs. inline in a page's own content
@@ -31,8 +31,8 @@
 - Styling: Tailwind via the Play CDN (`cdn.tailwindcss.com`), configured at runtime by `static/tailwind-config.js` — no Tailwind build step, no `tailwind.config.js` compiled ahead of time. All color is indirected through CSS variables declared in `static/app.css`.
 - Charts: Chart.js (`cdn.jsdelivr.net/npm/chart.js@4.4.4`), driven by `static/charts.js`.
 - Fonts: Google Fonts, loaded from `<head>` — Be Vietnam Pro (UI), JetBrains Mono (money/numbers), Playfair Display 800 (the "$pend" wordmark only, subset to five glyphs via `&text=`).
-- No JS package manager, no bundler, no transpilation. Every script is plain, pre-ES2017-ish JS (`var`, not `let`/`const` in most of it, to match the existing style) served as-is from `internal/web/static/`, `go:embed`ed into the binary alongside the templates.
-- Server glue: `internal/handlers/view_render.go` (the three render entry points), `internal/handlers/view_funcs.go` (the template `FuncMap`), `internal/format` (money/date/count display strings — no request, no DB, testable on its own).
+- No JS package manager, no bundler, no transpilation. Every script is plain, pre-ES2017-ish JS (`var`, not `let`/`const` in most of it, to match the existing style) served as-is from `server/internal/web/static/`, `go:embed`ed into the binary alongside the templates.
+- Server glue: `server/internal/handlers/view_render.go` (the three render entry points), `server/internal/handlers/view_funcs.go` (the template `FuncMap`), `server/internal/format` (money/date/count display strings — no request, no DB, testable on its own).
 
 ## Main Scope Right Now
 
@@ -43,7 +43,7 @@
 
 ## What Is Actually Implemented
 
-- Page template sets (`internal/web/web.go`'s `pageTemplates`, each parsed on top of `sharedTemplates`):
+- Page template sets (`server/internal/web/web.go`'s `pageTemplates`, each parsed on top of `sharedTemplates`):
   - `auth` — `auth.html` + `auth_card_body.html` (login and register share one shell, different card body)
   - `forgot_password`, `reset_password`, `verify_email` — one file each, pre-auth
   - `categories` — `categories.html` + `category_row.html`
@@ -52,10 +52,10 @@
   - `import` — `import.html` (the CSV mapping form)
   - `settings` — `settings.html`
 - Shared partials parsed into every page set (`sharedTemplates`): `layout.html`, `nav.html`, `mobile_header.html`, `month_picker.html`, `user_menu.html`, `header_balance.html`.
-- Static assets (`internal/web/static/`, served at `/static/` by `web.StaticHandler()`, a public route): `app.css` (design tokens + the handful of rules Tailwind utilities can't express — form-control background, the dot-grid texture, the theme-switch color transition, the `.wordmark` class), `app.js` (every page-independent delegated listener — CSRF header injection, amount-input formatting, long-press sheets, bottom-sheet drag-to-dismiss, button dimming on slow htmx requests, the theme switch, popover dismissal, the transactions export-link rebuild and filter badge, focus restoration after a preserved-node swap), `tailwind-config.js` (the CDN config, loaded right after the CDN script), `charts.js` (dashboard-only, loaded inline inside the dashboard's content), `categories.js` (categories-only, the mobile add-category sheet's node-moving trick).
-- Template func names (`internal/handlers/view_funcs.go`'s `TemplateFuncs()`, mapped onto `internal/format`/`internal/i18n`): `vnd`, `vndSigned`, `vndBalance`, `dateShort`, `catName`, `countOf`, `swatches`.
-- Render entry points (`internal/handlers/view_render.go`): `render`, `renderNamed`, `renderFragment` — see Rendering Pipeline below.
-- Layout invariant tests (`internal/handlers/view_layout_test.go`): no literal `rgba(`/hex color in a template, no Tailwind utility class stranded outside a `class="..."` attribute, every flexible form control declares a min-width, the bottom-sheet grab handle stays wired to `[data-sheet-handle]`, the transactions export-link rebuild covers every filter control, the transaction row's date cell sizes to whichever date format it gets. Template-set completeness is covered separately in `internal/web/web_test.go` (`TestTemplatesDefinesSharedBlocksInEveryPageSet`, `TestTemplatesDefinesEveryFragmentHandlersRender`).
+- Static assets (`server/internal/web/static/`, served at `/static/` by `web.StaticHandler()`, a public route): `app.css` (design tokens + the handful of rules Tailwind utilities can't express — form-control background, the dot-grid texture, the theme-switch color transition, the `.wordmark` class), `app.js` (every page-independent delegated listener — CSRF header injection, amount-input formatting, long-press sheets, bottom-sheet drag-to-dismiss, button dimming on slow htmx requests, the theme switch, popover dismissal, the transactions export-link rebuild and filter badge, focus restoration after a preserved-node swap), `tailwind-config.js` (the CDN config, loaded right after the CDN script), `charts.js` (dashboard-only, loaded inline inside the dashboard's content), `categories.js` (categories-only, the mobile add-category sheet's node-moving trick).
+- Template func names (`server/internal/handlers/view_funcs.go`'s `TemplateFuncs()`, mapped onto `server/internal/format`/`server/internal/i18n`): `vnd`, `vndSigned`, `vndBalance`, `dateShort`, `catName`, `countOf`, `swatches`.
+- Render entry points (`server/internal/handlers/view_render.go`): `render`, `renderNamed`, `renderFragment` — see Rendering Pipeline below.
+- Layout invariant tests (`server/internal/handlers/view_layout_test.go`): no literal `rgba(`/hex color in a template, no Tailwind utility class stranded outside a `class="..."` attribute, every flexible form control declares a min-width, the bottom-sheet grab handle stays wired to `[data-sheet-handle]`, the transactions export-link rebuild covers every filter control, the transaction row's date cell sizes to whichever date format it gets. Template-set completeness is covered separately in `server/internal/web/web_test.go` (`TestTemplatesDefinesSharedBlocksInEveryPageSet`, `TestTemplatesDefinesEveryFragmentHandlersRender`).
 
 ## Important Reality Checks
 
@@ -69,18 +69,18 @@
 
 ## Frontend Layout
 
-- `internal/web/web.go`: owns both `go:embed` trees (`templates`, `static`), builds each page's `*template.Template` set via `Templates(funcs)`, and serves `/static/*` via `StaticHandler()` (ETag'd off one hash of the whole static tree, `Cache-Control: no-cache` since `embed.FS` carries no `Last-Modified`).
-- `internal/web/templates/`: one file per page or shared partial — see What Is Actually Implemented above for the grouping. `funcs` (the `template.FuncMap`) is passed in from `internal/handlers`, never imported, so this package stays free of a dependency on it.
-- `internal/web/static/`: `app.css`, `app.js`, `tailwind-config.js`, `charts.js`, `categories.js` — see Stack above for what each one owns.
-- `internal/handlers/view_render.go`: `render`/`renderNamed`/`renderFragment`, `viewData`/`pageView`, `isFragmentRequest`, `authPageView` (loads the nav/balance/greeting fields every authenticated page needs), `currentHeaderBalance`.
-- `internal/handlers/view_funcs.go`: `TemplateFuncs()`, the one place the template-visible function names are declared.
-- `internal/format/`: `VND`, `VNDSigned`, `VNDBalance`, `DateShort`, `DateLong`, `Timestamp`, `CountOf`, `GreetingLine` — pure string formatting, no request, no `Deps`, no database, which is what lets every money/date rule be unit-tested in isolation.
-- `internal/i18n/`: `CategoryName`, the slug→display-name mapping the `catName` template func calls through — the one piece of "frontend" text that is not simply written in the template, because a default category's name must never be matched or hardcoded, only its `slug`.
-- Every other `internal/handlers/*.go` file builds the data a template renders (`balance_`, `category_`, `report_`, `txn_`, `settings_`, …) but is covered as backend logic in `.claude/context/backend.md`; this file's concern is what happens once that data reaches a template.
+- `server/internal/web/web.go`: owns both `go:embed` trees (`templates`, `static`), builds each page's `*template.Template` set via `Templates(funcs)`, and serves `/static/*` via `StaticHandler()` (ETag'd off one hash of the whole static tree, `Cache-Control: no-cache` since `embed.FS` carries no `Last-Modified`).
+- `server/internal/web/templates/`: one file per page or shared partial — see What Is Actually Implemented above for the grouping. `funcs` (the `template.FuncMap`) is passed in from `server/internal/handlers`, never imported, so this package stays free of a dependency on it.
+- `server/internal/web/static/`: `app.css`, `app.js`, `tailwind-config.js`, `charts.js`, `categories.js` — see Stack above for what each one owns.
+- `server/internal/handlers/view_render.go`: `render`/`renderNamed`/`renderFragment`, `viewData`/`pageView`, `isFragmentRequest`, `authPageView` (loads the nav/balance/greeting fields every authenticated page needs), `currentHeaderBalance`.
+- `server/internal/handlers/view_funcs.go`: `TemplateFuncs()`, the one place the template-visible function names are declared.
+- `server/internal/format/`: `VND`, `VNDSigned`, `VNDBalance`, `DateShort`, `DateLong`, `Timestamp`, `CountOf`, `GreetingLine` — pure string formatting, no request, no `Deps`, no database, which is what lets every money/date rule be unit-tested in isolation.
+- `server/internal/i18n/`: `CategoryName`, the slug→display-name mapping the `catName` template func calls through — the one piece of "frontend" text that is not simply written in the template, because a default category's name must never be matched or hardcoded, only its `slug`.
+- Every other `server/internal/handlers/*.go` file builds the data a template renders (`balance_`, `category_`, `report_`, `txn_`, `settings_`, …) but is covered as backend logic in `.claude/context/backend.md`; this file's concern is what happens once that data reaches a template.
 
 ## Rendering Pipeline
 
-- Three entry points in `internal/handlers/view_render.go`, in increasing order of "how much of the shell does this response carry":
+- Three entry points in `server/internal/handlers/view_render.go`, in increasing order of "how much of the shell does this response carry":
   - `render(w, r, deps, page, active, data)` — the full page: executes `"layout"`, and (when `active != ""`) loads nav data (`ShowNav`, `ActiveNav`, `UserName`, `UserInitial`, `Greeting`, `Theme`, `HeaderBalance`, `EmailVerified`) by reading the current user. Pre-auth pages pass `active=""` so `viewData`'s zero value leaves `layout.html`'s `{{if .ShowNav}}` blocks closed.
   - `renderNamed(w, r, deps, page, tmplName, active, data)` — renders a named sub-template instead of `"layout"`, for an htmx fragment response that still needs the shell's shared fields (a month section, a settings tab body). Still loads nav data when `active != ""`.
   - `renderFragment(w, r, deps, page, tmplName, data)` — renders a named sub-template against `data` exactly as given, adding nothing. For fragments whose templates read nothing from the shell: a swapped-in row, an inline edit form, a confirm prompt.
@@ -89,10 +89,10 @@
 
 ## Template and Static Asset Conventions
 
-- `web.Templates(funcs)` is the single place page sets are built; `cmd/server` and the handler tests both call it — never hand-roll a `ParseFiles` list elsewhere. Each page gets its own `*template.Template` (not one set holding every file) because several pages define a block of the same name (`"content"` above all), and a single shared set would let the last one parsed win silently.
-- Adding a page-specific template file means adding it to `pageTemplates` in `internal/web/web.go`; adding a new shared partial (rare) means adding it to `sharedTemplates` there instead, which puts it in every page's set whether that page uses it or not.
+- `web.Templates(funcs)` is the single place page sets are built; `server/cmd/server` and the handler tests both call it — never hand-roll a `ParseFiles` list elsewhere. Each page gets its own `*template.Template` (not one set holding every file) because several pages define a block of the same name (`"content"` above all), and a single shared set would let the last one parsed win silently.
+- Adding a page-specific template file means adding it to `pageTemplates` in `server/internal/web/web.go`; adding a new shared partial (rare) means adding it to `sharedTemplates` there instead, which puts it in every page's set whether that page uses it or not.
 - **Never put a `<style>` or an inline `<script>` into a template.** `app.css`/`app.js` load from `<head>`. A page-specific script ships as a `<script src>` *inside* that page's own swapped content (see Important Reality Checks above for why).
-- `internal/handlers/view_layout_test.go` enforces several of these conventions mechanically (no literal color, no stranded Tailwind class, flexible form controls declare a min-width, the sheet-handle selector stays matched) — a template change that trips one of these tests is the convention catching a real regression, not a false positive to work around.
+- `server/internal/handlers/view_layout_test.go` enforces several of these conventions mechanically (no literal color, no stranded Tailwind class, flexible form controls declare a min-width, the sheet-handle selector stays matched) — a template change that trips one of these tests is the convention catching a real regression, not a false positive to work around.
 
 ## Theming
 
@@ -105,18 +105,18 @@
 ## htmx Conventions
 
 - Mutation handlers (add/edit/delete transaction or category) answer with HTML fragments swapped into the DOM, never JSON. Every one returns `header_balance_oob` as an out-of-band swap alongside its main response — both nav bars render that widget and have to stay in sync — and the transactions page additionally returns `totals_oob` (count, empty state, pager).
-- Session expiry mid-interaction can't be a plain redirect: `auth.RequireAuth` 3xx-ing an htmx XHR would swap the full login page into whatever partial element the request targeted. `redirectToLogin` in `internal/auth/middleware.go` sets `HX-Redirect` instead when `HX-Request: true`, which htmx turns into a real top-level navigation. Login/register success in `auth_handlers.go` uses the same pattern.
+- Session expiry mid-interaction can't be a plain redirect: `auth.RequireAuth` 3xx-ing an htmx XHR would swap the full login page into whatever partial element the request targeted. `redirectToLogin` in `server/internal/auth/middleware.go` sets `HX-Redirect` instead when `HX-Request: true`, which htmx turns into a real top-level navigation. Login/register success in `auth_handlers.go` uses the same pattern.
 - The settings forms are the deliberate exception to "fragments, not full responses": they are plain `hx-boost`ed POSTs that redirect with `?saved=` on success, so a reload or a back-button press doesn't resubmit the form.
 - `hx-boost="true"` on `<body>` is what turns an ordinary `<a>`/`<form>` into the same swap machinery, which is also why a `<head>` script runs exactly once per full page load (boosting replaces only `<body>`) — see Important Reality Checks above.
 
 ## CSRF (Client Side)
 
-- Stateless double-submit-cookie pattern; the server half lives in `internal/csrf/csrf.go`, covered in `.claude/context/backend.md` and `.claude/rules/csrf.md`. The frontend's half is two lines: a `<meta name="csrf-token">` tag in `layout.html`'s `<head>`, and the `htmx:configRequest` listener in `app.js` that copies its value into the `X-CSRF-Token` header on every htmx request.
+- Stateless double-submit-cookie pattern; the server half lives in `server/internal/csrf/csrf.go`, covered in `.claude/context/backend.md` and `.claude/rules/csrf.md`. The frontend's half is two lines: a `<meta name="csrf-token">` tag in `layout.html`'s `<head>`, and the `htmx:configRequest` listener in `app.js` that copies its value into the `X-CSRF-Token` header on every htmx request.
 - A plain `<form method="POST">` that does not go through htmx (logout, the email-verify-banner's resend button) instead carries a hidden `csrf_token` field set from `{{.CSRFToken}}` — both paths read from the same `viewData.CSRFToken` the render pipeline fills in.
 
 ## The Dashboard and Charts
 
-- `internal/handlers/report_handlers.go` builds every value the templates/JS need in Go and hands them over finished — `comparisonText`/`comparisonTextMobile`, `buildPieData` (top 6 categories + a synthetic "Other" aggregate so the doughnut never grows a tail of one-percent slivers), `buildBarSeries` (4-month comparison, zero-padded for a month with no rows). Category labels are resolved through `i18n` in Go here, not through a template func, because chart data crosses into JS as `template.JS`-wrapped JSON rather than through `html/template`'s normal escaping.
+- `server/internal/handlers/report_handlers.go` builds every value the templates/JS need in Go and hands them over finished — `comparisonText`/`comparisonTextMobile`, `buildPieData` (top 6 categories + a synthetic "Other" aggregate so the doughnut never grows a tail of one-percent slivers), `buildBarSeries` (4-month comparison, zero-padded for a month with no rows). Category labels are resolved through `i18n` in Go here, not through a template func, because chart data crosses into JS as `template.JS`-wrapped JSON rather than through `html/template`'s normal escaping.
 - `charts.js` owns `window.__initCharts()`, which (re)builds both the doughnut and the bar chart from a `#chart-data` JSON blob in the page. It is loaded by a `<script src>` at the end of the dashboard's month section, not from `<head>`, specifically so an htmx month switch (which swaps that whole section) re-executes it and rebuilds the charts against the new data.
 - The doughnut's tooltip is a hand-built DOM node (`pieTooltipEl`), not Chart.js's own canvas-painted tooltip — on a 108px mobile doughnut the built-in tooltip clips at the canvas edge, so an external tooltip free to overflow and clamp to the viewport is used instead.
 - Every rebuild tears down the previous `window.__pieChart`/`window.__barChart` and detaches the previous `themechange`/`pointerdown`/`scroll`/`resize` listeners before re-attaching — `charts.js` re-runs on every dashboard render, and skipping this would leave one more copy of each listener behind per month switch.
@@ -127,17 +127,17 @@
 - The mobile add-transaction sheet and the desktop quick-add form are both in the DOM at once. `handleCreateTransaction` reads `ui_source` to pick which fragment to re-render on a validation failure, and the Expense/Income toggle has two endpoints for the same reason: `category_options` feeds the desktop `<select>`, `category_chips` feeds the sheet's chips.
 - The categories page's single add-category form *moves* between a desktop sidebar slot and a mobile bottom sheet rather than being rendered twice (`categories.js`'s `openAddCategorySheet`) — moving the node is what keeps a validation error, a typed name, and the `hx-post` target in one place regardless of which breakpoint the form is currently showing on.
 - Long-press (~500ms, via `[data-longpress-target]`) opens a mobile transaction row's action sheet; bottom sheets themselves are dismissed by dragging the grab handle down past a quarter of their height, or a short flick (`app.js`'s pointer-event listeners — unified touch/mouse, so a scroll that steals the gesture arrives as `pointercancel` and cancels the press for free).
-- Only category names go through `internal/i18n`. Every other string is written in English directly in the template or handler that shows it — there is no message catalog, and a language switcher would be new infrastructure, not a flag to flip.
+- Only category names go through `server/internal/i18n`. Every other string is written in English directly in the template or handler that shows it — there is no message catalog, and a language switcher would be new infrastructure, not a flag to flip.
 
 ## Files Agents Should Prefer Reading Before Edits
 
-- `internal/web/web.go` — the actual `pageTemplates`/`sharedTemplates` lists; the real page-to-file mapping.
-- `internal/handlers/view_render.go` — the render entry points and the `viewData`/`pageView` contract.
-- `internal/handlers/view_funcs.go` — the exact set of template-callable function names.
-- `internal/web/static/app.css` — the full `--c-*` variable set, both palettes.
-- `internal/web/static/app.js` — every page-independent delegated listener; read it before adding a new global behavior to make sure one doesn't already exist.
-- `internal/web/templates/layout.html` — the CDN script/stylesheet order (it matters: `app.css` before Tailwind, `tailwind-config.js` after the Tailwind CDN script).
-- `internal/handlers/view_layout_test.go` and `internal/web/web_test.go` — the invariants a template/asset change must not break.
+- `server/internal/web/web.go` — the actual `pageTemplates`/`sharedTemplates` lists; the real page-to-file mapping.
+- `server/internal/handlers/view_render.go` — the render entry points and the `viewData`/`pageView` contract.
+- `server/internal/handlers/view_funcs.go` — the exact set of template-callable function names.
+- `server/internal/web/static/app.css` — the full `--c-*` variable set, both palettes.
+- `server/internal/web/static/app.js` — every page-independent delegated listener; read it before adding a new global behavior to make sure one doesn't already exist.
+- `server/internal/web/templates/layout.html` — the CDN script/stylesheet order (it matters: `app.css` before Tailwind, `tailwind-config.js` after the Tailwind CDN script).
+- `server/internal/handlers/view_layout_test.go` and `server/internal/web/web_test.go` — the invariants a template/asset change must not break.
 - `.claude/rules/*.md` — area-specific rules, auto-loaded for the file being touched.
 
 ## Safe Edit Rules For Agents
@@ -148,11 +148,11 @@
 - A mutation handler that changes anything the header balance depends on must return `header_balance_oob` alongside its main response — both nav bars render the widget and nothing else keeps them in sync.
 - Keep `app.css`'s variable list and `tailwind-config.js`'s color map in lockstep — a variable added to one without the other either does nothing (Tailwind) or breaks opacity modifiers (CSS).
 - A page-independent behavior belongs as a delegated listener in `app.js`, bound to `document` — not to a specific element, since `hx-boost` only swaps `<body>` and a listener bound to an element the first page happened to render will not survive a boosted navigation to a different page.
-- Follow `.claude/rules/go-conventions.md` for the Go half of this layer (`view_render.go`, `view_funcs.go`, `internal/format`); there is no separate style guide for the templates/CSS/JS, so match the voice and structure of the surrounding file (see the comment density in `app.js`/`charts.js`/`app.css` — every non-obvious choice gets a short "why", not a restatement of the code).
+- Follow `.claude/rules/go-conventions.md` for the Go half of this layer (`view_render.go`, `view_funcs.go`, `server/internal/format`); there is no separate style guide for the templates/CSS/JS, so match the voice and structure of the surrounding file (see the comment density in `app.js`/`charts.js`/`app.css` — every non-obvious choice gets a short "why", not a restatement of the code).
 
 ## Common Task Playbooks
 
-- Add a new authenticated page: add the route in `internal/handlers/app_router.go`, add the page's template set to `pageTemplates` in `internal/web/web.go`, write a data struct embedding `viewData` and satisfying `pageView`, render it with `render`/`renderNamed`/`renderFragment` as appropriate (see Rendering Pipeline above), and reuse `month_picker`/`mobile_page_header`/`header_balance` as-is only if the page's data already carries the field names they read.
+- Add a new authenticated page: add the route in `server/internal/handlers/app_router.go`, add the page's template set to `pageTemplates` in `server/internal/web/web.go`, write a data struct embedding `viewData` and satisfying `pageView`, render it with `render`/`renderNamed`/`renderFragment` as appropriate (see Rendering Pipeline above), and reuse `month_picker`/`mobile_page_header`/`header_balance` as-is only if the page's data already carries the field names they read.
 - Add a new CSS color token: add the `--c-*` variable to both palette blocks in `app.css` (the `@media (prefers-color-scheme: dark) :root:not(.light)` block and the `:root.dark` block), then add the matching key to `tailwind-config.js`'s `theme.extend.colors` as `rgb(var(--c-x) / <alpha-value>)`.
 - Add a page-specific script: ship it as a `<script src>` at the end of that page's swapped content (see `charts.js`/`categories.js` for the pattern), not from `<head>` — and if it binds to `document` rather than reacting to its own re-execution, make sure it tears down any listener from a previous run first, the way `charts.js` does.
 - Add a new page-independent JS behavior: add a delegated listener to `app.js`, bound to `document`, never to a specific element.
@@ -167,6 +167,7 @@
 
 ## Change Log
 
+- `2026-10-05`: repo converted into a monorepo; this file's code moved from the repo root into `server/` with no behavior change. Every path in this file gained a `server/` prefix to match. This file still describes the `html/template` + htmx frontend in `server/internal/web/` — the new `client/` React SPA is a separate, not-yet-documented package (no real pages exist yet). See `CLAUDE.md`'s "Migration in Progress" section.
 - `2026-10-05`: bank-email auto-tracking feature removed. Deleted `settings_inbox.html` and its include in `settings.html`, the "auto" badge in `transaction_row.html`, and the inbox-token copy-to-clipboard listener in `app.js`. The "possible duplicate" badge stays — unrelated, it compares date/amount/type generically.
 - `2026-10-04`: `frontend.md` added to `.claude/context/` as the browser-facing counterpart to `backend.md` — templates, static assets, the render pipeline, theming, htmx conventions, and the dashboard/mobile-nav JS.
 - `2026-10-04`: `overview.md`, `stack.md`, and `request-routing.md` removed from `.claude/context/` — superseded by `backend.md`/this file and `README.md`'s own directory index. The "Read This First" cross-references here were updated accordingly.

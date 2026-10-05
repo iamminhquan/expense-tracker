@@ -1,13 +1,13 @@
 ---
 paths:
-  - "internal/handlers/report_*.go"
-  - "internal/web/templates/dashboard.html"
-  - "internal/web/static/charts.js"
+  - "server/internal/handlers/report_*.go"
+  - "server/internal/web/templates/dashboard.html"
+  - "server/internal/web/static/charts.js"
 ---
 
 # The dashboard
 
-`internal/handlers/report_handlers.go` builds everything in Go and hands the templates finished values.
+`server/internal/handlers/report_handlers.go` builds everything in Go and hands the templates finished values.
 
 ## Rules
 

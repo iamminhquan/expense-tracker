@@ -1,11 +1,11 @@
 ---
 paths:
-  - "internal/handlers/balance_*.go"
-  - "internal/web/templates/header_balance.html"
-  - "internal/handlers/txn_mutate.go"
-  - "internal/handlers/category_handlers.go"
-  - "internal/web/templates/nav.html"
-  - "internal/web/templates/mobile_header.html"
+  - "server/internal/handlers/balance_*.go"
+  - "server/internal/web/templates/header_balance.html"
+  - "server/internal/handlers/txn_mutate.go"
+  - "server/internal/handlers/category_handlers.go"
+  - "server/internal/web/templates/nav.html"
+  - "server/internal/web/templates/mobile_header.html"
 ---
 
 # The balance widget
