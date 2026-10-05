@@ -23,8 +23,8 @@ func duplicateTestRow(id int64, date string, amount int64, typ string) txnRow {
 }
 
 // TestMarkDuplicatesFlagsRowsSharingDateAmountAndType is the case the mark
-// exists for: a transaction typed by hand and the same transaction arriving
-// again via the bank email, both on the page at once.
+// exists for: the same transaction typed by hand twice, both on the page at
+// once.
 func TestMarkDuplicatesFlagsRowsSharingDateAmountAndType(t *testing.T) {
 	rows := []txnRow{
 		duplicateTestRow(1, "2026-08-30", 20000, "expense"),

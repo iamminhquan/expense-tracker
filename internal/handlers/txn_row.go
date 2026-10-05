@@ -38,13 +38,12 @@ func (r txnRow) Date() string { return rowDate(r.OccurredOn, r.showYear) }
 func (r txnRow) IsDuplicate() bool { return r.duplicate }
 
 // markDuplicates flags every row that shares its date, amount and type with
-// another row in the same slice -- the case this exists for is someone
-// typing a transaction by hand and the bank email creating it again. It only
-// ever compares the rows it is handed, which are deliberately just the ones
-// already loaded for one rendered page: reaching further would mean a second
-// query for a hint the owner still has to judge for themselves, so two
-// duplicates split across different pages go unmarked. That is the accepted
-// trade, not a bug -- see Task 5 of the bank-email-slice-2 plan.
+// another row in the same slice -- the case this exists for is the same
+// transaction getting entered by hand twice. It only ever compares the rows
+// it is handed, which are deliberately just the ones already loaded for one
+// rendered page: reaching further would mean a second query for a hint the
+// owner still has to judge for themselves, so two duplicates split across
+// different pages go unmarked. That is the accepted trade, not a bug.
 func markDuplicates(rows []txnRow) {
 	type key struct {
 		date   string
@@ -94,7 +93,6 @@ type singleRow struct {
 	Description   string
 	Amount        int64
 	Type          string
-	Source        string
 	Date          string
 }
 
@@ -116,7 +114,6 @@ func singleRowOf(t sqlcgen.Transaction, c sqlcgen.Category, showYear bool) singl
 		Description:   t.Description,
 		Amount:        t.Amount,
 		Type:          t.Type,
-		Source:        t.Source,
 		Date:          rowDate(t.OccurredOn, showYear),
 	}
 }
@@ -193,7 +190,6 @@ func viewTransactionRowHandler(deps Deps) http.HandlerFunc {
 			Description:   txn.Description,
 			Amount:        txn.Amount,
 			Type:          txn.Type,
-			Source:        txn.Source,
 			Date:          rowDate(txn.OccurredOn, scopeFromRequest(r).All),
 		})
 	}

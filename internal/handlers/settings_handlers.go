@@ -44,9 +44,6 @@ var savedMessages = map[string]string{
 	"password":          "Password updated.",
 	"session-revoked":   "Signed out of that session.",
 	"sessions-revoked":  "Signed out of every other session.",
-	"inbox-enabled":     "Email tracking is on. Forward your bank email to the address below.",
-	"inbox-disabled":    "Email tracking is off. The old address no longer accepts mail.",
-	"inbox-retried":     "Those emails are set back to pending.",
 }
 
 // sessionView is what the settings template shows for one row of the
@@ -61,8 +58,8 @@ type sessionView struct {
 }
 
 // settingsView is the whole settings page: the current values its forms are
-// pre-filled with, the active-session list, the email-tracking card, the
-// confirmation line a redirect landed with, and at most one error message.
+// pre-filled with, the active-session list, the confirmation line a redirect
+// landed with, and at most one error message.
 //
 // All four forms are on screen at once, which is why each has an error
 // field of its own rather than the page carrying a single one.
@@ -80,15 +77,6 @@ type settingsView struct {
 	EmailError    string
 	PasswordError string
 	DeleteError   string
-
-	// InboxAvailable is false when no inbound domain is configured, which
-	// is what makes the whole card disappear rather than offer an address
-	// nobody can send to.
-	InboxAvailable bool
-	InboxEnabled   bool
-	InboxAddress   string
-	InboxRecent    []recentEmailView
-	InboxHasFailed bool
 }
 
 // settingsForm names which of the page's forms a message belongs beside.
@@ -134,10 +122,6 @@ func newSettingsView(r *http.Request, deps Deps) (*settingsView, error) {
 		PendingEmail:    user.PendingEmail.String,
 		Sessions:        views,
 		Saved:           savedMessages[r.URL.Query().Get("saved")],
-	}
-
-	if err := addInboxSettings(r, deps, userID, user.InboxToken, data); err != nil {
-		return nil, err
 	}
 
 	return data, nil
