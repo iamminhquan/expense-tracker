@@ -25,6 +25,10 @@ func NewRouter(deps Deps) *gin.Engine {
 		api.POST("/login", loginHandler(deps))
 		api.POST("/refresh", refreshHandler(deps))
 		api.POST("/logout", logoutHandler(deps))
+		api.POST("/forgot-password", forgotPasswordHandler(deps))
+		api.GET("/reset-password", checkResetTokenHandler(deps))
+		api.POST("/reset-password", resetPasswordHandler(deps))
+		api.POST("/verify-email", verifyEmailHandler(deps))
 
 		authed := api.Group("")
 		authed.Use(RequireAuth(deps.JWTSecret))

@@ -44,12 +44,15 @@ Gin JSON API in `server/` and a React SPA in `client/`.
     instead of pre-formatted strings — see `.claude/rules/dashboard.md`);
     and settings (`/api/settings` + profile/email/password/theme/
     sessions/account-deletion, same rules as `settings_handlers.go` — see
-    `.claude/rules/account-deletion.md` and `.claude/rules/auth-sessions.md`).
-    Every endpoint above is DB-tested end to end (`internal/api/*_test.go`,
-    needs `TEST_DATABASE_URL`). CSV import/export has no JSON design yet
-    and is the one deliberately deferred piece. No dedicated context file
-    for `internal/api` yet — one gets written once Phase 2 is underway and
-    the route surface has stopped shifting day to day.
+    `.claude/rules/account-deletion.md` and `.claude/rules/auth-sessions.md`);
+    and forgot/reset-password + email verification
+    (`/api/forgot-password`, `/api/reset-password`, `/api/verify-email` —
+    see `.claude/rules/email-verification.md`). Every endpoint above is
+    DB-tested end to end (`internal/api/*_test.go`, needs
+    `TEST_DATABASE_URL`). CSV import/export has no JSON design yet and is
+    the one deliberately deferred piece. No dedicated context file for
+    `internal/api` yet — one gets written once Phase 2 is underway and the
+    route surface has stopped shifting day to day.
 - **`client/`** is a fresh Vite + React + TypeScript + Tailwind v4 scaffold
   (pnpm workspace) with no real pages yet — see `client/src/App.tsx`. It has
   no dedicated context file yet; one gets written once it has real pages to

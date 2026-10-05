@@ -378,7 +378,9 @@ func queueVerificationEmail(ctx context.Context, deps Deps, userID int64, email 
 			"This link expires at %s. If you didn't request this, you can ignore this email.",
 		link, expiry)
 	go func() {
-		if err := deps.Mailer.Send(context.Background(), email, "Verify your email", body); err != nil {
+		sendCtx, cancel := context.WithTimeout(context.Background(), sendTimeout)
+		defer cancel()
+		if err := deps.Mailer.Send(sendCtx, email, "Verify your $pend email", body); err != nil {
 			log.Printf("verification email: send: %v", err)
 		}
 	}()

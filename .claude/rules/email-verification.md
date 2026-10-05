@@ -6,6 +6,8 @@ paths:
   - "server/internal/web/templates/verify_email.html"
   - "server/internal/mailer/**"
   - "server/internal/handlers/settings_handlers.go"
+  - "server/internal/api/password_reset_handlers.go"
+  - "server/internal/api/settings_handlers.go"
 ---
 
 # Email verification
@@ -24,3 +26,9 @@ Code: `server/internal/auth/email_verification.go` and `server/internal/handlers
 ## Why
 
 `users.email` is also the login identity and the address a forgot-password link goes to, so applying a change immediately would let one typo cost the owner both with no way back in. Holding it means a typo just leaves `pending_email` unconfirmed: the owner keeps logging in on the address that was always correct and can resubmit.
+
+## Gin/JSON side (`internal/api`, see `CLAUDE.md`)
+
+- `password_reset_handlers.go` holds forgot/reset-password (`POST /api/forgot-password`, `GET`+`POST /api/reset-password`) and email verification (`POST /api/verify-email`) -- all four duplicate their `handlers/auth_password_reset.go` / `auth_email_verification.go` counterparts' logic exactly, same token tables, same TTLs, same enumeration-safe forgot-password response.
+- `verify-email` is `POST` with the token in a JSON body, not a `GET` with it in the query string: the link a verification email points at opens the React app's own `/verify-email` route (`client/`, Phase 2), which reads `?token=` itself and POSTs it to this endpoint -- the API never renders the landing page the way `handlers.verifyEmailPage` does.
+- `resetPasswordHandler` signs the visitor in on success (an `authResponse`, same as register/login), matching `handlers.resetPasswordPage`'s `startSession` call -- there is no current session to spare on this path, unlike `updatePasswordHandler`'s.
