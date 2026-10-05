@@ -1,20 +1,66 @@
 import { useState } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
 import { useCreateTransaction, useDeleteTransaction, useTransactions, useUpdateTransaction } from '../hooks/useTransactions'
 import { MonthPicker } from '../components/MonthPicker'
 import { ApiError } from '../lib/api/client'
+import { downloadTransactionsExport } from '../lib/api/import'
 import { formatDateLong, formatDateShort, formatVNDSigned } from '../lib/format'
 import type { Transaction, TransactionFilters } from '../lib/api/types'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// The URL's own query string is the source of truth for every filter --
+// not local component state -- so a reload, a bookmark, or (the bug a
+// browser smoke test caught) the redirect after a CSV import landing on
+// /transactions?month=2026-02 all show the right month instead of
+// silently resetting to whatever the component's initial state happened
+// to be.
+function filtersFromSearchParams(params: URLSearchParams): TransactionFilters {
+  const filters: TransactionFilters = {}
+  if (params.get('month')) filters.month = params.get('month')!
+  if (params.get('page')) filters.page = Number(params.get('page'))
+  if (params.get('q')) filters.q = params.get('q')!
+  const type = params.get('type')
+  if (type === 'expense' || type === 'income') filters.type = type
+  if (params.get('category')) filters.category = Number(params.get('category'))
+  if (params.get('min')) filters.min = Number(params.get('min'))
+  if (params.get('max')) filters.max = Number(params.get('max'))
+  const sort = params.get('sort')
+  if (sort === 'amount_desc' || sort === 'amount_asc') filters.sort = sort
+  return filters
+}
+
+function exportQueryString(filters: TransactionFilters): string {
+  const params = new URLSearchParams()
+  if (filters.month) params.set('month', filters.month)
+  if (filters.q) params.set('q', filters.q)
+  if (filters.type) params.set('type', filters.type)
+  if (filters.category) params.set('category', String(filters.category))
+  if (filters.min) params.set('min', String(filters.min))
+  if (filters.max) params.set('max', String(filters.max))
+  if (filters.sort) params.set('sort', filters.sort)
+  const qs = params.toString()
+  return qs ? `?${qs}` : ''
+}
+
 export function TransactionsPage() {
-  const [filters, setFilters] = useState<TransactionFilters>({})
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = filtersFromSearchParams(searchParams)
   const { data, isLoading, error } = useTransactions(filters)
   const { data: categories } = useCategories()
 
   function setFilter<K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) {
-    setFilters((f) => ({ ...f, [key]: value, page: key === 'page' ? (value as number) : 1 }))
+    const next = new URLSearchParams(searchParams)
+    if (value === undefined || value === '') {
+      next.delete(key)
+    } else {
+      next.set(key, String(value))
+    }
+    // Any filter change other than paging itself goes back to page 1 --
+    // the page a changed filter's results actually start on.
+    if (key !== 'page') next.delete('page')
+    setSearchParams(next, { replace: true })
   }
 
   if (isLoading || !data) return <p className="text-ink-faint">Loading…</p>
@@ -24,14 +70,25 @@ export function TransactionsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[20px] font-semibold">Transactions</h1>
-        <MonthPicker
-          value={data.monthValue}
-          label={data.monthLabel}
-          currentMonthValue={data.currentMonthValue}
-          availableMonths={data.availableMonths}
-          onChange={(v) => setFilter('month', v)}
-          allowAllMonths
-        />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => void downloadTransactionsExport(exportQueryString(filters))}
+            className="text-[13px] text-ink-faint hover:text-ink"
+          >
+            Export CSV
+          </button>
+          <Link to="/transactions/import" className="text-[13px] text-ink-faint hover:text-ink">
+            Import CSV
+          </Link>
+          <MonthPicker
+            value={data.monthValue}
+            label={data.monthLabel}
+            currentMonthValue={data.currentMonthValue}
+            availableMonths={data.availableMonths}
+            onChange={(v) => setFilter('month', v)}
+            allowAllMonths
+          />
+        </div>
       </div>
 
       <AddTransactionForm categories={categories?.expenseCategories.concat(categories?.incomeCategories ?? []) ?? []} />

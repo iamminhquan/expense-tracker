@@ -66,21 +66,28 @@ Gin JSON API in `server/` and a React SPA in `client/`.
 - **`client/`** is a Vite + React + TypeScript + Tailwind v4 SPA (pnpm
   workspace), **Phase 2 underway**: routing, auth (login/register/
   forgot-password/reset-password/verify-email, access token in memory via
-  `AuthContext`, silent refresh on load), and all four main pages
-  (Dashboard with Chart.js, Transactions with filters/paging, Categories,
-  Settings) have a working first pass, each talking to its `internal/api`
-  counterpart through `src/hooks/` (TanStack Query) and `src/lib/api/`.
-  Verified end to end in a real browser (register → dashboard → add a
-  category → add a transaction → see it reflected on the dashboard →
-  settings → dark mode → mobile viewport), which is what caught both bugs
-  `.claude/rules/json-api-conventions.md` now documents. Known
-  simplifications versus the HTML side, not yet addressed: no long-press/
-  drag-to-dismiss mobile gesture polish (plain responsive layout instead),
-  no CSV import/export UI yet (the API has it -- `/api/transactions/
-  import|export` -- the client page doesn't), styling is a faithful-effort
+  `AuthContext`, silent refresh on load), all four main pages (Dashboard
+  with Chart.js, Transactions with filters/paging, Categories, Settings),
+  and CSV import/export (`src/pages/ImportPage.tsx`, an export button on
+  Transactions) have a working first pass, each talking to its
+  `internal/api` counterpart through `src/hooks/` (TanStack Query) and
+  `src/lib/api/`. Verified end to end in a real browser repeatedly
+  (register → dashboard → add a category/transaction → settings → dark
+  mode → mobile viewport; separately, a full CSV import round trip), which
+  is what caught every bug `.claude/rules/json-api-conventions.md`
+  documents, including a third one found this way: `TransactionsPage` kept
+  its filters in local `useState` instead of the URL, so a CSV import's
+  "view transactions" link to a specific month landed back on the current
+  month instead -- fixed by making the URL's query string the source of
+  truth (`useSearchParams`, not `useState`) the way the HTML side's
+  canonical-URL links always worked. Known simplifications versus the HTML
+  side, not yet addressed: no long-press/drag-to-dismiss mobile gesture
+  polish (plain responsive layout instead), styling is a faithful-effort
   port of the design tokens rather than a pixel-exact match of every
-  template. No dedicated context file yet — one gets written once the
-  page set stabilizes.
+  template, Dashboard's month picker is still local `useState` (not yet
+  brought in line with Transactions' URL-as-source-of-truth fix). No
+  dedicated context file yet — one gets written once the page set
+  stabilizes.
 - Deploy target: `server/` on Render (`server/render.yaml`, `rootDir:
   server`), `client/` on Vercel (`client/vercel.json`) once cutover happens.
   Today only `server/` is deployed; the old single-service Chi app is still
