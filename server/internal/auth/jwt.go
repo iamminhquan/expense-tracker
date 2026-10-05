@@ -22,7 +22,7 @@ const AccessTokenTTL = 15 * time.Minute
 var ErrInvalidAccessToken = errors.New("invalid access token")
 
 // accessClaims is the JWT payload for an access token. Authorization is
-// single-tier (see backend.md's Authorization Model) -- every authenticated
+// single-tier (see server.md's Authorization Model) -- every authenticated
 // user has the same capabilities scoped to their own data -- so naming the
 // user is the only claim this needs.
 type accessClaims struct {

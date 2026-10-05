@@ -2,7 +2,7 @@
 
 React + Vite + TypeScript + Tailwind v4 SPA, talking to the Gin JSON API
 in `../server/` over `/api/*`. See the root `README.md` and
-`.claude/context/frontend.md` for the full picture.
+`.claude/context/client.md` for the full picture.
 
 ```bash
 pnpm install

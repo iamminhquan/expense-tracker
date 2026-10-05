@@ -8,7 +8,7 @@
 
 ## Read This First
 
-- Treat this file as the backend source-of-truth for agent work, alongside `.claude/context/frontend.md` (the `client/` React app) and `.claude/context/README.md` (the directory's own index).
+- Treat this file as the backend source-of-truth for agent work, alongside `.claude/context/client.md` (the `client/` React app) and `.claude/context/README.md` (the directory's own index).
 - Do not trust the root `README.md` blindly for anything beyond its own stated setup steps — it is accurate but deliberately brief. The real behavior and edge cases live in `.claude/rules/*.md` (one file per area, loaded automatically for the file being touched) and in this file.
 - Prefer reading actual code in `server/internal/api/`, `server/internal/database/migrations/`, `server/internal/database/queries/`, and `server/cmd/server/main.go` over any prose description — including this one — when they disagree.
 
@@ -46,9 +46,8 @@
 
 ## What Is Actually Implemented
 
-Every route is under `/api`. Public:
+Every route is under `/api`, except `GET /healthz` at the root (Render's health check and the keep-alive cron probe that exact path — keep it there). Public:
 
-- `GET /api/healthz`
 - `POST /api/register`, `POST /api/login`, `POST /api/refresh`, `POST /api/logout`
 - `POST /api/forgot-password`, `GET|POST /api/reset-password`
 - `POST /api/verify-email`
@@ -181,8 +180,8 @@ sqlc generate
 - Production target is a free Render web service on Render's native Go runtime — **no Dockerfile, by design** (see `server/render.yaml`'s own comments).
 - Database is Neon Postgres, not Render's own free tier (which is deleted after 30 days). `DATABASE_URL` in Render must be Neon's *direct* (non-`-pooler`) connection string — golang-migrate's session-level advisory lock isn't supported by the pooled endpoint.
 - `autoDeploy: true` on `main`; a schema change ships with the same push since the server migrates at startup. `rootDir: server` makes Render `cd` into `server/` before running `go build -o server ./cmd/server` / `./server` — this is a monorepo (`server/` + `client/`), the binary is built into and run from `server/`, not the repo root.
-- `/healthz` doubles as the Render deploy health check and the target of an external cron that pings it every ~10 minutes to stop the free instance spinning down after 15 minutes of inactivity.
-- `client/` deploys independently to Vercel — see `.claude/context/frontend.md` and `.claude/rules/deployment.md`. The two services have no shared deploy step; a push to one doesn't redeploy the other.
+- `GET /healthz` (root, not under `/api`) doubles as the Render deploy health check and the target of an external cron that pings it every ~10 minutes to stop the free instance spinning down after 15 minutes of inactivity.
+- `client/` deploys independently to Vercel — see `.claude/context/client.md` and `.claude/rules/deployment.md`. The two services have no shared deploy step; a push to one doesn't redeploy the other.
 
 ## Files Agents Should Prefer Reading Before Edits
 
@@ -216,6 +215,9 @@ sqlc generate
 
 ## Change Log
 
+- `2026-10-05`: `/healthz` moved from `/api/healthz` to the root. `render.yaml`'s `healthCheckPath` and the keep-alive cron both probe `/healthz`, which the deleted Chi app used to serve; after the cutover cleanup nothing answered it and Render would have marked every deploy unhealthy. `TestHealthzAtRoot` pins it.
+- `2026-10-05`: `APP_BASE_URL` now documented (and defaulted, to `http://localhost:5173`) as `client/`'s URL, not this server's — email links point at client routes.
+- `2026-10-05`: this file renamed from `backend.md` to `server.md` to match the `server/` directory it describes.
 - `2026-10-05`: the Gin/React migration completed — `internal/handlers`, `internal/web`, and `internal/csrf` (the old Chi-routed, `html/template`-rendered app and its CSRF middleware) deleted in full, along with the now-unused parts of `internal/format` (only `DeviceLabel` survives) and the `go-chi/chi` dependency. `cmd/server/main.go` now runs `internal/api`'s Gin router alone — no more dual-router `http.ServeMux` dispatch. This file rewritten from scratch to describe the JSON API as the backend, not as one of two halves.
 - `2026-10-05`: `internal/api` built out across several commits to full parity with the deleted HTML app (auth, categories, transactions, dashboard, settings, CSV import/export) — see git log on this date for the detailed, phase-by-phase history; this file no longer tracks that transition day by day now that it's finished.
 - `2026-10-05`: repo converted into a monorepo (`server/` + `client/`).

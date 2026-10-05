@@ -9,7 +9,7 @@ only what the task needs.
 
 Then, by task:
 
-- Backend work (routes, data model, auth, deploy, how to run, test and build) -> `.claude/context/backend.md`
-- Frontend work (pages, components, API client, theming) -> `.claude/context/frontend.md`
+- Backend work (routes, data model, auth, deploy, how to run, test and build) -> `.claude/context/server.md`
+- Frontend work (pages, components, API client, theming) -> `.claude/context/client.md`
 - Coding rules for an area -> `.claude/rules/`, loaded on their own when you touch a matching file
 - Committing or opening a pull request -> `.claude/skills/`

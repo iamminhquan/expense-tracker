@@ -3,12 +3,12 @@
 ## Purpose
 
 - This file is the browser-facing source-of-truth for agent work on $pend: the `client/` React SPA, everything it renders and every request it makes to `server/`'s JSON API.
-- `client/` is a Vite + React + TypeScript + Tailwind v4 single-page app (pnpm workspace). There is no server-rendered HTML anywhere in this repo — see `.claude/context/backend.md` for the JSON API half of the same product.
+- `client/` is a Vite + React + TypeScript + Tailwind v4 single-page app (a standalone pnpm package: its own `package.json` and `pnpm-lock.yaml`, no workspace). There is no server-rendered HTML anywhere in this repo — see `.claude/context/server.md` for the JSON API half of the same product.
 - The four main pages are `/dashboard`, `/transactions` (plus `/transactions/import`), `/categories`, `/settings`, behind a shared authenticated `Layout`. The pre-auth routes are `/login`, `/register` (one shared `AuthPage` component, tabbed), `/forgot-password`, `/reset-password`, `/verify-email`.
 
 ## Read This First
 
-- Treat this file as the frontend source-of-truth for agent work, alongside `.claude/context/backend.md` (the API half) and `.claude/context/README.md` (the directory's own index).
+- Treat this file as the frontend source-of-truth for agent work, alongside `.claude/context/server.md` (the API half) and `.claude/context/README.md` (the directory's own index).
 - The detailed rules live in `.claude/rules/*.md`, auto-loaded for the file being touched: `theming.md` (CSS variables, the three theme preferences, the category palette), `balance-widget.md`, `dashboard.md`, `mobile-nav.md` (the long-press/bottom-sheet gesture layer), `req-value-objects.md` (URL-as-source-of-truth for filters), `csv-import.md`.
 - Prefer reading the actual components over this prose — including this file — when they disagree. `App.tsx`'s route table and `lib/api/types.ts` are the two files least likely to drift without something breaking at compile or runtime, so they're the most reliable sources.
 
@@ -27,7 +27,7 @@
 
 ## Stack
 
-- Build: Vite, TypeScript, pnpm (workspace member, not a standalone package — see the root `pnpm-workspace.yaml`).
+- Build: Vite, TypeScript, pnpm — a standalone package, with `client/pnpm-lock.yaml` as its lockfile and `packageManager` in `client/package.json` pinning the pnpm version (what CI and Vercel read). There is no pnpm workspace and no root `package.json`.
 - UI: React 19, Tailwind v4 (`@tailwindcss/vite`, build-time, no CDN), `react-router-dom` for client-side routing.
 - Data: `@tanstack/react-query` for every server-state fetch/mutation/cache; there is no Redux/Zustand/global-store layer beyond `AuthContext`/`ThemeContext` and TanStack Query's own cache.
 - Charts: Chart.js via `react-chartjs-2`, Dashboard-only, lazy-loaded with the rest of that page's chunk.
@@ -55,7 +55,7 @@
 - `client/src/components/layout/`: `Layout`, `ProtectedRoute`, `AuthLayout` (the pre-auth card shell), `BalanceWidget`, `UserMenu`.
 - `client/src/components/`: `MonthPicker`, `BottomSheet` (drag-to-dismiss).
 - `client/src/hooks/useLongPress.ts`: the mobile long-press gesture hook.
-- `client/src/lib/format.ts`: client-side display formatting (money, dates, timestamps) — the backend ships raw numbers and leaves this to the client, see `.claude/context/backend.md`'s Request and Response Conventions.
+- `client/src/lib/format.ts`: client-side display formatting (money, dates, timestamps) — the backend ships raw numbers and leaves this to the client, see `.claude/context/server.md`'s Request and Response Conventions.
 - `client/src/lib/charts.ts`: registers Chart.js's elements once, imported for its side effect.
 
 ## Important Reality Checks
@@ -90,6 +90,24 @@ See `.claude/rules/theming.md` for the full rules (CSS variable palette, light/d
 
 See `.claude/rules/mobile-nav.md` for the full rules. Summary: `Layout.tsx` holds both nav bars in the DOM at once; `useLongPress.ts` + `BottomSheet.tsx` port the old HTML app's long-press-opens-an-action-sheet and drag-to-dismiss gestures, as an *added* affordance alongside (not replacing) always-visible Edit/Delete buttons.
 
+## Setup and Run
+
+```bash
+cd client
+pnpm install
+pnpm dev     # Vite dev server on :5173, proxies /api/* to http://localhost:8080 (override with VITE_API_PROXY_TARGET)
+pnpm lint    # oxlint
+pnpm build   # tsc -b && vite build, output in dist/
+```
+
+Run `pnpm lint` and `pnpm build` from inside `client/` before committing a change that touches it.
+
+## Deploy Notes
+
+- Production target is Vercel, with the project's Root Directory set to `client` (`client/vercel.json` holds the build command, output directory, and the SPA rewrite to `index.html`). Nothing outside `client/` is needed to build it, so there is no "include files outside the root directory" setting to enable.
+- `VITE_API_BASE_URL` (the Render API's origin) is read in `lib/api/client.ts`, `lib/api/import.ts`, and `AuthContext.tsx`. Vite inlines `VITE_*` values at **build** time, so changing it needs a redeploy, not just a saved env var. Unset (local dev) means relative URLs through the dev proxy.
+- The deployed origin must be listed in the server's `CORS_ALLOWED_ORIGINS`, and is also what the server's `APP_BASE_URL` should be — email links open `client/`'s `/reset-password` and `/verify-email` routes. See `.claude/rules/deployment.md`.
+
 ## Files Agents Should Prefer Reading Before Edits
 
 - `client/src/App.tsx` — the actual route table and provider tree.
@@ -104,7 +122,7 @@ See `.claude/rules/mobile-nav.md` for the full rules. Summary: `Layout.tsx` hold
 - Never persist the access token to `localStorage`/`sessionStorage` — it stays in `tokenStore.ts`'s module variable only. If you need to "fix" a reload losing it, the actual fix is checking the silent-refresh bootstrap in `AuthContext.tsx`, not adding persistence.
 - A page with its own filter/view state that should be bookmarkable or linkable belongs in the URL (`useSearchParams`), not local `useState` — see Important Reality Checks above.
 - When adding a mutation, check what else its write could affect (another resource's cached list, the dashboard's totals) and invalidate those query keys too — don't assume invalidating the mutation's own resource is enough.
-- Never embed a raw formatted string from the API as if it were final display text without checking `.claude/context/backend.md`'s "ship raw numbers" convention — if a field looks like it should already be formatted money/a date, it probably isn't, and `lib/format.ts` is where the formatting belongs.
+- Never embed a raw formatted string from the API as if it were final display text without checking `.claude/context/server.md`'s "ship raw numbers" convention — if a field looks like it should already be formatted money/a date, it probably isn't, and `lib/format.ts` is where the formatting belongs.
 - Follow `.claude/rules/go-conventions.md`'s general engineering judgment where it applies beyond Go specifics (comment the *why*, keep units of work small); there is no separate TypeScript style guide, so match the voice and structure of the surrounding file.
 - Verify an auth, cookie, or response-shape change in a real browser, not just `tsc`/`oxlint`/a visual read of the code — several real bugs here (the reload-loses-session cookie issue, the nil-slice-to-null JSON issue, a URL-sync issue) were invisible to static checks and only surfaced once something actually ran in Chromium. See `.claude/rules/json-api-conventions.md`'s browser-testing note.
 
@@ -125,6 +143,8 @@ See `.claude/rules/mobile-nav.md` for the full rules. Summary: `Layout.tsx` hold
 
 ## Change Log
 
+- `2026-10-05`: pnpm workspace removed. `pnpm-workspace.yaml` deleted and `pnpm-lock.yaml` moved from the repo root into `client/` (regenerated as a standalone lockfile, same resolved versions); `packageManager` added to `client/package.json`; CI points at `client/pnpm-lock.yaml`. `client/` is now a plain standalone package. Added Setup and Run and Deploy Notes sections to this file.
+- `2026-10-05`: this file renamed from `frontend.md` to `client.md` to match the `client/` directory it describes.
 - `2026-10-05`: the Gin/React migration completed. The old `html/template` + htmx frontend (`server/internal/web`, the `view_*.go` render pipeline, `server/internal/csrf`) was deleted in full. This file rewritten from scratch to describe `client/`'s React SPA as the frontend, replacing the previous version which described the now-deleted templates/static-asset system.
 - `2026-10-05`: `client/` built out across several commits to full feature parity with the deleted HTML app (auth, all four main pages, CSV import UI, mobile gestures, code-splitting) — see git log on this date for the detailed, phase-by-phase history; this file no longer tracks that transition day by day now that it's finished.
 - `2026-10-05`: `client/` scaffolded (Vite + React + TypeScript + Tailwind v4 + pnpm), as part of converting the repo into a monorepo (`server/` + `client/`).

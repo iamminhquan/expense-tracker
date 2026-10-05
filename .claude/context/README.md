@@ -3,19 +3,19 @@
 ## Purpose
 - This directory is the centralized project knowledge base for AI agents working in this repository.
 - Canonical architecture and background context lives here. Area-specific coding rules live in `.claude/rules/` (loaded automatically for the file being touched, via `paths:` frontmatter), and step-by-step processes live in `.claude/skills/`.
-- `CLAUDE.md` at the repo root is intentionally minimal: it only routes to this directory, `.claude/rules/` and `.claude/skills/`. The common commands live in `backend.md`.
+- `CLAUDE.md` at the repo root is intentionally minimal: it only routes to this directory, `.claude/rules/` and `.claude/skills/`. The common commands live in `server.md`.
 
 ## Context Files
 This directory holds exactly two subject-matter files, both comprehensive single documents rather than a pile of short topic pages:
-- `backend.md`: the backend source-of-truth — product description, tech stack, the full route surface, package layout, the data model, auth/authorization, env vars, deploy notes, known gaps, and agent playbooks/safe-edit rules. It is the file to update first when backend behavior changes.
-- `frontend.md`: the browser-facing source-of-truth — the React page/route structure, the API client layer, auth/theme contexts, TanStack Query's cache strategy, the dashboard/charts, and mobile navigation. It is the file to update first when frontend behavior changes.
+- `server.md`: the backend source-of-truth — product description, tech stack, the full route surface, package layout, the data model, auth/authorization, env vars, deploy notes, known gaps, and agent playbooks/safe-edit rules. It is the file to update first when backend behavior changes.
+- `client.md`: the browser-facing source-of-truth — the React page/route structure, the API client layer, auth/theme contexts, TanStack Query's cache strategy, the dashboard/charts, and mobile navigation. It is the file to update first when frontend behavior changes.
 
 Both overlap the `.claude/rules/*.md` files by design (same facts, read in one place here instead of jumping file to file), and both cross-reference each other and this README. Where a context file and a rule disagree, the rule is the source: fix the context file to match it, and fix both to match the code.
 
 ## Routing Rule
-- For backend questions (routes, schema, auth, env vars, deploy, known gaps, task playbooks), read `backend.md`.
-- For frontend questions (pages, components, the API client, theming, charts, mobile nav), read `frontend.md`.
-- For coding conventions and rules scoped to a specific area (templates, CSV import, the balance widget, auth/sessions, CSRF, the database, email ingestion, deployment, etc.), don't read this directory — `.claude/rules/*.md` load automatically based on the file being touched, via their own `paths:` frontmatter.
+- For backend questions (routes, schema, auth, env vars, deploy, known gaps, task playbooks), read `server.md`.
+- For frontend questions (pages, components, the API client, theming, charts, mobile nav), read `client.md`.
+- For coding conventions and rules scoped to a specific area (CSV import, the balance widget, the dashboard, auth/sessions, email verification, categories, theming, mobile nav, the database, deployment, etc.), don't read this directory — `.claude/rules/*.md` load automatically based on the file being touched, via their own `paths:` frontmatter.
 - For committing changes or opening a pull request, read `.claude/skills/`.
 
 ## Maintenance Rule
@@ -31,16 +31,17 @@ Both overlap the `.claude/rules/*.md` files by design (same facts, read in one p
 
 ## Repository Map
 A monorepo with two packages, `server/` (Go/Gin JSON API) and `client/`
-(React/Vite SPA) — see `backend.md` and `frontend.md` for what each one
+(React/Vite SPA) — see `server.md` and `client.md` for what each one
 actually does:
 - `server/cmd/server/`: the entrypoint; wires `api.Deps`, runs pending migrations, starts the server.
-- `server/internal/api/`: every HTTP handler — one flat package, grouped by filename prefix (see `backend.md`'s Backend Layout section).
+- `server/internal/api/`: every HTTP handler — one flat package, grouped by filename prefix (see `server.md`'s Backend Layout section).
 - `server/internal/database/`: migrations and hand-written SQL queries; `server/internal/sqlcgen/` holds the generated bindings (never hand-edited — edit the `.sql` and regenerate).
 - `server/internal/auth/`: JWT access tokens, the opaque refresh-token/session row, passwords, lockout, password reset, email verification.
 - `server/internal/csvimport/`: CSV import/export sniffing, mapping, planning (no database access).
 - `server/internal/format/`, `server/internal/i18n/`, `server/internal/txnrule/`, `server/internal/pgval/`: shared helpers (the one surviving display formatter — `DeviceLabel` — category names, transaction limits, pgtype wrappers).
 - `server/internal/mailer/`: Brevo HTTP API client for transactional email.
-- `client/src/`: the React SPA (Vite + TypeScript + Tailwind v4 + pnpm workspace) — pages, components, hooks, and the `lib/api/` client. See `frontend.md`.
+- `client/src/`: the React SPA (Vite + TypeScript + Tailwind v4 + pnpm, a standalone package with its own lockfile) — pages, components, hooks, and the `lib/api/` client. See `client.md`.
+- `.github/workflows/ci.yml`: the pre-merge gate — `go build`/`vet`/`test` in `server/`, `pnpm lint`/`build` in `client/`.
 - `.claude/rules/`: path-scoped coding rules, one file per area, each with its own `paths:` frontmatter covering `server/` and/or `client/` files.
 - `.claude/skills/`: step-by-step processes (committing changes, opening a pull request).
 
@@ -49,6 +50,7 @@ actually does:
 - Prefer code and the files in `.claude/context/` and `.claude/rules/` when documentation conflicts.
 
 ## Change Log
+- `2026-10-05`: `.claude/context/backend.md` and `frontend.md` renamed to `server.md` and `client.md` to match the directories they describe (older Change Log entries below keep the old names, as history). Both files reviewed against the code: `server.md` gained the `/healthz` and `APP_BASE_URL` corrections below; `client.md` gained Setup and Run and Deploy Notes sections. The pnpm workspace was removed — `pnpm-workspace.yaml` deleted, `pnpm-lock.yaml` moved into `client/`, `.gitignore`'s root `node_modules/` rule dropped, CI repointed. A `/healthz` regression from the Chi cleanup was fixed (`render.yaml` probes `/healthz`, which only existed as `/api/healthz`), and `APP_BASE_URL` now means `client/`'s URL.
 - `2026-10-05`: the Chi/html-template era ended. `server/internal/handlers`, `server/internal/web`, `server/internal/csrf`, and the unused `server/internal/format` helpers that only templates called (`count.go`, `date.go`, `greeting.go`, `money.go`) were deleted, and `go-chi/chi/v5` dropped from `go.mod`. `cmd/server/main.go` now runs a single Gin router (`internal/api`) — the dual-router dispatch-by-prefix setup described in earlier entries below no longer exists. `CLAUDE.md`, this file, `backend.md`, and `frontend.md` rewritten to describe the final architecture directly, with no "Migration in Progress" framing left anywhere. `.claude/rules/csrf.md`, `htmx-conventions.md`, and `templates-static.md` deleted (no CSRF, no templates, no static-asset embedding left to document).
 - `2026-10-05`: `client/` gained a CSV import page (`ImportPage.tsx`, driving `/api/transactions/import`'s mapping/preview/confirm flow) and an export button on Transactions (`downloadTransactionsExport`, fetch+blob since a plain link can't carry the `Authorization` header). A browser smoke test of the full import round trip caught two more bugs: `csvimport.DateFormat`/`NewCategory`/`RowError` have no JSON tags of their own, so embedding them directly in a response leaked PascalCase field names (`dateFormatDTO`/`importNewCategoryDTO`/`rowErrorDTO` now wrap them — see `.claude/rules/json-api-conventions.md`'s new third bullet); and `TransactionsPage` kept filters in local `useState` instead of the URL, so navigating to `/transactions?month=2026-02` (the import flow's own "view results" link) silently showed the current month instead — fixed by switching to `useSearchParams` as the source of truth.
 - `2026-10-05`: `internal/api` gained CSV import (`POST /api/transactions/import`, the HTML side's three-screen upload/mapping/preview flow collapsed into one endpoint driven by what the client sends) and export (`GET /api/transactions/export`). **Phase 1 is now fully complete** — every route `handlers/` has, `internal/api` has too. See `.claude/rules/csv-import.md`.

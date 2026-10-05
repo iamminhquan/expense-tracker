@@ -1,7 +1,7 @@
 // Package api is the Gin-routed JSON API ("/api/*") that is the whole
 // backend -- it replaced the Chi-routed, html/template-rendered
 // internal/handlers package, which no longer exists (see
-// .claude/context/backend.md for the current architecture and git history
+// .claude/context/server.md for the current architecture and git history
 // for what the old app looked like).
 package api
 

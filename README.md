@@ -18,7 +18,7 @@ Two packages:
 - **`client/`** — the frontend. A Vite + React + TypeScript + Tailwind v4
   single-page app that talks to `server/` entirely over `/api/*`.
 
-See `.claude/context/backend.md` and `.claude/context/frontend.md` for the
+See `.claude/context/server.md` and `.claude/context/client.md` for the
 full picture of each half.
 
 ## Prerequisites
