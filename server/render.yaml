@@ -52,6 +52,18 @@ services:
       # support.
       - key: DATABASE_URL
         sync: false
+      # Set by hand in the Render dashboard (generate with
+      # `openssl rand -base64 32`): signs and verifies access tokens
+      # (internal/auth/jwt.go). Never committed -- see JWT_SECRET's comment
+      # in .env.example for what rotating it does and doesn't invalidate.
+      - key: JWT_SECRET
+        sync: false
+      # Set by hand once the Vercel deployment's domain is known (Phase 3
+      # cutover); the API's CORS middleware otherwise accepts no
+      # cross-origin requests at all. Comma-separated if client/ is ever
+      # reachable at more than one origin.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
       # Render serves the service over HTTPS, so the session cookie needs the
       # Secure attribute; without it browsers silently refuse to store the
       # cookie and nobody can stay logged in.

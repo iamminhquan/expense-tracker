@@ -166,12 +166,14 @@ sqlc generate
 - `DATABASE_URL`, `PORT`, `SESSION_COOKIE_NAME`, `SECURE_COOKIES` — core wiring; `SECURE_COOKIES=true` is required once served over HTTPS, or the session cookie is silently refused.
 - `APP_BASE_URL` — absolute link base for the password-reset email; defaults to `http://localhost:$PORT`.
 - `BREVO_API_KEY`, `MAIL_FROM` — password-reset/verification email, sent over Brevo's HTTP API rather than SMTP, because Render's free tier blocks outbound SMTP ports but never 443. Optional — blank leaves forgot-password working end to end except the actual send, which is logged instead.
+- `JWT_SECRET` — signs/verifies access tokens (`internal/auth/jwt.go`, Phase 1 of the Gin/React migration — see `CLAUDE.md`'s "Migration in Progress"). Required, no fallback, same reasoning as `DATABASE_URL`: `config.Load()` refuses to start without it rather than sign tokens with a key baked into the source tree.
+- `CORS_ALLOWED_ORIGINS` — comma-separated origins the (future) Gin API's CORS middleware accepts credentialed cross-origin requests from. Optional; blank means none, correct until `client/` has a real deployment to allow.
 
 ## Deploy Notes
 
 - Production target is a single free Render web service on Render's native Go runtime — **no Dockerfile, by design** (see `server/render.yaml`'s own comments).
 - Database is Neon Postgres, not Render's own free tier (which is deleted after 30 days). `DATABASE_URL` in Render must be Neon's *direct* (non-`-pooler`) connection string — golang-migrate's session-level advisory lock isn't supported by the pooled endpoint.
-- `autoDeploy: true` on `main`; a schema change ships with the same push since the server migrates at startup. The binary is built into and run from the repo root (`go build -o server ./cmd/server`), because migrations are read from a path relative to the working directory even though templates/static assets are `go:embed`ed.
+- `autoDeploy: true` on `main`; a schema change ships with the same push since the server migrates at startup. `rootDir: server` makes Render `cd` into `server/` before running `go build -o server ./cmd/server` / `./server`, so the binary is built into and run from `server/` (not the repo root) — migrations are read from a path relative to that working directory even though templates/static assets are `go:embed`ed.
 - `/healthz` doubles as the Render deploy health check and the target of an external cron that pings it every ~10 minutes to stop the free instance spinning down after 15 minutes of inactivity.
 
 ## Files Agents Should Prefer Reading Before Edits
