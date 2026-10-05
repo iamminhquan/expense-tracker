@@ -30,8 +30,8 @@ Gin JSON API in `server/` and a React SPA in `client/`.
     relative to `server/` (e.g. `server/internal/handlers/`) to match.
   - A new JSON API under `/api/*` (package `internal/api`, Gin), additive
     and not yet linked from anywhere a real user reaches. **Phase 1 (the
-    JSON API rewrite) is functionally complete except CSV import/export**:
-    JWT access tokens (`internal/auth/jwt.go`, stateless, 15 min TTL) plus
+    JSON API rewrite) is complete -- every route the HTML side has now has
+    a JSON equivalent**: JWT access tokens (`internal/auth/jwt.go`, stateless, 15 min TTL) plus
     a refresh token that's `internal/auth/session.go`'s existing token
     reused as-is (httpOnly cookie, `Path=/api`) rather than a second
     revocable-token mechanism (`jwt.go`'s doc comment has the reasoning);
@@ -45,12 +45,14 @@ Gin JSON API in `server/` and a React SPA in `client/`.
     and settings (`/api/settings` + profile/email/password/theme/
     sessions/account-deletion, same rules as `settings_handlers.go` — see
     `.claude/rules/account-deletion.md` and `.claude/rules/auth-sessions.md`);
-    and forgot/reset-password + email verification
+    forgot/reset-password + email verification
     (`/api/forgot-password`, `/api/reset-password`, `/api/verify-email` —
-    see `.claude/rules/email-verification.md`). Every endpoint above is
-    DB-tested end to end (`internal/api/*_test.go`, needs
-    `TEST_DATABASE_URL`). CSV import/export has no JSON design yet and is
-    the one deliberately deferred piece. See
+    see `.claude/rules/email-verification.md`); and CSV import/export
+    (`/api/transactions/import`, `/api/transactions/export` — the HTML
+    side's three-screen upload/mapping/preview flow collapsed into one
+    endpoint driven by what the client sends, see
+    `.claude/rules/csv-import.md`). Every endpoint above is DB-tested end
+    to end (`internal/api/*_test.go`, needs `TEST_DATABASE_URL`). See
     `.claude/rules/json-api-conventions.md` for conventions spanning this
     whole package (never ship a `null` where the client expects `[]`,
     refresh-cookie `SameSite` must track `SecureCookies`, duplication over
@@ -74,10 +76,11 @@ Gin JSON API in `server/` and a React SPA in `client/`.
   `.claude/rules/json-api-conventions.md` now documents. Known
   simplifications versus the HTML side, not yet addressed: no long-press/
   drag-to-dismiss mobile gesture polish (plain responsive layout instead),
-  no CSV import/export UI (the API doesn't have it either), styling is a
-  faithful-effort port of the design tokens rather than a pixel-exact
-  match of every template. No dedicated context file yet — one gets
-  written once the page set stabilizes.
+  no CSV import/export UI yet (the API has it -- `/api/transactions/
+  import|export` -- the client page doesn't), styling is a faithful-effort
+  port of the design tokens rather than a pixel-exact match of every
+  template. No dedicated context file yet — one gets written once the
+  page set stabilizes.
 - Deploy target: `server/` on Render (`server/render.yaml`, `rootDir:
   server`), `client/` on Vercel (`client/vercel.json`) once cutover happens.
   Today only `server/` is deployed; the old single-service Chi app is still

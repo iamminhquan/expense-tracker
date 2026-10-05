@@ -44,6 +44,8 @@ func NewRouter(deps Deps) *gin.Engine {
 			authed.POST("/transactions", createTransactionHandler(deps))
 			authed.PATCH("/transactions/:id", updateTransactionHandler(deps))
 			authed.DELETE("/transactions/:id", deleteTransactionHandler(deps))
+			authed.GET("/transactions/export", exportTransactionsHandler(deps))
+			authed.POST("/transactions/import", importTransactionsHandler(deps))
 
 			authed.GET("/dashboard", dashboardHandler(deps))
 

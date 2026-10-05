@@ -4,6 +4,8 @@ paths:
   - "server/internal/handlers/import_*.go"
   - "server/internal/web/templates/import.html"
   - "server/internal/handlers/txn_export.go"
+  - "server/internal/api/import_handlers.go"
+  - "server/internal/api/export_handlers.go"
 ---
 
 # CSV import
@@ -41,3 +43,10 @@ paths:
 - `Import.Fingerprint` is a digest of what was read, echoed in a hidden field, so a file swapped between steps is refused rather than imported unseen.
 - Row validation enforces what the quick-add form enforces (amount, type, note length, future limit). Don't add a laxer way in.
 - The two numeric limits live in `server/internal/txnrule` and are read from there by the form, the inline edit and the importer. Never copy the numbers.
+
+## Gin/JSON side (`internal/api`, see `CLAUDE.md`)
+
+- `import_handlers.go` collapses the HTML side's three screens (upload, mapping, preview) into one `POST /api/transactions/import` endpoint a client drives by what it sends: no `mapped` field yet gets a `needsMapping` response (skipped entirely for an exact-format file, same as the HTML side); a mapping without `confirm` gets a preview; `confirm=1` with a matching `fingerprint` applies it. Same multipart form fields as the HTML side (`date_col`, `mapped`, `fingerprint`, etc.) -- the request shape barely changed, only the response did.
+- `export_handlers.go`'s `GET /api/transactions/export` answers the same CSV a plain `<a href>` would, but a plain link can't carry this request's `Authorization` header -- the client fetches it with the access token attached and turns the response into a download itself (an object URL + a synthetic `<a download>`), the standard SPA pattern for an authenticated file download.
+- Both duplicate their `handlers/` counterparts' logic function-for-function (including `applyImport`'s transaction-order comment and `countImportDuplicates`' exact-match logic) rather than sharing it -- see `.claude/rules/json-api-conventions.md` for why this migration duplicates instead of extracting a shared package.
+- `importPreviewResponse`'s `errors`/`newCategories` are normalized from `nil` to `[]T{}` at the call site (not inside `csvimport`, which this migration leaves alone) -- a clean file with no errors, or one that names no new category, is exactly the empty-array-serializes-as-null trap `.claude/rules/json-api-conventions.md` documents.
