@@ -3,6 +3,7 @@ paths:
   - "server/internal/i18n/**"
   - "server/internal/handlers/category_*.go"
   - "server/internal/handlers/req_filters.go"
+  - "server/internal/api/category_*.go"
   - "server/internal/database/queries/categories.sql"
   - "server/internal/web/templates/categories.html"
   - "server/internal/web/templates/category_row.html"
@@ -19,3 +20,4 @@ paths:
 - `transactions.category_id` has no `ON DELETE` clause, on purpose: a category can't be removed while transactions reference it unless the app reassigns those rows first.
 - A migration that touches a default updates it in place; never delete and reinsert it.
 - Add a new default through a migration that follows the 000006 / 000008 / 000014 pattern (an idempotent insert guarded by `WHERE NOT EXISTS`, a `slug` from day one), together with its entry in `categoryNames`. See `database.md` for the schema side.
+- `server/internal/api/category_handlers.go` (the Gin/JSON side being built for the migration, see `CLAUDE.md`) follows every rule above identically — same slug-based identity, same `i18n.CategoryName` resolution, same default-category rename/delete restrictions. It differs from the HTML side only in surface shape: one `PATCH /api/categories/:id` accepts an optional name and/or color instead of two routes split by which template fragment the response re-rendered.

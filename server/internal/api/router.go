@@ -30,6 +30,11 @@ func NewRouter(deps Deps) *gin.Engine {
 		authed.Use(RequireAuth(deps.JWTSecret))
 		{
 			authed.GET("/me", meHandler(deps))
+
+			authed.GET("/categories", listCategoriesHandler(deps))
+			authed.POST("/categories", createCategoryHandler(deps))
+			authed.PATCH("/categories/:id", updateCategoryHandler(deps))
+			authed.DELETE("/categories/:id", deleteCategoryHandler(deps))
 		}
 	}
 

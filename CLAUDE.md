@@ -30,15 +30,18 @@ Gin JSON API in `server/` and a React SPA in `client/`.
     relative to `server/` (e.g. `server/internal/handlers/`) to match.
   - A new JSON API under `/api/*` (package `internal/api`, Gin), additive
     and not yet linked from anywhere a real user reaches. Landed so far:
-    JWT access tokens (`internal/auth/jwt.go`, stateless, 15 min TTL) plus
+    JWT access tokens (`internal/auth/jwt.go`, stateless, 15 min TTL);
     `/api/register`, `/api/login`, `/api/refresh`, `/api/logout`,
     `/api/me` — register/login reuse `internal/auth/session.go`'s existing
     token *as* the refresh token (httpOnly cookie, `Path=/api`), rather
     than a second revocable-token mechanism; see `jwt.go`'s and
-    `auth_handlers.go`'s doc comments for why. Categories/transactions/
-    dashboard/settings endpoints are still TODO. No dedicated context file
-    for `internal/api` yet — one gets written once it covers the full
-    route surface backend.md describes for the Chi side today.
+    `auth_handlers.go`'s doc comments for why; and `/api/categories`
+    (`GET`/`POST`/`PATCH /:id`/`DELETE /:id`) — one `PATCH` doing what the
+    HTML side splits into `.../color` and `.../name` sub-routes, since a
+    JSON body has no fragment-identity reason to keep them apart.
+    Transactions/dashboard/settings endpoints are still TODO. No dedicated
+    context file for `internal/api` yet — one gets written once it covers
+    the full route surface backend.md describes for the Chi side today.
 - **`client/`** is a fresh Vite + React + TypeScript + Tailwind v4 scaffold
   (pnpm workspace) with no real pages yet — see `client/src/App.tsx`. It has
   no dedicated context file yet; one gets written once it has real pages to
