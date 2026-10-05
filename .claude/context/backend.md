@@ -59,6 +59,15 @@
   - `GET /dashboard`
   - Settings: `GET /settings`, `POST /settings/profile`, `POST /settings/email`, `POST /resend-verification`, `POST /settings/password`, `POST /settings/delete`, `POST /settings/sessions/revoke`, `POST /settings/sessions/revoke-others`, `PUT /settings/theme`
 
+Everything above is this section's subject: the Chi-routed, HTML-rendering
+app. A second, JSON-only route tree is growing alongside it under `/api/*`
+(package `internal/api`, Gin, JWT-authenticated) as part of the Gin/React
+migration -- see `CLAUDE.md`'s "Migration in Progress" section for what's
+landed there so far. The two share a process and a port
+(`cmd/server/main.go` dispatches by path prefix via `http.ServeMux`) but
+nothing else: no shared handler code, no shared auth mechanism. This file
+does not attempt to also be `/api/*`'s reference; ask in `CLAUDE.md` first.
+
 ## Important Reality Checks
 
 - Authorization is single-tier: there is no admin role and no roles/permissions system at all — every authenticated user has exactly the same capabilities, scoped to their own `user_id` in every query. "Authorization Model" below states that fact; it is not a system to audit for missing checks.

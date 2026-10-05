@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"expensetracker/internal/api"
 	"expensetracker/internal/config"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
@@ -92,23 +93,50 @@ func main() {
 		log.Fatalf("parse templates: %v", err)
 	}
 
+	mailerClient := mailer.New(mailer.Config{
+		APIKey: cfg.BrevoAPIKey,
+		From:   cfg.MailFrom,
+	})
+
 	deps := handlers.Deps{
-		DB:      pool,
-		Queries: queries,
-		Mailer: mailer.New(mailer.Config{
-			APIKey: cfg.BrevoAPIKey,
-			From:   cfg.MailFrom,
-		}),
+		DB:            pool,
+		Queries:       queries,
+		Mailer:        mailerClient,
 		Templates:     templates,
 		CookieName:    cfg.SessionCookieName,
 		SecureCookies: cfg.SecureCookies,
 		BaseURL:       cfg.BaseURL,
 	}
 
-	router := handlers.NewRouter(deps)
+	apiDeps := api.Deps{
+		DB:      pool,
+		Queries: queries,
+		Mailer:  mailerClient,
+		// Reuses the same cookie name as the HTML side's session cookie --
+		// they never collide despite sharing a name because this one is
+		// scoped to Path=/api (set in internal/api/auth_handlers.go) while
+		// the session cookie is scoped to Path=/ (see
+		// handlers.startSession); browsers key a cookie by name *and* path.
+		RefreshCookieName:  cfg.SessionCookieName,
+		SecureCookies:      cfg.SecureCookies,
+		BaseURL:            cfg.BaseURL,
+		JWTSecret:          cfg.JWTSecret,
+		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+	}
+
+	// Two routers share one process and one port during the migration: the
+	// Chi-routed, html/template-rendered app at every path it already
+	// owns, and the new Gin-routed JSON API entirely under /api/*, which
+	// ServeMux dispatches to on prefix without altering the request path
+	// (unlike http.StripPrefix), so Gin's own routes -- registered
+	// starting with /api -- still match. See CLAUDE.md's "Migration in
+	// Progress" section.
+	mux := http.NewServeMux()
+	mux.Handle("/api/", api.NewRouter(apiDeps))
+	mux.Handle("/", handlers.NewRouter(deps))
 
 	log.Printf("listening on :%s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
+	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
 		log.Fatal(err)
 	}
 }
