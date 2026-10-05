@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 
-	"expensetracker/internal/classify"
 	"expensetracker/internal/config"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
@@ -100,16 +99,10 @@ func main() {
 			APIKey: cfg.BrevoAPIKey,
 			From:   cfg.MailFrom,
 		}),
-		Classifier: classify.New(classify.Config{
-			APIKey: cfg.GeminiAPIKey,
-			Model:  cfg.GeminiModel,
-		}),
-		Templates:            templates,
-		CookieName:           cfg.SessionCookieName,
-		SecureCookies:        cfg.SecureCookies,
-		BaseURL:              cfg.BaseURL,
-		InboundDomain:        cfg.InboundDomain,
-		InboundWebhookSecret: cfg.InboundWebhookSecret,
+		Templates:     templates,
+		CookieName:    cfg.SessionCookieName,
+		SecureCookies: cfg.SecureCookies,
+		BaseURL:       cfg.BaseURL,
 	}
 
 	router := handlers.NewRouter(deps)
