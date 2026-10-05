@@ -1,21 +1,23 @@
 ---
 paths:
-  - "internal/handlers/balance_*.go"
-  - "internal/web/templates/header_balance.html"
-  - "internal/handlers/txn_mutate.go"
-  - "internal/handlers/category_handlers.go"
-  - "internal/web/templates/nav.html"
-  - "internal/web/templates/mobile_header.html"
+  - "server/internal/api/dashboard_handlers.go"
+  - "client/src/components/layout/BalanceWidget.tsx"
+  - "client/src/components/layout/Layout.tsx"
 ---
 
 # The balance widget
 
-## Rules
+## Server (`dashboard_handlers.go`)
 
-- The balance lives in one place: the `header_balance` widget (`header_balance.html`), rendered by both nav bars. There is no balance card in any page body; that partial was deleted.
-- It always reports the real current month, never the month a page is browsing, because it sits in the layout above the month picker.
+- `headerBalance` on `GET /api/v1/dashboard`'s response always reports the real current month, never the month being browsed -- unlike every other field in that response, which describes whatever month the request asked for. There is no separate endpoint for it; a JSON client that needs the widget on a page other than Dashboard still calls `/api/v1/dashboard` for it (see `Layout.tsx` below).
 - It carries forward across months: what a month closes at is what the next one opens with. `MonthlyTotals` returns the carried-in figure as a third column (`carried_over`) next to the month's own two totals. Its `WHERE` reaches over the user's whole history and each column narrows through its own `FILTER`; read it carefully before changing it.
 - Keep the `::bigint` around the whole subtraction in that query. Without it sqlc types the result `int32`, which overflows past 2.1 tỷ đồng.
-- Resolve percentages in Go, not the template: `balanceSummary` (built by `newBalanceSummary` in `balance_summary.go`). `html/template` cannot divide, and every percentage here (a month with no income, a month that overspent) needs a divide-by-zero guard.
-- Only the balance is cumulative. The ratio bar and its caption still measure the displayed month against that month's own income.
-- Both nav bars are in the DOM at once, so every mutation response returns `header_balance_oob`, which swaps two ids rather than relying on one selector. Wrapper spans carry `contents` so they leave no trace in the flex layout.
+- `newBalanceDTO` resolves the spent-percentage in Go, not the client: every case here (a month with no income, a month that overspent) needs a divide-by-zero guard, and doing it once server-side means every client agrees.
+- `HasIncome` exists because `SpentPct` alone is ambiguous at zero -- "no income this month" and "income, nothing spent of it yet" both leave it at its zero value. See `.claude/rules/json-api-conventions.md`'s note on this being a real bug a browser test caught.
+- Only the balance itself is cumulative. `SpentPct` and whatever sentence the client builds from it still measure the displayed month against that month's own income.
+
+## Client (`BalanceWidget.tsx`, `Layout.tsx`)
+
+- `Layout.tsx` calls `useDashboard()` once, at the top of the authenticated route tree, so every page shares the one cached `headerBalance` instead of each page issuing its own request -- the client-side equivalent of the widget living in a shared layout rather than each page.
+- `BalanceWidget.tsx`'s `ratioLabel` composes the "Spent X% of this month's income" / "No income this month" sentence from `spentPct` + `hasIncome` -- the thing `dashboard_handlers.go` deliberately stopped doing server-side (see `.claude/rules/dashboard.md`).
+- A mutation (create/update/delete a transaction) invalidates the `['dashboard']` TanStack Query key (see `useTransactions.ts`'s `invalidateEverythingATransactionTouches`), which is what keeps the widget correct after an edit -- the client-side replacement for the old `header_balance_oob` out-of-band swap.

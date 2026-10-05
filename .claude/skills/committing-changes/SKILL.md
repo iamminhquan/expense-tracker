@@ -15,12 +15,21 @@ Run `git status` and `git diff` (plus `git diff --staged` once something is stag
 
 ### 2. Run the Checks
 
-All three must pass **before** committing:
+This is a monorepo (`server/` + `client/`) — run the checks for whichever package the diff touches; run both if it touches both.
+
+Touched `server/`? All three must pass, run from inside `server/`:
 
 ```bash
 go build ./...
 gofmt -l .        # must print nothing
 go vet ./...
+```
+
+Touched `client/`? Both must pass, run from inside `client/`:
+
+```bash
+pnpm lint
+pnpm build
 ```
 
 Fix any failure first. A late commit beats a commit that breaks the build.
@@ -59,7 +68,7 @@ Always use the prefix; the few unprefixed commits in history are drift.
 
 **Body**: say *why*, not *what* — what would break without this, what alternative was rejected, what constraint shaped it. Write prose paragraphs, not bullet changelogs. Skip it when the diff is self-explanatory.
 
-**No footer**: end the message at the body. No `Co-Authored-By` trailer, no "🤖 Generated with Claude Code" line and no `Claude-Session:` link (`CLAUDE.md` rules them out, even though older commits carry a session link).
+**No footer**: end the message at the body. No `Co-Authored-By` trailer, no "🤖 Generated with Claude Code" line and no `Claude-Session:` link (this repo's convention, even though older commits carry a session link).
 
 ### 6. Commit and Confirm
 

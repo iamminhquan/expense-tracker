@@ -1,0 +1,91 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec) describing how this
+# app is deployed: a free web service on Render, with Postgres hosted
+# separately on Neon.
+#
+# The database is deliberately not declared here. Render's own free Postgres
+# instance is deleted after 30 days, which would take the expense history with
+# it, so the database lives on Neon's free tier and is wired in through
+# DATABASE_URL instead (see `sync: false` below).
+services:
+  - type: web
+    name: expense-tracker
+    # Render's native Go runtime, not `docker`: this project intentionally
+    # ships no Dockerfile (see commit 958b6a6), and the native runtime builds
+    # straight from go.mod without one.
+    runtime: go
+    plan: free
+    # Singapore is Render's closest region to Vietnam. Create the Neon project
+    # in the same region so a query doesn't cross an ocean on every request.
+    region: singapore
+    branch: main
+    # This is the server/ half of a monorepo (client/ deploys separately to
+    # Vercel). rootDir makes Render cd into server/ before running either
+    # command below, so buildCommand/startCommand and every relative path
+    # they touch (go.mod, migrations) resolve the same way they did when the
+    # repo root was the module root.
+    rootDir: server
+    # Templates and static assets are embedded in the binary, but the
+    # migrations are still read from a path relative to the working
+    # directory, so the binary is built into -- and started from -- rootDir
+    # (server/), which is where Render runs both commands.
+    buildCommand: go build -o server ./cmd/server
+    startCommand: ./server
+    # Every push to main rebuilds and redeploys. The server applies pending
+    # migrations at startup (see runMigrations in cmd/server/main.go), so a
+    # schema change ships with the same push -- there is no separate migrate
+    # step to run against production by hand.
+    autoDeploy: true
+    # Render probes this after each deploy to decide whether the new instance
+    # came up healthy. It is also the endpoint an external cron pings every
+    # ~10 minutes to keep the free instance from spinning down after 15
+    # minutes of inactivity (a cold start costs the next visitor ~30-60s).
+    healthCheckPath: /healthz
+    envVars:
+      # Render's default Go toolchain lags behind what go.mod requires; pin it
+      # so the build doesn't fail on an older compiler.
+      - key: GO_VERSION
+        value: "1.26.5"
+      # Set by hand in the Render dashboard: it carries the Neon password and
+      # must not be committed. Use Neon's *direct* connection string -- the
+      # one without `-pooler` in the host -- because golang-migrate takes a
+      # session-level advisory lock that Neon's pooled endpoint does not
+      # support.
+      - key: DATABASE_URL
+        sync: false
+      # Set by hand in the Render dashboard (generate with
+      # `openssl rand -base64 32`): signs and verifies access tokens
+      # (internal/auth/jwt.go). Never committed -- see JWT_SECRET's comment
+      # in .env.example for what rotating it does and doesn't invalidate.
+      - key: JWT_SECRET
+        sync: false
+      # Set by hand once the Vercel deployment's domain is known (Phase 3
+      # cutover); the API's CORS middleware otherwise accepts no
+      # cross-origin requests at all. Comma-separated if client/ is ever
+      # reachable at more than one origin.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      # Render serves the service over HTTPS, so the session cookie needs the
+      # Secure attribute; without it browsers silently refuse to store the
+      # cookie and nobody can stay logged in.
+      - key: SECURE_COOKIES
+        value: "true"
+      - key: SESSION_COOKIE_NAME
+        value: session_id
+      # PORT is intentionally absent: Render injects it into the container and
+      # config.Load() already reads it, defaulting to 8080 only for local runs.
+      # The password-reset/verify-email emails link to client/'s
+      # /reset-password and /verify-email routes -- this must be the
+      # Vercel domain (e.g. https://expense-tracker.vercel.app), NOT this
+      # Render service's own URL, which has no such route. Set by hand
+      # once that domain is known, since it isn't a secret either way.
+      - key: APP_BASE_URL
+        sync: false
+      # Set by hand in the Render dashboard: a Brevo API key (Settings ->
+      # SMTP & API -> API Keys), plus the sender address it was verified
+      # for. Sent over Brevo's HTTP API rather than SMTP because Render's
+      # free tier blocks outbound traffic to every SMTP port (25, 465, 587)
+      # but never to 443 -- see internal/mailer.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
