@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"expensetracker/internal/auth"
-	"expensetracker/internal/bankmail"
 	"expensetracker/internal/pgval"
 	"expensetracker/internal/sqlcgen"
 )
@@ -273,39 +272,6 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		// This is the whole learning mechanism (design doc section 4, step
-		// 8): a category correction on an email-sourced row teaches the
-		// note-key memory the processing loop consults on the next
-		// matching notice, through an action the user already performs --
-		// no separate UI. Gated on source == "email" (a manual row's note
-		// is never something the processor will key a lookup on the same
-		// way) and on the category actually changing (re-saving the same
-		// category on every other field edit must not spend a write here).
-		// bankmail.NoteKey runs on existing.Description -- the row's
-		// description as it stood before this edit, i.e. what the
-		// processing loop actually keyed its own lookup on when it created
-		// this row -- not the possibly-just-edited description, so a
-		// simultaneous description edit can never point the hint at a key
-		// the processor never used.
-		//
-		// existing.Description is already the truncated string
-		// internal/inboxproc's createTransactionFromNotice stored (its own
-		// NoteKey call runs on that same truncated string, never on the raw
-		// notice.Description) -- this side must keep deriving its key from
-		// whatever is actually stored on the row, not re-truncate or
-		// otherwise recompute it, or the two sides drift apart for exactly
-		// the longest notes.
-		if existing.Source == "email" && form.CategoryID != existing.CategoryID {
-			if _, err := deps.Queries.UpsertCategoryHint(r.Context(), sqlcgen.UpsertCategoryHintParams{
-				UserID: userID, NoteKey: bankmail.NoteKey(existing.Description), CategoryID: form.CategoryID,
-			}); err != nil {
-				// The transaction edit itself already succeeded; failing to
-				// remember the correction should not turn that into a
-				// failed request the user has to retry.
-				log.Printf("update transaction: upsert category hint: %v", err)
-			}
-		}
-
 		totals, ok := freshTotals(w, r, deps, userID)
 		if !ok {
 			return
@@ -314,10 +280,6 @@ func updateTransactionHandler(deps Deps) http.HandlerFunc {
 		// transaction_create_response despite this being an edit: the
 		// fragment is just "a row plus the OOB totals", which is exactly
 		// what a successful edit returns too.
-		// Source rides through unchanged from the row UpdateTransaction
-		// returns -- editing a category or amount does not turn an
-		// email-sourced row into a manual one, so its "auto" label must
-		// survive the swap.
 		renderFragment(w, r, deps, "transactions", "transaction_create_response", rowResponse{
 			Row:    singleRowOf(updated, category, scopeFromRequest(r).All),
 			Totals: totals,

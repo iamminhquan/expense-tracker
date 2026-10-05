@@ -55,7 +55,7 @@ var pageTemplates = map[string][]string{
 	"transactions":    {"transactions.html", "transaction_form.html", "transaction_row.html", "transaction_filters.html"},
 	"dashboard":       {"dashboard.html"},
 	"import":          {"import.html"},
-	"settings":        {"settings.html", "settings_inbox.html"},
+	"settings":        {"settings.html"},
 }
 
 // Templates parses every page set from the embedded templates directory.

@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"expensetracker/internal/classify"
 	"expensetracker/internal/csrf"
 	"expensetracker/internal/database"
 	"expensetracker/internal/handlers"
@@ -44,7 +43,6 @@ func newTestDeps(t *testing.T) handlers.Deps {
 		DB:            pool,
 		Queries:       sqlcgen.New(pool),
 		Mailer:        mailer.New(mailer.Config{}),
-		Classifier:    classify.New(classify.Config{}),
 		Templates:     templates,
 		CookieName:    "session_id",
 		SecureCookies: false,

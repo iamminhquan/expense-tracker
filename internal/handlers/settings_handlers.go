@@ -44,9 +44,6 @@ var savedMessages = map[string]string{
 	"password":          "Password updated.",
 	"session-revoked":   "Signed out of that session.",
 	"sessions-revoked":  "Signed out of every other session.",
-	"inbox-enabled":     "Email tracking is on. Forward your bank email to the address below.",
-	"inbox-disabled":    "Email tracking is off. The old address no longer accepts mail.",
-	"inbox-retried":     "Those emails are set back to pending.",
 }
 
 // sessionView is what the settings template shows for one row of the
@@ -61,8 +58,8 @@ type sessionView struct {
 }
 
 // settingsView is the whole settings page: the current values its forms are
-// pre-filled with, the active-session list, the email-tracking card, the
-// confirmation line a redirect landed with, and at most one error message.
+// pre-filled with, the active-session list, the confirmation line a redirect
+// landed with, and at most one error message.
 //
 // All four forms are on screen at once, which is why each has an error
 // field of its own rather than the page carrying a single one.
@@ -80,15 +77,6 @@ type settingsView struct {
 	EmailError    string
 	PasswordError string
 	DeleteError   string
-
-	// InboxAvailable is false when no inbound domain is configured, which
-	// is what makes the whole card disappear rather than offer an address
-	// nobody can send to.
-	InboxAvailable bool
-	InboxEnabled   bool
-	InboxAddress   string
-	InboxRecent    []recentEmailView
-	InboxHasFailed bool
 }
 
 // settingsForm names which of the page's forms a message belongs beside.
@@ -134,10 +122,6 @@ func newSettingsView(r *http.Request, deps Deps) (*settingsView, error) {
 		PendingEmail:    user.PendingEmail.String,
 		Sessions:        views,
 		Saved:           savedMessages[r.URL.Query().Get("saved")],
-	}
-
-	if err := addInboxSettings(r, deps, userID, user.InboxToken, data); err != nil {
-		return nil, err
 	}
 
 	return data, nil
@@ -413,27 +397,6 @@ func deleteAccount(ctx context.Context, deps Deps, userID int64) error {
 
 	if err := qtx.DeleteTransactionsForUser(ctx, userID); err != nil {
 		return fmt.Errorf("delete transactions: %w", err)
-	}
-	// bank_emails.user_id already carries ON DELETE CASCADE from users, so
-	// this delete is not what stops a foreign-key error the way the ones
-	// around it are -- it is spelled out for the same reason the rest of
-	// this function is: leaving it to the cascade works today, but that
-	// fact is invisible here and one constraint change away from not being
-	// true. transactions.bank_email_id is ON DELETE SET NULL, not NO
-	// ACTION, so it never blocks this either way -- there is no ordering
-	// bug here to "fix" by moving this call again.
-	if err := qtx.DeleteBankEmailsForUser(ctx, userID); err != nil {
-		return fmt.Errorf("delete bank emails: %w", err)
-	}
-	// category_hints.user_id also already carries ON DELETE CASCADE from
-	// users, and a hint pointing at one of the personal categories the next
-	// call removes would cascade away from category_id too -- same reasoning
-	// as the bank_emails delete just above: spelled out on purpose rather
-	// than left to either cascade, which is invisible here and one
-	// constraint change away from not being true. Ahead of the categories
-	// delete rather than after, so nothing here depends on cascade order.
-	if err := qtx.DeleteCategoryHintsForUser(ctx, userID); err != nil {
-		return fmt.Errorf("delete category hints: %w", err)
 	}
 	if err := qtx.DeletePersonalCategoriesForUser(ctx, pgval.Int64(userID)); err != nil {
 		return fmt.Errorf("delete categories: %w", err)

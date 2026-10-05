@@ -3,7 +3,6 @@ package handlers
 import (
 	"html/template"
 
-	"expensetracker/internal/classify"
 	"expensetracker/internal/mailer"
 	"expensetracker/internal/sqlcgen"
 
@@ -21,17 +20,9 @@ import (
 // global name per template set, so the last-parsed page's block would win
 // for every page.
 type Deps struct {
-	DB      *pgxpool.Pool
-	Queries *sqlcgen.Queries
-	Mailer  *mailer.Mailer
-	// Classifier resolves a category for a bank-email transaction when no
-	// category_hints row fits (see resolveCategoryForNotice in
-	// internal/inboxproc). Nil is treated the same as an unconfigured
-	// Classifier -- see that function's own guard -- but every real
-	// construction path (main.go, and the handler test helpers that
-	// exercise email processing) sets it via classify.New, the same way
-	// Mailer is always constructed even with an empty Config.
-	Classifier *classify.Classifier
+	DB         *pgxpool.Pool
+	Queries    *sqlcgen.Queries
+	Mailer     *mailer.Mailer
 	Templates  map[string]*template.Template
 	CookieName string
 	// SecureCookies gates the Secure attribute on the session and CSRF
@@ -41,8 +32,4 @@ type Deps struct {
 	// BaseURL is used to build the absolute link a password-reset email
 	// points at; see internal/config.Config.BaseURL.
 	BaseURL string
-	// InboundDomain and InboundWebhookSecret configure the email ingestion
-	// path; see internal/config.Config for what an empty value means.
-	InboundDomain        string
-	InboundWebhookSecret string
 }

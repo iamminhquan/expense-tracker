@@ -1,8 +1,0 @@
-name = "email-inbox"
-main = "src/index.js"
-compatibility_date = "2026-08-28"
-
-workers_dev = false
-
-[vars]
-APP_BASE_URL = "https://expense-tracker-qorv.onrender.com"
