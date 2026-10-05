@@ -8,19 +8,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// NewRouter constructs the JSON API's Gin engine, mounted entirely under
-// /api so it can share a process (and, for now, a port) with the Chi
-// router in internal/handlers without any path colliding. cmd/server
-// wires both into one http.ServeMux.
+// NewRouter constructs the JSON API's Gin engine: every endpoint under
+// /api, plus /healthz at the root for Render's health check and the
+// keep-alive cron (see render.yaml), which probe it by that exact path.
 func NewRouter(deps Deps) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 	r.Use(corsMiddleware(deps.CORSAllowedOrigins))
 
+	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
+
 	api := r.Group("/api")
 	{
-		api.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
-
 		api.POST("/register", registerHandler(deps))
 		api.POST("/login", loginHandler(deps))
 		api.POST("/refresh", refreshHandler(deps))
