@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { useDashboard } from '../../hooks/useDashboard'
 import { BalanceWidget } from './BalanceWidget'
 import { VerifyEmailBanner } from './VerifyEmailBanner'
@@ -11,6 +12,7 @@ const NAV_LINKS = [
 ]
 
 export function Layout() {
+  const { pathname } = useLocation()
   // Fetched once here, so every page shares the one headerBalance request.
   const { data: dashboard } = useDashboard()
 
@@ -52,7 +54,9 @@ export function Layout() {
       <VerifyEmailBanner />
 
       <main className="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-9">
-        <Outlet />
+        <ErrorBoundary resetKey={pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       <nav className="sticky bottom-4 z-40 mx-4 mb-4 mt-[14px] flex rounded-[20px] border border-border-card bg-surface p-[6px] shadow-lg md:hidden">

@@ -7,6 +7,7 @@ import { AuthProvider } from './lib/auth/AuthContext'
 import { ThemeProvider } from './lib/theme/ThemeContext'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 // One chunk per route, so a signed-out visitor never downloads Chart.js.
 const AuthPage = lazy(() => import('./pages/auth/AuthPage').then((m) => ({ default: m.AuthPage })))
@@ -29,36 +30,38 @@ function RouteFallback() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ThemeProvider>
-            <Suspense fallback={<RouteFallback />}>
-              <Routes>
-                <Route path="/login" element={<AuthPage tab="login" />} />
-                <Route path="/register" element={<AuthPage tab="register" />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-                <Route path="/verify-email" element={<VerifyEmailPage />} />
+    <ErrorBoundary fullPage>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <ThemeProvider>
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
+                  <Route path="/login" element={<AuthPage tab="login" />} />
+                  <Route path="/register" element={<AuthPage tab="register" />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-                <Route element={<ProtectedRoute />}>
-                  <Route element={<Layout />}>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/transactions" element={<TransactionsPage />} />
-                    <Route path="/transactions/import" element={<ImportPage />} />
-                    <Route path="/categories" element={<CategoriesPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
+                  <Route element={<ProtectedRoute />}>
+                    <Route element={<Layout />}>
+                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/dashboard" element={<DashboardPage />} />
+                      <Route path="/transactions" element={<TransactionsPage />} />
+                      <Route path="/transactions/import" element={<ImportPage />} />
+                      <Route path="/categories" element={<CategoriesPage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                    </Route>
                   </Route>
-                </Route>
 
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </Suspense>
-          </ThemeProvider>
-        </AuthProvider>
-      </BrowserRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </Suspense>
+            </ThemeProvider>
+          </AuthProvider>
+        </BrowserRouter>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }

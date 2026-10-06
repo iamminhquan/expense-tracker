@@ -69,9 +69,9 @@
 
 ## Frontend Layout
 
-- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider`).
+- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider`), all inside a full-page `ErrorBoundary`. `Layout` wraps its `<Outlet />` in a second one keyed on the pathname, so a page that crashes leaves the nav up and recovers when the user navigates. A lazy chunk that has vanished after a deploy shows a "reload" message instead of "try again".
 - `client/src/pages/`: one file per page, `client/src/pages/auth/` for the five pre-auth ones. A page with sub-components of its own gets a folder holding the page plus one file per sub-component: `pages/transactions/` (`FilterBar`, `AddTransactionForm`, `TransactionRow`), `pages/import/` (`MappingForm`, `PreviewPanel`), `pages/settings/` (one file per card, plus the `Card` frame they share).
-- `client/src/components/`: shared presentational components; `client/src/components/layout/` for the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
+- `client/src/components/`: shared components (`ErrorBoundary` is the one class component, since React has no hook for it); `client/src/components/layout/` for the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
 - `client/src/hooks/`: TanStack Query hooks, one module per resource.
 - `client/src/lib/api/`: the API client — see What Is Actually Implemented above.
 - `client/src/lib/auth/`, `client/src/lib/theme/`: the two app-wide React contexts.
