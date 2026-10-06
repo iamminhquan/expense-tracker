@@ -109,6 +109,53 @@ func TestDashboardReflectsTransactions(t *testing.T) {
 	}
 }
 
+// Three equal thirds each round to 33 on their own, which is how a legend came to total 99%.
+func TestDashboardPieLegendPercentsSumTo100(t *testing.T) {
+	deps := newTestDeps(t)
+	router := api.NewRouter(deps)
+	userID := createTestUser(t, deps)
+	today := time.Now().Format("2006-01-02")
+
+	for _, name := range []string{"Rent", "Food", "Travel"} {
+		categoryID := createTestCategory(t, deps, router, userID, name, "expense")
+		req := authedRequest(t, deps, http.MethodPost, "/api/v1/transactions", userID)
+		req.Body = jsonBody(t, map[string]any{
+			"categoryId": categoryID, "amount": 100000, "type": "expense", "occurredOn": today, "description": "",
+		})
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("seed POST /api/v1/transactions (%s) = %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/dashboard", userID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/v1/dashboard = %d %s, want 200", rec.Code, rec.Body.String())
+	}
+	dash := decodeData[struct {
+		Pie struct {
+			Legend []struct {
+				Name    string `json:"name"`
+				Percent int    `json:"percent"`
+			} `json:"legend"`
+		} `json:"pie"`
+	}](t, rec)
+
+	sum := 0
+	for _, entry := range dash.Pie.Legend {
+		if entry.Percent < 33 || entry.Percent > 34 {
+			t.Errorf("legend %s percent = %d, want 33 or 34 (a third, rounded)", entry.Name, entry.Percent)
+		}
+		sum += entry.Percent
+	}
+	if sum != 100 {
+		t.Errorf("legend percents sum to %d, want 100: %+v", sum, dash.Pie.Legend)
+	}
+}
+
 func TestDashboardEmptyMonthReportsEmpty(t *testing.T) {
 	deps := newTestDeps(t)
 	router := api.NewRouter(deps)

@@ -1,8 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react'
 import { AuthLayout } from '../../components/layout/AuthLayout'
-import { inputClass, primaryButtonClass } from '../../lib/formStyles'
+import { Field } from '../../components/ui/Field'
+import { StatusIcon } from '../../components/ui/StatusIcon'
+import { buttonClass, inputClass } from '../../lib/formStyles'
 import { forgotPassword } from '../../lib/api/auth'
+
+const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -24,28 +29,31 @@ export function ForgotPasswordPage() {
   return (
     <AuthLayout>
       {sent ? (
-        <p className="text-center text-[14px] text-ink-muted">
-          If <span className="font-medium text-ink">{email}</span> has an account, a reset link is on its way.
-        </p>
+        <div className="space-y-3 text-center" role="status">
+          <StatusIcon kind="mail" />
+          <h1 className={titleClass}>Check your inbox</h1>
+          <p className="text-[15px] leading-[22px] text-ink-muted">
+            If <span className="font-semibold break-all text-ink">{email}</span> has an account, a reset link is on its way. It works for one hour.
+          </p>
+        </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4">
-          <p className="text-[14px] text-ink-muted">Enter your email and we'll send you a link to reset your password.</p>
           <div>
-            <label className="mb-1 block text-[13px] text-ink-muted" htmlFor="email">
-              Email
-            </label>
-            <input id="email" type="email" required className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} />
+            <h1 className={titleClass}>Reset your password</h1>
+            <p className="mt-1.5 text-[15px] leading-[22px] text-ink-muted">Enter your email and we'll send you a link to choose a new one.</p>
           </div>
-          <button type="submit" disabled={submitting} className={primaryButtonClass}>
+          <Field label="Email">
+            {(control) => <input {...control} type="email" required autoComplete="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} />}
+          </Field>
+          <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary')} w-full`}>
             {submitting ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
       )}
-      <p className="mt-4 text-center text-[13px] text-ink-faint">
-        <Link to="/login" className="text-accent hover:underline">
-          Back to log in
-        </Link>
-      </p>
+      <Link to="/login" className={`${buttonClass('ghost')} w-full`}>
+        <ChevronLeft aria-hidden="true" />
+        Back to log in
+      </Link>
     </AuthLayout>
   )
 }

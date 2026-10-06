@@ -20,7 +20,12 @@ export function useUpdateCategory() {
   return useMutation({
     mutationFn: ({ id, input }: { id: number; input: categoriesApi.UpdateCategoryInput }) =>
       categoriesApi.updateCategory(id, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: categoriesKey }),
+    onSuccess: () => {
+      // Transaction rows and the dashboard legend show the category's name and color too.
+      void queryClient.invalidateQueries({ queryKey: categoriesKey })
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 

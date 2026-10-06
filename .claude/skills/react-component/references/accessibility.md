@@ -31,7 +31,7 @@ const amountErrorId = useId()
   aria-describedby={amountError ? amountErrorId : undefined}
   ...
 />
-{amountError && <p id={amountErrorId} className="mt-1 text-[12px] text-expense">{amountError}</p>}
+{amountError && <p id={amountErrorId} className="mt-1.5 text-[13px] text-danger">{amountError}</p>}
 ```
 
 Prefer native constraints (`required`, `min`, `type="email"`) over hand-written checks. The browser announces those for free. Write a custom message only for rules the browser can't express ("Please choose a category.").
@@ -96,14 +96,14 @@ What's still on you:
 - Its buttons are real `<button type="button">` elements.
 - Closing it from an action (Edit, Delete) calls `onClose` before starting the action, so focus handling runs in order.
 
-`window.confirm()` before a delete is acceptable. It's native, keyboard-operable, and announced. Show a failed mutation's error inline next to the row or form, not in `alert()`.
+Ask before a delete with `components/ui/ConfirmDialog`: a native `<dialog>` with initial focus on Cancel, named by its title and described by its body. Show a failed mutation's error inline (in the dialog, next to the row or form), never in `alert()`.
 
 ## 6. Toggle groups and tab-like links
 
 A set of buttons where one is "on" (expense/income in the add form, the theme picker): use `aria-pressed` on each, and wrap the set in `role="group"` with a name.
 
 ```tsx
-<div role="group" aria-label="Transaction type" className="flex gap-1 rounded-[9px] bg-track p-[3px]">
+<div role="group" aria-label="Transaction type" className="flex gap-1 rounded-[14px] bg-surface-2 p-1">
   {(['expense', 'income'] as const).map((t) => (
     <button key={t} type="button" aria-pressed={type === t} onClick={() => setType(t)} ...>{t}</button>
   ))}
@@ -115,8 +115,8 @@ Tab-looking links that actually navigate (`AuthPage`'s Log in / Sign up, the nav
 ## 7. Status and error messages
 
 ```tsx
-<p role="status" className="text-ink-faint">Loading…</p>              // polite, announced when it appears
-<p role="alert" className="text-[13px] text-expense">{error}</p>      // assertive, interrupts
+<p role="status" className="text-ink-muted">Loading…</p>              // polite, announced when it appears
+<p role="alert" className="text-[13px] text-danger">{error}</p>      // assertive, interrupts
 ```
 
 Screen readers announce a live region when its *content changes*. `role="alert"` is the forgiving one: conditionally rendering `{error && <p role="alert">…</p>}` is announced reliably, even though the element and its text arrive together. `role="status"` is less dependable when it's inserted already filled in. For a status that matters (e.g. "Imported 42 transactions"), render an empty `role="status"` container up front and change its text later.

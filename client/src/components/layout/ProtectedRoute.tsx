@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { LoaderCircle } from 'lucide-react'
 import { useAuth } from '../../lib/auth/AuthContext'
 
 // Render nothing until the silent refresh settles, or each reload flashes the login page.
@@ -8,8 +9,9 @@ export function ProtectedRoute() {
 
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-app">
-        <p className="text-ink-faint">Loading…</p>
+      <div role="status" className="flex min-h-screen items-center justify-center bg-app">
+        <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-ink-muted motion-reduce:animate-none" />
+        <span className="sr-only">Loading…</span>
       </div>
     )
   }

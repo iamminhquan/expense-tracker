@@ -1,11 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '../../components/layout/AuthLayout'
-import { FieldError } from '../../components/FieldError'
-import { inputClass, primaryButtonClass } from '../../lib/formStyles'
+import { Banner } from '../../components/ui/Banner'
+import { Field } from '../../components/ui/Field'
+import { PasswordInput } from '../../components/ui/PasswordInput'
+import { StatusIcon } from '../../components/ui/StatusIcon'
+import { buttonClass } from '../../lib/formStyles'
 import { checkResetToken, resetPassword } from '../../lib/api/auth'
 import { useAuth } from '../../lib/auth/AuthContext'
 import { ApiError } from '../../lib/api/client'
+
+const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams()
@@ -53,7 +58,10 @@ export function ResetPasswordPage() {
   if (checking) {
     return (
       <AuthLayout>
-        <p className="text-center text-[14px] text-ink-faint">Checking your link…</p>
+        <div role="status" className="space-y-3 text-center">
+          <StatusIcon kind="loading" />
+          <p className="text-[15px] text-ink-muted">Checking your link…</p>
+        </div>
       </AuthLayout>
     )
   }
@@ -61,13 +69,14 @@ export function ResetPasswordPage() {
   if (invalid) {
     return (
       <AuthLayout>
-        <p className="text-center text-[14px] text-ink-muted">
-          That reset link is invalid or has expired.{' '}
-          <Link to="/forgot-password" className="text-accent hover:underline">
-            Request a new one
-          </Link>
-          .
-        </p>
+        <div className="space-y-3 text-center">
+          <StatusIcon kind="warning" />
+          <h1 className={titleClass}>This link has expired</h1>
+          <p className="text-[15px] leading-[22px] text-ink-muted">Reset links work once, for one hour. Ask for a new one and use it straight away.</p>
+        </div>
+        <Link to="/forgot-password" className={`${buttonClass('primary')} w-full`}>
+          Request a new link
+        </Link>
       </AuthLayout>
     )
   }
@@ -75,36 +84,21 @@ export function ResetPasswordPage() {
   return (
     <AuthLayout>
       <form onSubmit={onSubmit} className="space-y-4">
-        <p className="text-[14px] text-ink-muted">Choose a new password for your account.</p>
         <div>
-          <label className="mb-1 block text-[13px] text-ink-muted" htmlFor="password">
-            New password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            className={inputClass}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <h1 className={titleClass}>Choose a new password</h1>
+          <p className="mt-1.5 text-[15px] leading-[22px] text-ink-muted">You'll be signed in as soon as it's saved.</p>
         </div>
-        <div>
-          <label className="mb-1 block text-[13px] text-ink-muted" htmlFor="password-confirm">
-            Confirm new password
-          </label>
-          <input
-            id="password-confirm"
-            type="password"
-            required
-            className={inputClass}
-            value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-          />
-        </div>
-        <FieldError>{error}</FieldError>
-        <button type="submit" disabled={submitting} className={primaryButtonClass}>
-          {submitting ? 'Saving…' : 'Reset password'}
+        {error && <Banner kind="danger">{error}</Banner>}
+        <Field label="New password">
+          {(control) => <PasswordInput {...control} required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+        </Field>
+        <Field label="Confirm new password">
+          {(control) => (
+            <PasswordInput {...control} required autoComplete="new-password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} />
+          )}
+        </Field>
+        <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary')} w-full`}>
+          {submitting ? 'Saving…' : 'Save and sign in'}
         </button>
       </form>
     </AuthLayout>

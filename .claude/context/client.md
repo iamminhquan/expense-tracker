@@ -31,12 +31,15 @@
 - UI: React 19, Tailwind v4 (`@tailwindcss/vite`, build-time, no CDN), `react-router-dom` for client-side routing.
 - Data: `@tanstack/react-query` for every server-state fetch/mutation/cache; there is no Redux/Zustand/global-store layer beyond `AuthContext`/`ThemeContext` and TanStack Query's own cache.
 - Charts: Chart.js via `react-chartjs-2`, Dashboard-only, lazy-loaded with the rest of that page's chunk.
+- Icons: `lucide-react` (tree-shaken, imported one icon at a time).
+- Fonts: Be Vietnam Pro (body) and Bricolage Grotesque (headings, every money figure, the wordmark), from Google Fonts in `index.html`. Both cover Vietnamese and ₫.
 - Lint: `oxlint`.
-- No CSS-in-JS, no component library — every component is hand-written Tailwind utility classes against the tokens in `index.css`.
+- No CSS-in-JS and no third-party component library. Every component is hand-written Tailwind against the tokens in `index.css`, with the shared primitives in `components/ui/`.
 
 ## Main Scope Right Now
 
-- `Layout.tsx` wraps every authenticated page with a desktop nav bar and a mobile header + bottom nav (both in the DOM, each hidden at the breakpoint the other owns via Tailwind's `md:` prefix), plus the balance widget and user menu shared by both.
+- The visual design is "Pocket Mono": a near-black accent on warm off-white (inverted in dark mode), indigo for expense and green for income, 28px-radius cards, and display-font money figures. The design handoff's token table is what `index.css` implements.
+- `Layout.tsx` wraps every authenticated page with a desktop header (nav links, the balance widget, the user menu) and a mobile header plus a floating icon tab bar (both in the DOM, each hidden at the breakpoint the other owns via Tailwind's `md:` prefix). On mobile the balance widget moves into the user menu.
 - Four authenticated pages (`DashboardPage`, `TransactionsPage`, `CategoriesPage`, `SettingsPage`) plus `ImportPage` (CSV) and the five pre-auth pages.
 - The two pages with the most real complexity: `TransactionsPage` (filters, month scope including "all months", pagination, inline create/edit/delete, the duplicate-transaction badge, long-press mobile gesture) and `DashboardPage` (the doughnut + bar chart pair via Chart.js).
 - Theming (`auto`/`light`/`dark`) and the mobile long-press/bottom-sheet gesture layer are both load-bearing UI, ported deliberately from the deleted HTML app rather than left as a gap — see `.claude/rules/theming.md` and `.claude/rules/mobile-nav.md`.
@@ -50,32 +53,37 @@
   - `types.ts` — hand-written TypeScript types mirroring `server/internal/api`'s DTOs (the migration's locked type-sync decision: no codegen).
   - One file per resource: `auth.ts`, `categories.ts`, `transactions.ts`, `dashboard.ts`, `settings.ts`, `import.ts` (the one multipart/file-upload exception, bypassing `client.ts`'s always-JSON `request()`).
 - `client/src/lib/auth/AuthContext.tsx`: owns login/register/logout and the silent-refresh bootstrap every page load runs (the access token doesn't survive a reload by design; the refresh-token cookie does). `ProtectedRoute.tsx` gates every authenticated route on its `status`.
-- `client/src/lib/theme/ThemeContext.tsx`: applies the signed-in user's theme (carried on `/api/v1/me`/`/api/v1/refresh`'s response) to `<html>`. Must be nested inside `AuthProvider`.
+- `client/src/lib/theme/ThemeContext.tsx`: applies the signed-in user's theme (carried on `/api/v1/me`/`/api/v1/refresh`'s response) to `<html>`. Must be nested inside `AuthProvider`. A theme picked in the user menu goes through `revealTheme.ts`, a View Transitions circle that spreads from the clicked control (`.claude/rules/theming.md`).
 - `client/src/hooks/`: one TanStack Query hook module per resource (`useCategories`, `useTransactions`, `useDashboard`, `useSettings`) — queries plus mutations, with mutations invalidating whatever else their write affects (see Data Layer below).
-- `client/src/components/layout/`: `Layout`, `ProtectedRoute`, `AuthLayout` (the pre-auth card shell), `BalanceWidget`, `UserMenu`.
-- `client/src/components/`: `MonthPicker`, `BottomSheet` (drag-to-dismiss), `FieldError` (a form field's error line, used by the pre-auth forms).
-- `client/src/lib/formStyles.ts`: `inputClass` / `primaryButtonClass`, the shared class strings for form inputs and the full-width primary button, used by the pre-auth pages, Settings and Import alike.
+- `client/src/components/layout/`: `Layout`, `ProtectedRoute`, `AuthLayout` (the pre-auth card shell), `BalanceWidget` (spent-ratio ring plus balance), `UserMenu` (Settings, the theme switch, log out; the balance too on mobile).
+- `client/src/components/`: `MonthPicker` (a keyboard-driven listbox, not a native `<select>`), `BottomSheet` (drag-to-dismiss).
+- `client/src/components/ui/`: the design system's primitives, used across pages: `Field` (label + control + hint/error, wired with `useId`), `FieldErrorText`, `SelectControl`, `AmountInput` (₫ suffix), `PasswordInput` (show/hide), `SegmentedControl`, `Checkbox`, `Badge`, `Banner`, `InlineError` (with Retry), `EmptyState`, `PageSkeleton`/`SkeletonBar`, `ConfirmDialog` (a centered `<dialog>` on desktop, a bottom sheet on mobile; replaces `confirm()`), `StatusIcon`.
+- `client/src/lib/formStyles.ts`: the shared class strings: `buttonClass(variant, size)`, `iconButtonClass`, `inputClass`, `selectClass`, `labelClass`, `cardClass`, `cardTitleClass`, `pageTitleClass`.
+- `client/src/lib/toast/ToastContext.tsx`: `useToast()` for success/error toasts after a mutation; the provider sits inside `ThemeProvider`.
+- `client/src/lib/categorySwatches.ts`: the 8 selectable category colors (see `.claude/rules/theming.md`).
+- `client/src/hooks/useMediaQuery.ts` (`useIsDesktop`), `hooks/useDismiss.ts` (Escape/outside-click for popovers), `hooks/useThemeColors.ts` (the active theme's chart colors, read from the CSS variables).
 - `client/src/hooks/useLongPress.ts`: the mobile long-press gesture hook.
 - `client/src/lib/format.ts`: client-side display formatting (money, dates, timestamps) — the backend ships raw numbers and leaves this to the client, see `.claude/context/server.md`'s Request and Response Conventions.
-- `client/src/lib/charts.ts`: registers Chart.js's elements once, imported for its side effect.
+- `client/src/lib/charts.ts`: registers Chart.js's elements once and sets its default font, imported for its side effect.
 
 ## Important Reality Checks
 
 - The access token lives in memory only (a module variable in `tokenStore.ts`) and does not survive a page reload by design. Every page load runs `AuthContext`'s silent-refresh bootstrap (a `POST /api/v1/refresh` using the httpOnly cookie) before rendering anything behind `ProtectedRoute`. Don't "fix" a reload losing auth state by persisting the access token to storage — that's the locked decision this migration made, not a bug.
 - `TransactionsPage` and `DashboardPage` keep their filters/month in the URL's own query string (`useSearchParams`), never local `useState`. This isn't a style preference — a real browser test caught the bug that happens otherwise (a link to a specific month silently reset to the current one because nothing read the URL it landed on). See `.claude/rules/req-value-objects.md`.
 - A mutation (create/update/delete a transaction or category) invalidates more than its own TanStack Query key: deleting a category can reassign transactions, a transaction changes totals the dashboard and a category's `transactionCount` both depend on. See each `hooks/use*.ts` file's invalidation calls rather than assuming one key is enough when adding a new mutation.
-- Chart.js cannot react to a CSS variable changing, so `DashboardPage.tsx` takes its chart colors from `hooks/useChartTheme.ts`, which re-reads `:root`'s palette on a theme or OS color-scheme change. Any new color option on a chart must come from it — see `.claude/rules/dashboard.md`.
-- An unconfirmed email gets a reminder strip (`components/layout/VerifyEmailBanner.tsx`, from `User.emailVerified`) with a resend button. It is only a reminder and blocks nothing. `VerifyEmailPage` calls `reloadUser()` so the strip goes away when the link is opened in an already-signed-in browser. See `.claude/rules/email-verification.md`.
+- Chart.js paints on a canvas and can't follow a CSS variable. `useThemeColors()` reads the palette from `index.css` and changes `key` on every theme switch; the charts are keyed on it, so they rebuild in the new colors, without animating once `switched` is true. Updating the existing chart in place with `updateMode="none"` left the bars in the old color, so don't go back to that. See `.claude/rules/dashboard.md`.
+- Rows and dialogs that differ between phone and desktop choose their layout with `useIsDesktop()` and render one variant, rather than rendering both and hiding one with CSS, so a screen reader never meets duplicate controls. Only `Layout.tsx`'s two headers use the CSS approach (`.claude/rules/mobile-nav.md`).
+- An unconfirmed email gets a reminder (`components/layout/VerifyEmailBanner.tsx`, a warning `Banner` at the top of `Layout`'s `<main>`, from `User.emailVerified`) with a resend button. It is only a reminder and blocks nothing. `VerifyEmailPage` calls `reloadUser()` so it goes away when the link is opened in an already-signed-in browser. See `.claude/rules/email-verification.md`.
 
 ## Frontend Layout
 
-- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider`), all inside a full-page `ErrorBoundary`. `Layout` wraps its `<Outlet />` in a second one keyed on the pathname, so a page that crashes leaves the nav up and recovers when the user navigates. A lazy chunk that has vanished after a deploy shows a "reload" message instead of "try again".
-- `client/src/pages/`: one file per page, `client/src/pages/auth/` for the five pre-auth ones. A page with sub-components of its own gets a folder holding the page plus one file per sub-component: `pages/transactions/` (`FilterBar`, `AddTransactionForm`, `TransactionRow`), `pages/import/` (`MappingForm`, `PreviewPanel`), `pages/settings/` (one file per card, plus the `Card` frame they share).
-- `client/src/components/`: shared components (`ErrorBoundary` is the one class component, since React has no hook for it); `client/src/components/layout/` for the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
+- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider` → `ToastProvider`), all inside a full-page `ErrorBoundary`. `Layout` wraps its `<Outlet />` in a second one keyed on the pathname, so a page that crashes leaves the nav up and recovers when the user navigates. A lazy chunk that has vanished after a deploy shows a "reload" message instead of "try again".
+- `client/src/pages/`: one folder per page, holding the page plus one file per sub-component: `pages/dashboard/` (`KpiCards`, `SpendingDoughnut`, `MonthlyBars`), `pages/transactions/` (`FilterBar`, `AddTransactionForm`, `TransactionRow`, and `rowLayout.ts` for the grid the header and rows share), `pages/import/` (`ImportStepper`, `UploadStep`, `FileRow`, `MappingForm`, `PreviewPanel`), `pages/categories/` (`CategoryRow`, `AddCategoryForm`, `SwatchPicker`), `pages/settings/` (one file per card, plus the `Card` frame they share), and `pages/auth/` for the five pre-auth pages (`AuthPage` composes `AuthTabs`, `LoginForm`, `RegisterForm`).
+- `client/src/components/`: shared components (`ErrorBoundary` is the one class component, since React has no hook for it). `components/ui/` holds the design system's primitives; `components/layout/` holds the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
 - `client/src/hooks/`: TanStack Query hooks, one module per resource.
 - `client/src/lib/api/`: the API client — see What Is Actually Implemented above.
-- `client/src/lib/auth/`, `client/src/lib/theme/`: the two app-wide React contexts.
-- `client/src/lib/format.ts`, `client/src/lib/formStyles.ts`, `client/src/lib/charts.ts`, `client/src/lib/queryClient.ts`: small standalone utilities.
+- `client/src/lib/auth/`, `client/src/lib/theme/`, `client/src/lib/toast/`: the three app-wide React contexts.
+- `client/src/lib/format.ts`, `client/src/lib/formStyles.ts`, `client/src/lib/categorySwatches.ts`, `client/src/lib/charts.ts`, `client/src/lib/queryClient.ts`: small standalone utilities.
 
 ## Data Layer (TanStack Query)
 
@@ -85,11 +93,11 @@
 
 ## Theming
 
-See `.claude/rules/theming.md` for the full rules (CSS variable palette, light/dark/auto resolution, the category swatch list). Summary: all color flows through `index.css`'s `@theme`-mapped CSS variables, the dark palette is declared twice (media query + explicit class) so no JS is needed at load time, and `ThemeContext.tsx` is what sets the class once a user's preference is known.
+See `.claude/rules/theming.md` for the full rules (CSS variable palette, light/dark/auto resolution, the category swatch list). Summary: all color flows through `index.css`'s `@theme`-mapped CSS variables (semantic names: `app`, `surface`, `surface-2`, `border`, `border-strong`, `ink`, `ink-muted`, `accent`, `on-accent`, `expense`, `income`, `chart-income`, `danger`, `warning`, each `*-tint`, `scrim`), the dark palette is declared twice (media query + explicit class) so no JS is needed at load time, and `ThemeContext.tsx` is what sets the class once a user's preference is known. `index.css` also holds the motion tokens (`--dur-*`, `--ease-*`) and the `animate-*` keyframes; under `prefers-reduced-motion` the transforms drop out but fades and colour changes stay.
 
 ## Mobile Navigation and Gestures
 
-See `.claude/rules/mobile-nav.md` for the full rules. Summary: `Layout.tsx` holds both nav bars in the DOM at once; `useLongPress.ts` + `BottomSheet.tsx` port the old HTML app's long-press-opens-an-action-sheet and drag-to-dismiss gestures, as an *added* affordance alongside (not replacing) always-visible Edit/Delete buttons.
+See `.claude/rules/mobile-nav.md` for the full rules. Summary: `Layout.tsx` holds both nav bars in the DOM at once; `useLongPress.ts` + `BottomSheet.tsx` port the old HTML app's long-press-opens-an-action-sheet and drag-to-dismiss gestures, as an *added* affordance alongside (not replacing) always-visible Edit/Delete buttons (icon buttons on mobile, labelled ones on desktop).
 
 ## Setup and Run
 
@@ -132,11 +140,13 @@ Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before commi
 
 - Add a new authenticated page: add the route in `App.tsx` (lazy-loaded, inside the `ProtectedRoute`/`Layout` nesting), add its API functions to `lib/api/<resource>.ts` and types to `lib/api/types.ts`, add a TanStack Query hook in `hooks/use<Resource>.ts`, write the page component in `pages/`.
 - Add a new mutation: add it to the resource's `hooks/use<Resource>.ts`, and invalidate every query key the write could affect, not just its own resource's.
-- Add a new CSS color token: add the `--c-*` variable to both palette blocks in `index.css` (the `@media (prefers-color-scheme: dark) :root:not(.light)` block and the `:root.dark` block), then map it in the `@theme` block.
+- Add a new CSS color token: add the `--c-*` variable to `:root` and to both dark palette blocks in `index.css` (the `@media (prefers-color-scheme: dark) :root:not(.light)` block and the `:root.dark` block), then map it in the `@theme` block.
+- Add a form field: wrap the control in `components/ui/Field` (it supplies the label, the ids, `aria-invalid` and `aria-describedby`), and build buttons from `buttonClass()` rather than a new class string.
 - Change what the API returns for an existing endpoint: update `lib/api/types.ts` to match, and grep for every call site that destructures the changed field before assuming a type-only change is safe (TypeScript won't catch a field that's optional on both sides but means something different now).
 
 ## Known Gaps and Debt
 
-- No long-press/drag-to-dismiss pixel-perfect parity audit beyond the gesture logic itself (thresholds/timing match the deleted original; visual polish like SVG nav icons was simplified to text labels).
-- Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress` and the CSV import flow; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
+- Parts of the design handoff's motion spec aren't built: the inline-edit row doesn't animate its height (it fades in), there's no post-save row flash, no View Transitions between pages (only the theme switch uses one), and dialogs close without an exit fade. The bottom sheet's drag thresholds stay at the existing 25% / 40px-in-250ms rather than the handoff's 30% / 0.5px/ms (`.claude/rules/mobile-nav.md`).
+- The dark-mode chart colors (`#818CF8`, `#34D399`) sit slightly above the lightness band the dataviz palette validator wants for a dark surface. They pass contrast and colorblind separation, so they were kept as the handoff specified.
+- Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress`, the CSV import flow, `ErrorBoundary`, `VerifyEmailBanner` and the Settings export; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.

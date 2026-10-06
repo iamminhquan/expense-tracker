@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { useAuth } from '../auth/AuthContext'
 import * as settingsApi from '../api/settings'
 import type { Theme } from '../api/types'
+import { revealTheme } from './revealTheme'
 
 interface ThemeContextValue {
   theme: Theme
@@ -31,8 +33,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = (next: Theme) => {
     // Applied before the save resolves; a failed save keeps the local choice.
-    setThemeState(next)
-    applyTheme(next)
+    revealTheme(() => {
+      flushSync(() => setThemeState(next))
+      applyTheme(next)
+    })
     void settingsApi.updateTheme(next).catch(() => {})
   }
 

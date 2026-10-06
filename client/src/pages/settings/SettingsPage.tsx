@@ -1,4 +1,7 @@
 import { useSettings } from '../../hooks/useSettings'
+import { InlineError } from '../../components/ui/InlineError'
+import { PageSkeleton } from '../../components/ui/PageSkeleton'
+import { pageTitleClass } from '../../lib/formStyles'
 import { DangerZoneCard } from './DangerZoneCard'
 import { EmailCard } from './EmailCard'
 import { PasswordCard } from './PasswordCard'
@@ -6,20 +9,26 @@ import { ProfileCard } from './ProfileCard'
 import { SessionsCard } from './SessionsCard'
 
 export function SettingsPage() {
-  const { data, error } = useSettings()
+  const { data, error, refetch } = useSettings()
   if (!data) {
-    if (error) return <p role="alert" className="text-expense">Could not load your settings.</p>
-    return <p role="status" className="text-ink-faint">Loading…</p>
+    if (error) return <InlineError message="Could not load your settings." onRetry={() => void refetch()} />
+    return <PageSkeleton label="Loading your settings…" />
   }
 
   return (
-    <div className="max-w-[560px] space-y-6">
-      <h1 className="text-[20px] font-semibold">Settings</h1>
-      <ProfileCard name={data.name} username={data.username} />
-      <EmailCard email={data.email} pendingEmail={data.pendingEmail} />
-      <PasswordCard />
-      <SessionsCard sessions={data.sessions} />
-      <DangerZoneCard />
+    <div className="space-y-4 md:space-y-6">
+      <h1 className={pageTitleClass}>Settings</h1>
+      <div className="grid items-start gap-4 md:gap-6 lg:grid-cols-2">
+        <div className="space-y-4 md:space-y-6">
+          <ProfileCard name={data.name} username={data.username} />
+          <PasswordCard />
+        </div>
+        <div className="space-y-4 md:space-y-6">
+          <EmailCard email={data.email} pendingEmail={data.pendingEmail} />
+          <SessionsCard sessions={data.sessions} />
+        </div>
+        <DangerZoneCard />
+      </div>
     </div>
   )
 }

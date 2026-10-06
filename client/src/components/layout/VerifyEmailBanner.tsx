@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useResendVerification } from '../../hooks/useSettings'
 import { ApiError } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth/AuthContext'
+import { buttonClass } from '../../lib/formStyles'
+import { Banner } from '../ui/Banner'
 
 type Resend = 'idle' | 'sent' | { error: string }
 
@@ -24,23 +26,27 @@ export function VerifyEmailBanner() {
   }
 
   return (
-    <section aria-label="Email confirmation" className="border-b border-border-nav bg-track">
-      <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-[13px] text-ink-muted md:px-9">
-        <p>
-          Please confirm your email address. We sent a link to <span className="text-ink">{user.email}</span>.
-        </p>
-        <button
-          type="button"
-          onClick={() => void onResend()}
-          disabled={resendVerification.isPending}
-          className="text-accent hover:underline disabled:opacity-60"
-        >
-          {resendVerification.isPending ? 'Sending…' : 'Resend link'}
-        </button>
-        <p role="status" className={resend !== 'idle' && typeof resend === 'object' ? 'text-expense' : 'text-income'}>
+    <section aria-label="Email confirmation" className="mb-6">
+      <Banner
+        kind="warning"
+        title="Please confirm your email address"
+        action={
+          <button
+            type="button"
+            onClick={() => void onResend()}
+            disabled={resendVerification.isPending}
+            aria-busy={resendVerification.isPending}
+            className={buttonClass('secondary', 'sm')}
+          >
+            Resend link
+          </button>
+        }
+      >
+        We sent a link to <span className="font-semibold break-all">{user.email}</span>.
+        <p role="status" className={`mt-1 empty:hidden ${typeof resend === 'object' ? 'text-danger' : 'text-income'}`}>
           {resend === 'sent' ? 'Link sent. Check your inbox.' : typeof resend === 'object' ? resend.error : ''}
         </p>
-      </div>
+      </Banner>
     </section>
   )
 }

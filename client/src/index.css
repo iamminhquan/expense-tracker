@@ -3,29 +3,29 @@
 /* Space-separated RGB channels, so rgb(var(--c-x) / alpha) works. */
 :root {
   color-scheme: light;
-  --c-app: 250 249 247;
+  --c-app: 250 250 247;
   --c-surface: 255 255 255;
-  --c-surface-alt: 252 251 249;
-  --c-track: 244 243 240;
-  --c-border-card: 233 231 228;
-  --c-border-input: 226 224 220;
-  --c-border-list: 241 239 236;
-  --c-border-nav: 237 235 231;
-  --c-ink: 27 26 24;
-  --c-ink-muted: 87 83 78;
-  --c-ink-faint: 138 135 129;
-  --c-ink-faintest: 156 152 145;
-  --c-placeholder: 168 164 157;
-  --c-ink-zero: 198 194 187;
-  --c-nav-idle: 107 104 98;
-  --c-accent: 188 90 41;
-  --c-expense: 180 35 24;
-  --c-income: 47 125 91;
-  --c-danger-tint: 254 247 245;
-  --c-danger-bg: 254 242 242;
-  --c-danger-border: 254 202 202;
-  --c-on-solid: 255 255 255;
-  --c-dot: 27 26 24;
+  --c-surface-2: 240 240 234;
+  --c-border: 217 217 210;
+  --c-border-strong: 122 122 114;
+  --c-ink: 17 17 17;
+  --c-ink-muted: 85 85 79;
+  --c-accent: 17 17 17;
+  --c-on-accent: 250 250 247;
+  --c-expense: 67 56 202;
+  --c-expense-tint: 224 231 255;
+  --c-income: 4 120 87;
+  --c-income-tint: 209 250 229;
+  --c-chart-income: 5 150 105;
+  --c-danger: 179 38 30;
+  --c-danger-tint: 254 226 226;
+  --c-on-danger: 255 255 255;
+  --c-warning: 180 83 9;
+  --c-warning-tint: 254 243 199;
+  --c-scrim: 17 17 17;
+  --scrim-alpha: 0.45;
+  --sh-popover: 0 16px 40px rgb(17 17 17 / 0.14), 0 2px 6px rgb(17 17 17 / 0.06);
+  --sh-float: 0 12px 32px rgb(17 17 17 / 0.14);
 }
 
 /*
@@ -36,111 +36,202 @@
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
-    --c-app: 23 22 20;
-    --c-surface: 31 30 27;
-    --c-surface-alt: 35 34 32;
-    --c-track: 42 40 37;
-    --c-border-card: 50 47 43;
-    --c-border-input: 58 55 51;
-    --c-border-list: 43 41 38;
-    --c-border-nav: 46 44 40;
-    --c-ink: 242 240 236;
-    --c-ink-muted: 184 179 171;
-    --c-ink-faint: 140 135 129;
-    --c-ink-faintest: 116 111 105;
-    --c-placeholder: 107 102 96;
-    --c-ink-zero: 74 70 64;
-    --c-nav-idle: 169 164 156;
-    --c-accent: 224 138 90;
-    --c-expense: 249 112 102;
-    --c-income: 87 195 152;
-    --c-danger-tint: 42 28 23;
-    --c-danger-bg: 51 32 26;
-    --c-danger-border: 92 52 40;
-    --c-on-solid: 23 22 20;
-    --c-dot: 242 240 236;
+    --c-app: 18 18 17;
+    --c-surface: 26 26 24;
+    --c-surface-2: 35 35 33;
+    --c-border: 52 52 50;
+    --c-border-strong: 124 123 114;
+    --c-ink: 242 241 234;
+    --c-ink-muted: 176 175 166;
+    --c-accent: 242 241 234;
+    --c-on-accent: 18 18 17;
+    --c-expense: 129 140 248;
+    --c-expense-tint: 37 36 74;
+    --c-income: 52 211 153;
+    --c-income-tint: 18 52 42;
+    --c-chart-income: 52 211 153;
+    --c-danger: 255 143 133;
+    --c-danger-tint: 59 22 24;
+    --c-on-danger: 18 18 17;
+    --c-warning: 251 191 36;
+    --c-warning-tint: 59 42 11;
+    --c-scrim: 0 0 0;
+    --scrim-alpha: 0.62;
+    --sh-popover: 0 16px 40px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.05);
+    --sh-float: 0 12px 32px rgb(0 0 0 / 0.5);
   }
 }
 :root.dark {
   color-scheme: dark;
-  --c-app: 23 22 20;
-  --c-surface: 31 30 27;
-  --c-surface-alt: 35 34 32;
-  --c-track: 42 40 37;
-  --c-border-card: 50 47 43;
-  --c-border-input: 58 55 51;
-  --c-border-list: 43 41 38;
-  --c-border-nav: 46 44 40;
-  --c-ink: 242 240 236;
-  --c-ink-muted: 184 179 171;
-  --c-ink-faint: 140 135 129;
-  --c-ink-faintest: 116 111 105;
-  --c-placeholder: 107 102 96;
-  --c-ink-zero: 74 70 64;
-  --c-nav-idle: 169 164 156;
-  --c-accent: 224 138 90;
-  --c-expense: 249 112 102;
-  --c-income: 87 195 152;
-  --c-danger-tint: 42 28 23;
-  --c-danger-bg: 51 32 26;
-  --c-danger-border: 92 52 40;
-  --c-on-solid: 23 22 20;
-  --c-dot: 242 240 236;
+  --c-app: 18 18 17;
+  --c-surface: 26 26 24;
+  --c-surface-2: 35 35 33;
+  --c-border: 52 52 50;
+  --c-border-strong: 124 123 114;
+  --c-ink: 242 241 234;
+  --c-ink-muted: 176 175 166;
+  --c-accent: 242 241 234;
+  --c-on-accent: 18 18 17;
+  --c-expense: 129 140 248;
+  --c-expense-tint: 37 36 74;
+  --c-income: 52 211 153;
+  --c-income-tint: 18 52 42;
+  --c-chart-income: 52 211 153;
+  --c-danger: 255 143 133;
+  --c-danger-tint: 59 22 24;
+  --c-on-danger: 18 18 17;
+  --c-warning: 251 191 36;
+  --c-warning-tint: 59 42 11;
+  --c-scrim: 0 0 0;
+  --scrim-alpha: 0.62;
+  --sh-popover: 0 16px 40px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --sh-float: 0 12px 32px rgb(0 0 0 / 0.5);
+}
+
+:root {
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+  --dur-fade: 100ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
 }
 
 @theme {
   --color-app: rgb(var(--c-app));
   --color-surface: rgb(var(--c-surface));
-  --color-surface-alt: rgb(var(--c-surface-alt));
-  --color-track: rgb(var(--c-track));
-  --color-border-card: rgb(var(--c-border-card));
-  --color-border-input: rgb(var(--c-border-input));
-  --color-border-list: rgb(var(--c-border-list));
-  --color-border-nav: rgb(var(--c-border-nav));
+  --color-surface-2: rgb(var(--c-surface-2));
+  --color-border: rgb(var(--c-border));
+  --color-border-strong: rgb(var(--c-border-strong));
   --color-ink: rgb(var(--c-ink));
   --color-ink-muted: rgb(var(--c-ink-muted));
-  --color-ink-faint: rgb(var(--c-ink-faint));
-  --color-ink-faintest: rgb(var(--c-ink-faintest));
-  --color-placeholder: rgb(var(--c-placeholder));
-  --color-ink-zero: rgb(var(--c-ink-zero));
-  --color-nav-idle: rgb(var(--c-nav-idle));
   --color-accent: rgb(var(--c-accent));
+  --color-on-accent: rgb(var(--c-on-accent));
   --color-expense: rgb(var(--c-expense));
+  --color-expense-tint: rgb(var(--c-expense-tint));
   --color-income: rgb(var(--c-income));
+  --color-income-tint: rgb(var(--c-income-tint));
+  --color-chart-income: rgb(var(--c-chart-income));
+  --color-danger: rgb(var(--c-danger));
   --color-danger-tint: rgb(var(--c-danger-tint));
-  --color-danger-bg: rgb(var(--c-danger-bg));
-  --color-danger-border: rgb(var(--c-danger-border));
-  --color-on-solid: rgb(var(--c-on-solid));
+  --color-on-danger: rgb(var(--c-on-danger));
+  --color-warning: rgb(var(--c-warning));
+  --color-warning-tint: rgb(var(--c-warning-tint));
+  --color-scrim: rgb(var(--c-scrim) / var(--scrim-alpha));
+  /* Category swatches are the same hex in both themes, so the check drawn on them is too. */
+  --color-on-swatch: rgb(17 17 17);
+
+  --shadow-popover: var(--sh-popover);
+  --shadow-float: var(--sh-float);
 
   --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Bricolage Grotesque', 'Be Vietnam Pro', system-ui, sans-serif;
+
+  --animate-fade-in: fade-in var(--dur-base) var(--ease-out) backwards;
+  --animate-pop-in: pop-in 140ms var(--ease-out) backwards;
+  --animate-page-in: page-in 200ms var(--ease-out) backwards;
+  --animate-toast-in: toast-in var(--dur-base) var(--ease-out) backwards;
+  --animate-dialog-in: dialog-in var(--dur-base) var(--ease-out) backwards;
+  --animate-sheet-in: sheet-in var(--dur-slow) var(--ease-sheet) backwards;
+  --animate-skeleton: skeleton 1.4s linear infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@keyframes dialog-in {
+  from { opacity: 0; transform: scale(0.96); }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+}
+@keyframes skeleton {
+  50% { opacity: 0.6; }
+}
+
+/* Reduced motion keeps fades (state changes) but drops every transform and the pulse. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes pop-in { from { opacity: 0; } }
+  @keyframes page-in { from { opacity: 1; } }
+  @keyframes toast-in { from { opacity: 0; } }
+  @keyframes dialog-in { from { opacity: 0; } }
+  @keyframes sheet-in { from { opacity: 0; } }
+  @keyframes skeleton { 50% { opacity: 1; } }
+}
+
+html {
+  background-color: rgb(var(--c-app));
+}
+
+body {
+  background-color: rgb(var(--c-app));
+  color: rgb(var(--c-ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 input, select, textarea, dialog {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink));
 }
-::placeholder { color: rgb(var(--c-placeholder)); }
+::placeholder { color: rgb(var(--c-ink-muted)); opacity: 1; }
 
-body {
-  background-image: radial-gradient(rgb(var(--c-dot) / 0.05) 1px, transparent 1px);
-  background-size: 8px 8px;
-}
-
-/* Makes a theme switch fade instead of snap. */
+/* Colour changes are state, not motion, so they stay on under reduced motion. */
 *, *::before, *::after {
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, fill 200ms ease, stroke 200ms ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none; }
+  transition-property: background-color, color, border-color, fill, stroke;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-out);
 }
 
-.font-mono { font-variant-numeric: tabular-nums; }
+:focus-visible {
+  outline: 3px solid rgb(var(--c-accent));
+  outline-offset: 2px;
+}
+
+/*
+ * The theme reveal (lib/theme/revealTheme.ts) animates its own clip-path instead of a crossfade.
+ * The new snapshot starts clipped to nothing here, in CSS, because the script's animation only
+ * attaches once the transition is ready: a frame drawn before that showed the whole new theme.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  clip-path: circle(0px at var(--reveal-x, 50%) var(--reveal-y, 50%));
+}
+.theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
+  transition: none !important;
+}
+
+dialog::backdrop {
+  background-color: rgb(var(--c-scrim) / var(--scrim-alpha));
+  animation: fade-in var(--dur-base) var(--ease-out) backwards;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
 
 .wordmark {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 800;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.04em;
   line-height: 1;
   color: rgb(var(--c-ink));
 }

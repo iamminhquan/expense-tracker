@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { buttonClass } from '../lib/formStyles'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -39,12 +40,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <div
         role="alert"
-        className={`flex flex-col items-center justify-center gap-3 px-4 text-center ${
+        className={`flex flex-col items-center justify-center gap-4 px-4 text-center ${
           this.props.fullPage ? 'min-h-screen bg-app text-ink' : 'min-h-[300px]'
         }`}
       >
-        <h1 className="text-[18px] font-semibold">{stale ? '$pend has been updated' : 'Something went wrong'}</h1>
-        <p className="max-w-[420px] text-[13px] text-ink-muted">
+        <h1 className="font-display text-[22px] leading-7 font-bold text-ink">{stale ? '$pend has been updated' : 'Something went wrong'}</h1>
+        <p className="max-w-[420px] text-[15px] leading-[22px] text-ink-muted">
           {stale
             ? 'Reload to get the latest version.'
             : 'An unexpected error stopped this page. Your data is safe. Try again, or reload if it keeps happening.'}
@@ -54,7 +55,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <button
               type="button"
               onClick={() => this.setState({ error: null })}
-              className="rounded-[10px] px-4 py-2 text-[13px] text-ink-faint hover:bg-track"
+              className={buttonClass('secondary')}
             >
               Try again
             </button>
@@ -62,7 +63,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-[10px] bg-accent px-4 py-2 text-[13px] font-semibold text-on-solid hover:opacity-90"
+            className={buttonClass('primary')}
           >
             Reload page
           </button>

@@ -93,11 +93,11 @@ describe('ImportPage', () => {
     const { invalidate } = renderPage()
 
     await user.upload(document.querySelector('input[type=file]')!, csv)
-    expect(await screen.findByText("We don't recognize this format")).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Which column holds what?' })).toBeTruthy()
 
     await user.click(screen.getByRole('button', { name: 'Preview import' }))
     await user.click(await screen.findByRole('button', { name: 'Import 2 rows' }))
-    expect(await screen.findByText('Imported 2 transactions.')).toBeTruthy()
+    expect(await screen.findByText('Imported 2 transactions')).toBeTruthy()
 
     const [first, second, third] = sentForms(fetchMock)
     expect(first).toEqual({ file: 'bank.csv' })
@@ -120,7 +120,7 @@ describe('ImportPage', () => {
     renderPage()
 
     await user.upload(document.querySelector('input[type=file]')!, csv)
-    await screen.findByText("We don't recognize this format")
+    await screen.findByRole('heading', { name: 'Which column holds what?' })
     const [, amount] = screen.getAllByRole('combobox')
     await user.selectOptions(amount, 'Memo')
     await user.click(screen.getByRole('checkbox'))
@@ -141,7 +141,7 @@ describe('ImportPage', () => {
     await user.upload(document.querySelector('input[type=file]')!, csv)
 
     expect(await screen.findByRole('button', { name: 'Import 2 rows' })).toBeTruthy()
-    expect(screen.queryByText("We don't recognize this format")).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Which column holds what?' })).toBeNull()
   })
 
   it('shows the server reason when a file is rejected, and stays on the upload step', async () => {
@@ -170,7 +170,7 @@ describe('ImportPage', () => {
 
     const button = await screen.findByRole('button', { name: 'Import 0 rows' })
     expect((button as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByText('Line 3: amount is not a number')).toBeTruthy()
+    expect(screen.getByText('amount is not a number').closest('li')!.textContent).toContain('Line 3')
   })
 
   it('shows a failed confirm and lets the person try again', async () => {
@@ -188,7 +188,7 @@ describe('ImportPage', () => {
     expect(await screen.findByText('the file changed since the preview')).toBeTruthy()
 
     await user.click(screen.getByRole('button', { name: 'Import 2 rows' }))
-    expect(await screen.findByText('Imported 1 transaction.')).toBeTruthy()
+    expect(await screen.findByText('Imported 1 transaction')).toBeTruthy()
   })
 
   it('goes back to the upload step on "Start over"', async () => {
@@ -197,7 +197,7 @@ describe('ImportPage', () => {
     renderPage()
 
     await user.upload(document.querySelector('input[type=file]')!, csv)
-    const form = (await screen.findByText("We don't recognize this format")).closest('div')!
+    const form = (await screen.findByRole('heading', { name: 'Which column holds what?' })).closest('form')!
     await user.click(within(form).getByRole('button', { name: 'Start over' }))
 
     expect(document.querySelector('input[type=file]')).not.toBeNull()
