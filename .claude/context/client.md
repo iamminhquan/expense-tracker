@@ -65,7 +65,7 @@
 - `TransactionsPage` and `DashboardPage` keep their filters/month in the URL's own query string (`useSearchParams`), never local `useState`. This isn't a style preference — a real browser test caught the bug that happens otherwise (a link to a specific month silently reset to the current one because nothing read the URL it landed on). See `.claude/rules/req-value-objects.md`.
 - A mutation (create/update/delete a transaction or category) invalidates more than its own TanStack Query key: deleting a category can reassign transactions, a transaction changes totals the dashboard and a category's `transactionCount` both depend on. See each `hooks/use*.ts` file's invalidation calls rather than assuming one key is enough when adding a new mutation.
 - Chart.js cannot react to a CSS variable changing — `DashboardPage.tsx`'s chart colors are currently hardcoded to the light palette and do **not** rebuild on a theme switch. Known gap, not a deliberate choice — see `.claude/rules/dashboard.md`.
-- There is no client-side reminder for an unverified email address yet, and `userDTO`/`User` doesn't carry `EmailVerified`. See `.claude/rules/email-verification.md`'s known gap.
+- An unconfirmed email gets a reminder strip (`components/layout/VerifyEmailBanner.tsx`, from `User.emailVerified`) with a resend button. It is only a reminder and blocks nothing. `VerifyEmailPage` calls `reloadUser()` so the strip goes away when the link is opened in an already-signed-in browser. See `.claude/rules/email-verification.md`.
 
 ## Frontend Layout
 
@@ -139,13 +139,13 @@ Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before commi
 
 - No long-press/drag-to-dismiss pixel-perfect parity audit beyond the gesture logic itself (thresholds/timing match the deleted original; visual polish like SVG nav icons was simplified to text labels).
 - Dashboard's Chart.js colors don't react to a theme switch (see Important Reality Checks above).
-- No client-side email-verification reminder (see Important Reality Checks above).
 - Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
 - Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress` and the CSV import flow; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.
 
 ## Change Log
 
+- `2026-10-06`: an unconfirmed email now gets a reminder strip under the nav with a resend button (`VerifyEmailBanner`), and `AuthContext` gained `reloadUser`. Checked in Chromium on desktop and a 380px viewport.
 - `2026-10-06`: Vitest + Testing Library added (`pnpm test`, run in CI). First tests: the API client, `useLongPress`, the CSV import API and `ImportPage`. They found that `importTransactions` and `downloadTransactionsExport` never retried after a 401 despite saying they did, so an import confirmed more than 15 minutes after login failed; both now go through `authedFetch` in `lib/api/client.ts`, which also backs `api.*`.
 - `2026-10-06`: every page now shows an error when its query fails, instead of "Loading…" forever (it checked `isLoading || !data` before `error`, which TanStack Query v5 never reaches); the `react-component` skill's Loading section describes the new shape. Transactions got an accessibility pass: labels on the add form, `aria-label`s on the filter bar and the inline edit form, `aria-pressed` on the expense/income toggle, row-specific names on Edit/Delete, focus moved into the edit form and back to Edit on save/cancel/Escape, and a failed delete shown inline instead of in `alert()`. Checked in Chromium (desktop, and mobile in dark mode).
 - `2026-10-06`: `TransactionsPage`, `ImportPage` and `SettingsPage` (430, 339 and 274 lines) each split into a folder under `pages/`, one file per sub-component, with no behavior change. The extracted components take `Category[]`/`Session[]` instead of restating those shapes inline. `App.tsx`'s lazy imports and the `paths:` of `req-value-objects.md`, `csv-import.md` and `mobile-nav.md` follow the new paths.

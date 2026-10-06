@@ -63,7 +63,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 ## Important Reality Checks
 
 - Authorization is single-tier — see Main Business Scope above. There is no roles/permissions system to audit for missing checks.
-- Email verification gates nothing (`email_verified` only matters once a client shows a reminder for it — see `.claude/rules/email-verification.md`'s known gap) — deliberate, not an oversight to "fix".
+- Email verification gates nothing (`email_verified` only drives the reminder strip `client/` shows, via `userDTO.emailVerified` — see `.claude/rules/email-verification.md`) — deliberate, not an oversight to "fix".
 - The default-category history (migrations 000005 → 000006 → 000008 → 000014) is deliberately append/update-in-place, never delete-and-reinsert, because `transactions.category_id` has no `ON DELETE` clause. See Seeder Reality below before "cleaning up" an odd-looking default category.
 - This backend was migrated off an older Chi-routed, `html/template`-rendered monolith. That code (`internal/handlers`, `internal/web`, `internal/csrf`) is deleted, not archived elsewhere in this repo — git history is where it still exists, if you need to see how something used to work.
 
@@ -210,11 +210,11 @@ sqlc generate
 ## Known Gaps and Debt
 
 - No admin/staff role, no audit log, no account-recovery window on deletion — deliberate scope cuts, not oversights (see Authorization Model and `.claude/rules/account-deletion.md`).
-- No client-side reminder for an unverified email address, and `userDTO` doesn't carry `EmailVerified` yet — see `.claude/rules/email-verification.md`'s known gap.
 - Test coverage is table-driven Go `testing` across packages, plus DB-backed integration tests in `internal/api` (`TEST_DATABASE_URL`).
 
 ## Change Log
 
+- `2026-10-06`: `userDTO` (`/register`, `/login`, `/refresh`, `/me`) now carries `emailVerified`, which `client/` uses for its unconfirmed-email reminder.
 - `2026-10-06`: every `/api/v1` JSON response now uses one envelope, `JSONResponse` (`{success, message, data}`, in `response.go`), success and error alike. `errorResponse` was replaced by `respondError`, and every `c.JSON` by `respondSuccess` with a message per endpoint. The thirteen endpoints that answered `204` now answer `200` with `data: null`. Unknown routes (404), wrong methods (405, `HandleMethodNotAllowed` now on), recovered panics (500, `CustomRecovery`) and `RequireAuth`'s 401s now answer in the envelope too, where before they gave plain text, an empty body or a bare `gin.H`. The design spec lived in `docs/superpowers/specs/` until it was implemented; see commit `31347a5`.
 - `2026-10-06`: dead code removed (found with `deadcode`): `internal/auth/middleware.go` (`RequireAuth`/`UserIDFromContext`, the cookie-session + htmx `HX-Redirect` middleware from the Chi era, with its test; `internal/api/middleware.go` is the only auth middleware), `pgval.Text`, and `monthScope.LabelLower` / `txnFilters.Any` / `txnFilters.ActiveCount` in `transaction_query.go`.
 - `2026-10-05`: every API route moved from `/api/*` to `/api/v1/*` (`router.go`'s group, `client/src/lib/api/*`, tests, docs); `/healthz` stays at the root. No unversioned alias is kept. The refresh-token cookie keeps `Path=/api` on purpose — it still matches `/api/v1/refresh` and `/logout`, and survives a future `/api/v2`.
