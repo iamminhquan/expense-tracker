@@ -69,9 +69,9 @@
 
 ## Frontend Layout
 
-- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider`).
+- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider`), all inside a full-page `ErrorBoundary`. `Layout` wraps its `<Outlet />` in a second one keyed on the pathname, so a page that crashes leaves the nav up and recovers when the user navigates. A lazy chunk that has vanished after a deploy shows a "reload" message instead of "try again".
 - `client/src/pages/`: one file per page, `client/src/pages/auth/` for the five pre-auth ones. A page with sub-components of its own gets a folder holding the page plus one file per sub-component: `pages/transactions/` (`FilterBar`, `AddTransactionForm`, `TransactionRow`), `pages/import/` (`MappingForm`, `PreviewPanel`), `pages/settings/` (one file per card, plus the `Card` frame they share).
-- `client/src/components/`: shared presentational components; `client/src/components/layout/` for the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
+- `client/src/components/`: shared components (`ErrorBoundary` is the one class component, since React has no hook for it); `client/src/components/layout/` for the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
 - `client/src/hooks/`: TanStack Query hooks, one module per resource.
 - `client/src/lib/api/`: the API client — see What Is Actually Implemented above.
 - `client/src/lib/auth/`, `client/src/lib/theme/`: the two app-wide React contexts.
@@ -146,6 +146,7 @@ Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before commi
 
 ## Change Log
 
+- `2026-10-06`: `ErrorBoundary` added around the app and around `Layout`'s outlet. Before, a render error in any page unmounted the whole React tree and left a blank screen, as did a lazy route whose chunk a deploy had replaced. Checked in Chromium by blocking a route's chunk: the alert shows with the nav intact, and navigating away clears it.
 - `2026-10-06`: Vitest + Testing Library added (`pnpm test`, run in CI). First tests: the API client, `useLongPress`, the CSV import API and `ImportPage`. They found that `importTransactions` and `downloadTransactionsExport` never retried after a 401 despite saying they did, so an import confirmed more than 15 minutes after login failed; both now go through `authedFetch` in `lib/api/client.ts`, which also backs `api.*`.
 - `2026-10-06`: every page now shows an error when its query fails, instead of "Loading…" forever (it checked `isLoading || !data` before `error`, which TanStack Query v5 never reaches); the `react-component` skill's Loading section describes the new shape. Transactions got an accessibility pass: labels on the add form, `aria-label`s on the filter bar and the inline edit form, `aria-pressed` on the expense/income toggle, row-specific names on Edit/Delete, focus moved into the edit form and back to Edit on save/cancel/Escape, and a failed delete shown inline instead of in `alert()`. Checked in Chromium (desktop, and mobile in dark mode).
 - `2026-10-06`: `TransactionsPage`, `ImportPage` and `SettingsPage` (430, 339 and 274 lines) each split into a folder under `pages/`, one file per sub-component, with no behavior change. The extracted components take `Category[]`/`Session[]` instead of restating those shapes inline. `App.tsx`'s lazy imports and the `paths:` of `req-value-objects.md`, `csv-import.md` and `mobile-nav.md` follow the new paths.
