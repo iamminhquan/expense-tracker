@@ -97,6 +97,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
   - **Refresh token**: the pre-existing opaque session-row token (`sessions` table, `internal/auth/session.go`), reused as-is rather than built as a second mechanism — see `jwt.go`'s doc comment for the full reasoning. Sent as an httpOnly, `Path=/api` cookie; 7-day TTL (`sessions.expires_at`).
 - `POST /api/v1/refresh` exchanges a valid refresh-token cookie for a fresh access token without re-checking the password. It does not rotate the refresh token itself.
 - A password change deletes every *other* session (refresh token) for the user but keeps the current one; "Log out everywhere else" in Settings calls the same deletion deliberately, as a user action rather than a side effect.
+- Per-IP rate limits (`ratelimit.go`, in-memory token buckets, single instance): `login`, `reset-password` (GET and POST) and `verify-email` get a burst of 10 then 10 a minute; `register` and `forgot-password` share a burst of 5 then 5 an hour. Over budget answers `429` with `Retry-After`. `refresh` is not limited (its token is unguessable). The client IP is `c.ClientIP()`, trustworthy only because the router trusts no proxy unless `TRUSTED_PROXIES` names it. A second server instance would double every budget and need a shared store.
 - Login lockout: 5 consecutive wrong passwords lock the account for 15 minutes (`users.failed_login_attempts`, `users.locked_until`), checked *before* password comparison so a locked account can't be used to extend its own lock. A completed password reset clears it.
 - Password reset: `password_reset_tokens`, 1-hour TTL, single-use, emailed via Brevo. Resetting signs the visitor in (a fresh access token + refresh cookie), matching register/login.
 - Email verification: `email_verification_tokens`, 24-hour TTL, shared by both signup confirmation and a settings email change (via `pending_email`, promoted onto `users.email` only once its own link is visited). Verification gates nothing — see Important Reality Checks.
@@ -179,6 +180,7 @@ sqlc generate
 - `JWT_SECRET` — signs/verifies access tokens (`internal/auth/jwt.go`). Required, no fallback, same reasoning as `DATABASE_URL`: `config.Load()` refuses to start without it rather than sign tokens with a key baked into the source tree.
 - `GIN_MODE` — set to `release` in `render.yaml`; Gin's default debug mode logs every route at startup. Leave unset locally.
 - `CORS_ALLOWED_ORIGINS` — comma-separated origins the API's CORS middleware accepts credentialed cross-origin requests from (the `client/` deployment's domain). Optional; blank means none, correct until `client/` has a real deployment to allow.
+- `TRUSTED_PROXIES` — comma-separated IPs/CIDRs of the reverse proxies whose `X-Forwarded-For` is believed when finding a client's IP for the rate limits. Blank trusts none (client = TCP peer), right locally. On Render it must name Render's proxy ranges or every visitor shares one budget; an invalid entry stops the server starting. See `render.yaml`.
 
 ## Deploy Notes
 

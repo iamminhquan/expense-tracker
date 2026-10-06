@@ -39,4 +39,8 @@ type Deps struct {
 	// accepts credentialed cross-origin requests from; see
 	// internal/config.Config.CORSAllowedOrigins.
 	CORSAllowedOrigins []string
+	// TrustedProxies lists the proxies whose X-Forwarded-For is believed
+	// when finding a client's IP for rate limiting; see
+	// internal/config.Config.TrustedProxies. Empty trusts none.
+	TrustedProxies []string
 }
