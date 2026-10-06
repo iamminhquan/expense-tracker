@@ -89,7 +89,11 @@ Empty is its own state, and it should say *why* it's empty. `TransactionsPage` t
 - Don't add `React.memo`, `useCallback`, or `useMemo` by default. They make the code harder to follow and pay off only for a measured slow render. Route-level `lazy()` is the code-splitting this app uses.
 
 ### Comments
-Explain *why*, not *what*, in the existing voice. Point to the rule file or server handler that explains a constraint, as the comments in `BottomSheet.tsx`, `useLongPress.ts`, and `TransactionsPage.tsx` do. A comment that just restates the JSX isn't worth adding.
+Write a comment only when the code can't say it: a constraint that isn't visible (the token never goes to `localStorage`), a reason something that looks wrong is right, a workaround. Don't restate the code, narrate its history, or point at files that no longer exist. Most components need none.
+
+- Keep a comment to one `//` line of about 90 characters or less.
+- If it truly needs more, use one `/* */` block. Never stack several `//` lines.
+- Use `/** */` on a prop only when its name doesn't already explain it.
 
 ## 3. Accessibility pass
 

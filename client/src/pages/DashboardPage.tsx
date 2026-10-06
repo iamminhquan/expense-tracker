@@ -15,10 +15,7 @@ function comparison(current: number, previous: number, hasPrevData: boolean): st
 }
 
 export function DashboardPage() {
-  // The URL's own query string is the source of truth, the same fix
-  // TransactionsPage got after a browser smoke test caught the bug this
-  // avoids: a reload or a bookmark of /dashboard?month=2026-02 now shows
-  // that month instead of silently resetting to the current one.
+  // The month lives in the URL, so reloads and links keep it.
   const [searchParams, setSearchParams] = useSearchParams()
   const month = searchParams.get('month') ?? undefined
   const { data, isLoading, error } = useDashboard(month)

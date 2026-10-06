@@ -6,13 +6,10 @@ interface MonthPickerProps {
   currentMonthValue: string
   availableMonths: MonthOption[]
   onChange: (value: string) => void
-  /** Only the transactions page offers "All months" -- see
-   * server/internal/handlers's identical restriction and
-   * .claude/rules/req-value-objects.md for why the dashboard never does. */
+  /** Only the transactions page offers "All months"; the dashboard never does. */
   allowAllMonths?: boolean
 }
 
-/** Mirrors month_picker.html: a dropdown of "This month" plus every other month with data. */
 export function MonthPicker({ value, label, currentMonthValue, availableMonths, onChange, allowAllMonths }: MonthPickerProps) {
   return (
     <select

@@ -4,7 +4,6 @@ import { AuthLayout, FieldError, inputClass, primaryButtonClass } from '../../co
 import { useAuth } from '../../lib/auth/AuthContext'
 import { ApiError } from '../../lib/api/client'
 
-/** Shared by the /login and /register routes, mirroring auth.html's two-tab card. */
 export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
   return <AuthLayout>{tab === 'login' ? <LoginForm /> : <RegisterForm />}</AuthLayout>
 }

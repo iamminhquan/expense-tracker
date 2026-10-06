@@ -12,12 +12,7 @@ import type { Transaction, TransactionFilters } from '../lib/api/types'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
-// The URL's own query string is the source of truth for every filter --
-// not local component state -- so a reload, a bookmark, or (the bug a
-// browser smoke test caught) the redirect after a CSV import landing on
-// /transactions?month=2026-02 all show the right month instead of
-// silently resetting to whatever the component's initial state happened
-// to be.
+// Filters live in the URL, not useState, so reloads, bookmarks and links keep them.
 function filtersFromSearchParams(params: URLSearchParams): TransactionFilters {
   const filters: TransactionFilters = {}
   if (params.get('month')) filters.month = params.get('month')!
@@ -59,8 +54,6 @@ export function TransactionsPage() {
     } else {
       next.set(key, String(value))
     }
-    // Any filter change other than paging itself goes back to page 1 --
-    // the page a changed filter's results actually start on.
     if (key !== 'page') next.delete('page')
     setSearchParams(next, { replace: true })
   }
@@ -313,13 +306,7 @@ function TransactionRow({
   const [description, setDescription] = useState(transaction.description)
   const [error, setError] = useState<string | null>(null)
 
-  // Mirrors server/internal/web/static/app.js's long-press-opens-an-
-  // action-sheet pattern for a mobile row: a ~500ms hold opens the same
-  // Edit/Delete choice the always-visible text buttons below offer, so a
-  // narrow screen doesn't need both a gesture *and* visible buttons to be
-  // usable -- the buttons stay for a mouse/keyboard user or anyone who
-  // never discovers the gesture, the sheet is an added affordance, not a
-  // replacement.
+  // Long-press adds to the Edit/Delete buttons below; it never replaces them.
   const longPress = useLongPress(() => setSheetOpen(true))
 
   const sameTypeCategories = categories.filter((c) => c.type === transaction.type)

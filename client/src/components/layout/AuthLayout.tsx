@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 
-/** The centered card shell every pre-auth page (login/register, forgot/reset-password, verify-email) shares. */
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-app px-4">

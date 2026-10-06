@@ -1,18 +1,13 @@
 import type { Balance } from '../../lib/api/types'
 import { formatVND } from '../../lib/format'
 
-// ratioLabel mirrors handlers.balanceSummary's dropped RatioLabel field --
-// computed client-side now instead of shipped as a pre-formatted English
-// sentence; see dashboard_handlers.go's balanceDTO comment for why
-// hasIncome exists (spentPct alone can't tell "no income" apart from
-// "income, nothing spent of it yet").
+// spentPct alone can't tell "no income" from "nothing spent yet", hence hasIncome.
 function ratioLabel(balance: Balance): string {
   if (!balance.hasIncome) return 'No income this month'
   if (balance.spentPct >= 100) return "Over this month's income"
   return `Spent ${balance.spentPct}% of this month's income`
 }
 
-/** The running-balance popover shared by both nav bars. Mirrors header_balance.html. */
 export function BalanceWidget({ balance }: { balance: Balance }) {
   const amountClass = balance.empty ? 'text-ink-zero' : balance.remaining < 0 ? 'text-expense' : 'text-ink-muted'
   const amount = balance.empty ? '0₫' : formatVND(balance.remaining)

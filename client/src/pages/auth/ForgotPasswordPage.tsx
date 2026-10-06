@@ -12,11 +12,7 @@ export function ForgotPasswordPage() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      // The response is identical whether or not the address matches an
-      // account (see server/internal/api/password_reset_handlers.go), so
-      // there is no error branch here to handle -- only the network-level
-      // kind, which the button's disabled state already covers well
-      // enough for a first pass.
+      // The response never says whether the account exists, so there's no error to show.
       await forgotPassword(email)
     } finally {
       setSubmitting(false)

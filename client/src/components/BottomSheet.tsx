@@ -6,12 +6,7 @@ interface BottomSheetProps {
   children: ReactNode
 }
 
-// Mirrors server/internal/web/static/app.js's bottom-sheet drag-to-dismiss
-// IIFE: drag the grab handle down to dismiss, past a quarter of the
-// sheet's height or a short flick, otherwise it snaps back. A real
-// <dialog> (showModal()) rather than a styled <div>, for the same reason
-// the HTML side uses one -- native focus trapping, Escape-to-close, and a
-// backdrop with no extra markup.
+// A native <dialog> gives focus trapping, Escape-to-close and the backdrop for free.
 export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -38,7 +33,6 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
 
   function onHandlePointerMove(e: PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return
-    // Downward only: dragging up must not lift the sheet off the bottom.
     setDragY(Math.max(0, e.clientY - dragRef.current.startY))
   }
 
@@ -63,10 +57,7 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
       onClose={onClose}
       onCancel={onClose}
       onClick={(e) => {
-        // A click on the ::backdrop lands on the <dialog> element itself
-        // (the only thing filling the viewport outside the sheet's own
-        // box), never on a descendant -- which is what tells a backdrop
-        // click apart from a click inside the sheet.
+        // A backdrop click targets the <dialog> itself, never a descendant.
         if (e.target === dialogRef.current) onClose()
       }}
       className="fixed inset-x-0 top-auto bottom-0 m-0 w-full max-w-none rounded-t-[20px] border-0 bg-surface p-0 backdrop:bg-black/40"

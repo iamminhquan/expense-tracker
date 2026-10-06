@@ -60,12 +60,7 @@ export interface MappingFields {
   fallbackCategory: string
 }
 
-// importTransactions is a one-off multipart POST rather than going through
-// client.ts's api.post: that helper always sends Content-Type:
-// application/json, which a file upload can't use. The access token and
-// 401-retry-via-refresh logic are reused by hand here instead of pulled
-// into client.ts's request(), since this is the only caller that needs
-// multipart at all.
+// Multipart can't use api.post (always JSON), so the token and 401 retry are done here.
 export async function importTransactions(
   file: File,
   options: { mapping?: MappingFields; confirm?: boolean; fingerprint?: string } = {},
@@ -102,10 +97,7 @@ export async function importTransactions(
   return res.json()
 }
 
-// downloadTransactionsExport fetches the CSV with the access token
-// attached (a plain <a href> can't carry an Authorization header) and
-// turns the response into a browser download via an object URL -- the
-// standard pattern for an authenticated file download from a SPA.
+// <a href> can't send the Authorization header, so fetch it and save via an object URL.
 export async function downloadTransactionsExport(query: string): Promise<void> {
   const token = getAccessToken()
   const res = await fetch(`${API_BASE}/api/v1/transactions/export${query}`, {

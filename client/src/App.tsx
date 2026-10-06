@@ -8,11 +8,7 @@ import { ThemeProvider } from './lib/theme/ThemeContext'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { Layout } from './components/layout/Layout'
 
-// Every page is its own chunk, fetched the first time its route is
-// visited rather than up front. The auth pages (reached by a signed-out
-// visitor's very first paint) are the ones most worth not bundling
-// together with Chart.js-heavy Dashboard or the rest of the authenticated
-// app a first-time visitor hasn't even logged into yet.
+// One chunk per route, so a signed-out visitor never downloads Chart.js.
 const AuthPage = lazy(() => import('./pages/auth/AuthPage').then((m) => ({ default: m.AuthPage })))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
@@ -23,10 +19,6 @@ const ImportPage = lazy(() => import('./pages/ImportPage').then((m) => ({ defaul
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage').then((m) => ({ default: m.CategoriesPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
-// RouteFallback is deliberately minimal (no spinner graphic, just text):
-// a route chunk is small and already cached after the first visit, so
-// this is on screen for a blink at most, the same budget
-// ProtectedRoute's own "Loading…" state gets for the auth bootstrap.
 function RouteFallback() {
   return (
     <div className="flex min-h-[200px] items-center justify-center">

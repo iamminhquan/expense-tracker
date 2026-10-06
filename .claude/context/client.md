@@ -123,7 +123,7 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 - A page with its own filter/view state that should be bookmarkable or linkable belongs in the URL (`useSearchParams`), not local `useState` — see Important Reality Checks above.
 - When adding a mutation, check what else its write could affect (another resource's cached list, the dashboard's totals) and invalidate those query keys too — don't assume invalidating the mutation's own resource is enough.
 - Never embed a raw formatted string from the API as if it were final display text without checking `.claude/context/server.md`'s "ship raw numbers" convention — if a field looks like it should already be formatted money/a date, it probably isn't, and `lib/format.ts` is where the formatting belongs.
-- Follow `.claude/rules/go-conventions.md`'s general engineering judgment where it applies beyond Go specifics (comment the *why*, keep units of work small); there is no separate TypeScript style guide, so match the voice and structure of the surrounding file.
+- Comment sparingly: only what the code can't say (a hidden constraint, a non-obvious reason). One `//` line at most; anything longer goes in a single `/* */` block, never a stack of `//` lines. Otherwise there is no separate TypeScript style guide, so match the structure of the surrounding file.
 - Verify an auth, cookie, or response-shape change in a real browser, not just `tsc`/`oxlint`/a visual read of the code — several real bugs here (the reload-loses-session cookie issue, the nil-slice-to-null JSON issue, a URL-sync issue) were invisible to static checks and only surfaced once something actually ran in Chromium. See `.claude/rules/json-api-conventions.md`'s browser-testing note.
 
 ## Common Task Playbooks
@@ -144,6 +144,7 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 
 ## Change Log
 
+- `2026-10-06`: comments across `client/` cut to the ones the code can't speak for. History and pointers to the deleted HTML app are gone, and anything longer than one line is now a single `/* */` block. The Safe Edit Rules and the `react-component` skill now state that convention.
 - `2026-10-06`: `.claude/skills/react-component/` added, covering where a component/page/hook file goes, how props/state/async states are written, and an accessibility pass, with patterns in its `references/accessibility.md`. Read This First no longer lists individual rule files (see `.claude/context/README.md`'s Maintenance Rule).
 - `2026-10-05`: pnpm workspace removed. `pnpm-workspace.yaml` deleted and `pnpm-lock.yaml` moved from the repo root into `client/` (regenerated as a standalone lockfile, same resolved versions); `packageManager` added to `client/package.json`; CI points at `client/pnpm-lock.yaml`. `client/` is now a plain standalone package. Added Setup and Run and Deploy Notes sections to this file.
 - `2026-10-05`: this file renamed from `frontend.md` to `client.md` to match the `client/` directory it describes.

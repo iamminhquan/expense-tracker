@@ -38,8 +38,7 @@ export function ResetPasswordPage() {
     setError(null)
     try {
       const res = await resetPassword(token, password, passwordConfirm)
-      // resetPassword signs the visitor in on success, same as
-      // register/login -- see auth_handlers.go's issueAuthResponse.
+      // A successful reset signs the visitor in, like login.
       setSession(res)
       navigate('/dashboard', { replace: true })
     } catch (err) {

@@ -68,8 +68,7 @@ When a row swaps into an edit form, the button the user just pressed unmounts an
 const editButtonRef = useRef<HTMLButtonElement>(null)
 const wasEditing = useRef(false)
 
-// Syncing with the DOM after the read-only row re-mounts -- the button
-// doesn't exist yet in the handler that set editing to false.
+// The button only exists again after the re-render, so focus it from an effect.
 useEffect(() => {
   if (wasEditing.current && !editing) editButtonRef.current?.focus()
   wasEditing.current = editing

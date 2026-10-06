@@ -9,14 +9,8 @@ const NAV_LINKS = [
   { to: '/categories', label: 'Categories' },
 ]
 
-// Mirrors nav.html: both bars exist at once, each hidden at the breakpoint
-// the other owns via Tailwind's md: prefix, rather than mounting/unmounting
-// one on resize.
 export function Layout() {
-  // headerBalance is always the real current month regardless of which
-  // page is showing (see dashboard_handlers.go's comment) -- fetching it
-  // through useDashboard() here means every protected page shares the one
-  // cached request instead of each rolling its own.
+  // Fetched once here, so every page shares the one headerBalance request.
   const { data: dashboard } = useDashboard()
 
   return (

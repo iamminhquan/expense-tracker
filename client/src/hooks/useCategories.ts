@@ -29,9 +29,7 @@ export function useDeleteCategory() {
   return useMutation({
     mutationFn: categoriesApi.deleteCategory,
     onSuccess: () => {
-      // A delete can reassign transactions to the "Other" default (see
-      // server/internal/api/category_handlers.go), so the transactions
-      // list/dashboard may now be stale too, not just the category list.
+      // A delete moves its transactions to "Other", so those caches go stale too.
       void queryClient.invalidateQueries({ queryKey: categoriesKey })
       void queryClient.invalidateQueries({ queryKey: ['transactions'] })
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] })

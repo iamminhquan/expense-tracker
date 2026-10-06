@@ -1,5 +1,4 @@
 import { ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from 'chart.js'
 
-// Registered once, imported for its side effect wherever a chart renders
-// (react-chartjs-2's <Doughnut>/<Bar> throw at render time without this).
+// Imported for its side effect: react-chartjs-2 throws at render without these.
 Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
