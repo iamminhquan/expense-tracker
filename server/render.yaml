@@ -45,6 +45,10 @@ services:
       # so the build doesn't fail on an older compiler.
       - key: GO_VERSION
         value: "1.26.5"
+      # Gin defaults to debug mode, which logs every route at startup and
+      # warns about it; release mode is what a deployed service should run.
+      - key: GIN_MODE
+        value: release
       # Set by hand in the Render dashboard: it carries the Neon password and
       # must not be committed. Use Neon's *direct* connection string -- the
       # one without `-pooler` in the host -- because golang-migrate takes a
