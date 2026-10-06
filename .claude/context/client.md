@@ -53,7 +53,8 @@
 - `client/src/lib/theme/ThemeContext.tsx`: applies the signed-in user's theme (carried on `/api/v1/me`/`/api/v1/refresh`'s response) to `<html>`. Must be nested inside `AuthProvider`.
 - `client/src/hooks/`: one TanStack Query hook module per resource (`useCategories`, `useTransactions`, `useDashboard`, `useSettings`) — queries plus mutations, with mutations invalidating whatever else their write affects (see Data Layer below).
 - `client/src/components/layout/`: `Layout`, `ProtectedRoute`, `AuthLayout` (the pre-auth card shell), `BalanceWidget`, `UserMenu`.
-- `client/src/components/`: `MonthPicker`, `BottomSheet` (drag-to-dismiss).
+- `client/src/components/`: `MonthPicker`, `BottomSheet` (drag-to-dismiss), `FieldError` (a form field's error line, used by the pre-auth forms).
+- `client/src/lib/formStyles.ts`: `inputClass` / `primaryButtonClass`, the shared class strings for form inputs and the full-width primary button, used by the pre-auth pages, Settings and Import alike.
 - `client/src/hooks/useLongPress.ts`: the mobile long-press gesture hook.
 - `client/src/lib/format.ts`: client-side display formatting (money, dates, timestamps) — the backend ships raw numbers and leaves this to the client, see `.claude/context/server.md`'s Request and Response Conventions.
 - `client/src/lib/charts.ts`: registers Chart.js's elements once, imported for its side effect.
@@ -70,11 +71,11 @@
 
 - `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider`).
 - `client/src/pages/`: one file per page, `client/src/pages/auth/` for the five pre-auth ones.
-- `client/src/components/`: shared presentational components; `client/src/components/layout/` specifically for things only the authenticated shell uses.
+- `client/src/components/`: shared presentational components; `client/src/components/layout/` for the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
 - `client/src/hooks/`: TanStack Query hooks, one module per resource.
 - `client/src/lib/api/`: the API client — see What Is Actually Implemented above.
 - `client/src/lib/auth/`, `client/src/lib/theme/`: the two app-wide React contexts.
-- `client/src/lib/format.ts`, `client/src/lib/charts.ts`, `client/src/lib/queryClient.ts`: small standalone utilities.
+- `client/src/lib/format.ts`, `client/src/lib/formStyles.ts`, `client/src/lib/charts.ts`, `client/src/lib/queryClient.ts`: small standalone utilities.
 
 ## Data Layer (TanStack Query)
 
@@ -144,6 +145,7 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 
 ## Change Log
 
+- `2026-10-06`: `AuthLayout.tsx` slimmed to the shell itself. `FieldError` moved to `components/FieldError.tsx` and `inputClass`/`primaryButtonClass` to `lib/formStyles.ts`, since Settings and Import (pages behind auth) were importing form styles from the pre-auth layout. Frontend Layout now says `components/layout/` holds both app shells, which `AuthLayout` already did.
 - `2026-10-06`: comments across `client/` cut to the ones the code can't speak for. History and pointers to the deleted HTML app are gone, and anything longer than one line is now a single `/* */` block. The Safe Edit Rules and the `react-component` skill now state that convention.
 - `2026-10-06`: `.claude/skills/react-component/` added, covering where a component/page/hook file goes, how props/state/async states are written, and an accessibility pass, with patterns in its `references/accessibility.md`. Read This First no longer lists individual rule files (see `.claude/context/README.md`'s Maintenance Rule).
 - `2026-10-05`: pnpm workspace removed. `pnpm-workspace.yaml` deleted and `pnpm-lock.yaml` moved from the repo root into `client/` (regenerated as a standalone lockfile, same resolved versions); `packageManager` added to `client/package.json`; CI points at `client/pnpm-lock.yaml`. `client/` is now a plain standalone package. Added Setup and Run and Deploy Notes sections to this file.

@@ -33,7 +33,7 @@ description: Write, split, or refactor React components, pages, and hooks in $pe
 **Promote late.** A component moves up to `components/` only when a second page actually needs it. Don't do it because it "might be reused." A shared component built too early collects a prop for every caller's special case. A page-local one stays small because it serves one caller.
 
 **File and export conventions** (these match the existing code and tooling, so keep them):
-- One exported component per file, file name = component name in PascalCase. oxlint's `react/only-export-components` and Vite fast refresh both depend on this. Exporting a plain constant alongside is fine (`AuthLayout.tsx` exports `inputClass`).
+- One exported component per file, file name = component name in PascalCase. oxlint's `react/only-export-components` and Vite fast refresh both depend on this. Exporting a plain constant alongside is fine, but a constant other files import belongs in `lib/` (`lib/formStyles.ts`), not in whichever component happened to define it first.
 - Named exports: `export function TransactionRow(...)`. `App.tsx`'s lazy routes do `.then((m) => ({ default: m.XPage }))`, so a page with a default export breaks that pattern.
 - A new page gets a `lazy()` route in `App.tsx`, inside the `ProtectedRoute` → `Layout` nesting if it needs auth. Each route is its own chunk.
 - Hooks are `useCamelCase.ts`.
@@ -81,7 +81,7 @@ Empty is its own state, and it should say *why* it's empty. `TransactionsPage` t
 - Use Tailwind utilities against the theme tokens: `bg-app`, `bg-surface`, `bg-track`, `text-ink`, `text-ink-muted`, `text-ink-faint`, `border-border-card`, `border-border-input`, `bg-accent`, `text-on-solid`, `text-expense`, `text-income`. Never use a hex or rgb value, in a class or in `style`. If a new color is needed, add it as a token to `index.css`, in both dark-palette blocks (`.claude/rules/theming.md`). Otherwise it breaks dark mode. The one exception is user data that is itself a color, like `transaction.categoryColor`.
 - Match the neighbors' scale. The app uses explicit sizes (`text-[13px]`, `rounded-[10px]`, `px-3 py-2`) rather than Tailwind's named steps.
 - Build conditional classes with a template literal, as the existing code does. There's no `clsx` dependency; don't add one for a single use.
-- When the same long class string appears three or more times, hoist it into a constant (`AuthLayout.tsx`'s `inputClass` / `primaryButtonClass`) or a small component, so the next change to it happens in one place.
+- When the same long class string appears three or more times, hoist it into a constant (`lib/formStyles.ts`'s `inputClass` / `primaryButtonClass`) or a small component, so the next change to it happens in one place.
 - Design for both breakpoints. Mobile first, with `md:` for desktop (see `Layout.tsx`). A touch gesture like long-press is an *added* way to reach an action. The same action must also be reachable through a visible button (`.claude/rules/mobile-nav.md`).
 
 ### Lists and performance

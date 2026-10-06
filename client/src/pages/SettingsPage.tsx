@@ -13,7 +13,7 @@ import {
 import { useAuth } from '../lib/auth/AuthContext'
 import { ApiError } from '../lib/api/client'
 import { formatTimestamp } from '../lib/format'
-import { inputClass, primaryButtonClass } from '../components/layout/AuthLayout'
+import { inputClass, primaryButtonClass } from '../lib/formStyles'
 
 export function SettingsPage() {
   const { data, isLoading } = useSettings()

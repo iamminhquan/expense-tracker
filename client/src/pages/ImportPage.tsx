@@ -9,7 +9,7 @@ import {
   type MappingNeeded,
 } from '../lib/api/import'
 import { ApiError } from '../lib/api/client'
-import { primaryButtonClass } from '../components/layout/AuthLayout'
+import { primaryButtonClass } from '../lib/formStyles'
 
 type Step =
   | { kind: 'upload' }

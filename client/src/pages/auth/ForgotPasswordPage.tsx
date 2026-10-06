@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AuthLayout, inputClass, primaryButtonClass } from '../../components/layout/AuthLayout'
+import { AuthLayout } from '../../components/layout/AuthLayout'
+import { inputClass, primaryButtonClass } from '../../lib/formStyles'
 import { forgotPassword } from '../../lib/api/auth'
 
 export function ForgotPasswordPage() {
