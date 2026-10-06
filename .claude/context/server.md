@@ -24,7 +24,7 @@
   - deployment flow
   - package layout or source-of-truth files
 - If a code change does not affect behavior or operational context, no content rewrite is required, but the agent should still check whether the existing text remains accurate.
-- Keep updates short and factual. Do not turn this file into a full changelog of code diffs — that is what the Change Log section is for, and even there, one line per change.
+- Keep updates short and factual.
 
 ## Stack
 
@@ -212,17 +212,3 @@ sqlc generate
 - No admin/staff role, no audit log, no account-recovery window on deletion — deliberate scope cuts, not oversights (see Authorization Model and `.claude/rules/account-deletion.md`).
 - No client-side reminder for an unverified email address, and `userDTO` doesn't carry `EmailVerified` yet — see `.claude/rules/email-verification.md`'s known gap.
 - Test coverage is table-driven Go `testing` across packages, plus DB-backed integration tests in `internal/api` (`TEST_DATABASE_URL`).
-
-## Change Log
-
-- `2026-10-06`: `GET /settings` listed each session by `sessions.id`, which is the refresh token, handing every active refresh token (the caller's own included) to page scripts. Sessions now carry a separate `public_id` (migration 000019) and the list and `DELETE /settings/sessions/{id}` use it. Refresh tokens already listed before this deploy stay valid until they expire or are revoked.
-- `2026-10-06`: every `/api/v1` JSON response now uses one envelope, `JSONResponse` (`{success, message, data}`, in `response.go`), success and error alike. `errorResponse` was replaced by `respondError`, and every `c.JSON` by `respondSuccess` with a message per endpoint. The thirteen endpoints that answered `204` now answer `200` with `data: null`. Unknown routes (404), wrong methods (405, `HandleMethodNotAllowed` now on), recovered panics (500, `CustomRecovery`) and `RequireAuth`'s 401s now answer in the envelope too, where before they gave plain text, an empty body or a bare `gin.H`. The design spec lived in `docs/superpowers/specs/` until it was implemented; see commit `31347a5`.
-- `2026-10-06`: dead code removed (found with `deadcode`): `internal/auth/middleware.go` (`RequireAuth`/`UserIDFromContext`, the cookie-session + htmx `HX-Redirect` middleware from the Chi era, with its test; `internal/api/middleware.go` is the only auth middleware), `pgval.Text`, and `monthScope.LabelLower` / `txnFilters.Any` / `txnFilters.ActiveCount` in `transaction_query.go`.
-- `2026-10-05`: every API route moved from `/api/*` to `/api/v1/*` (`router.go`'s group, `client/src/lib/api/*`, tests, docs); `/healthz` stays at the root. No unversioned alias is kept. The refresh-token cookie keeps `Path=/api` on purpose — it still matches `/api/v1/refresh` and `/logout`, and survives a future `/api/v2`.
-- `2026-10-05`: `/healthz` moved from `/api/healthz` to the root. `render.yaml`'s `healthCheckPath` and the keep-alive cron both probe `/healthz`, which the deleted Chi app used to serve; after the cutover cleanup nothing answered it and Render would have marked every deploy unhealthy. `TestHealthzAtRoot` pins it.
-- `2026-10-05`: `APP_BASE_URL` now documented (and defaulted, to `http://localhost:5173`) as `client/`'s URL, not this server's — email links point at client routes.
-- `2026-10-05`: this file renamed from `backend.md` to `server.md` to match the `server/` directory it describes.
-- `2026-10-05`: the Gin/React migration completed — `internal/handlers`, `internal/web`, and `internal/csrf` (the old Chi-routed, `html/template`-rendered app and its CSRF middleware) deleted in full, along with the now-unused parts of `internal/format` (only `DeviceLabel` survives) and the `go-chi/chi` dependency. `cmd/server/main.go` now runs `internal/api`'s Gin router alone — no more dual-router `http.ServeMux` dispatch. This file rewritten from scratch to describe the JSON API as the backend, not as one of two halves.
-- `2026-10-05`: `internal/api` built out across several commits to full parity with the deleted HTML app (auth, categories, transactions, dashboard, settings, CSV import/export) — see git log on this date for the detailed, phase-by-phase history; this file no longer tracks that transition day by day now that it's finished.
-- `2026-10-05`: repo converted into a monorepo (`server/` + `client/`).
-- `2026-10-05`: bank-email auto-tracking feature removed in full (predates the Gin/React migration). Deleted `bankmail`, `inbound`, `inboxproc`, `classify`, and `emailworker/`; the `/inbox/{token}` and `/settings/inbox/*` routes; the `GEMINI_*`/`INBOUND_*` env vars; and, via migration `000018_drop_email_tracking`, the `bank_emails`/`category_hints`/`bank_accounts` tables and `transactions.source`/`bank_email_id`/`users.inbox_token` columns. The `other_income` default category was kept — it is a shared category like `other`, not specific to that feature.
