@@ -98,10 +98,11 @@ cd client
 pnpm install
 pnpm dev     # Vite dev server on :5173, proxies /api/* to http://localhost:8080 (override with VITE_API_PROXY_TARGET)
 pnpm lint    # oxlint
+pnpm test    # vitest run: jsdom + Testing Library, files next to the code as *.test.ts(x)
 pnpm build   # tsc -b && vite build, output in dist/
 ```
 
-Run `pnpm lint` and `pnpm build` from inside `client/` before committing a change that touches it.
+Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before committing a change that touches it.
 
 ## Deploy Notes
 
@@ -140,11 +141,12 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 - Dashboard's Chart.js colors don't react to a theme switch (see Important Reality Checks above).
 - No client-side email-verification reminder (see Important Reality Checks above).
 - Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
-- No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
+- Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress` and the CSV import flow; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.
 
 ## Change Log
 
+- `2026-10-06`: Vitest + Testing Library added (`pnpm test`, run in CI). First tests: the API client, `useLongPress`, the CSV import API and `ImportPage`. They found that `importTransactions` and `downloadTransactionsExport` never retried after a 401 despite saying they did, so an import confirmed more than 15 minutes after login failed; both now go through `authedFetch` in `lib/api/client.ts`, which also backs `api.*`.
 - `2026-10-06`: every page now shows an error when its query fails, instead of "Loading…" forever (it checked `isLoading || !data` before `error`, which TanStack Query v5 never reaches); the `react-component` skill's Loading section describes the new shape. Transactions got an accessibility pass: labels on the add form, `aria-label`s on the filter bar and the inline edit form, `aria-pressed` on the expense/income toggle, row-specific names on Edit/Delete, focus moved into the edit form and back to Edit on save/cancel/Escape, and a failed delete shown inline instead of in `alert()`. Checked in Chromium (desktop, and mobile in dark mode).
 - `2026-10-06`: `TransactionsPage`, `ImportPage` and `SettingsPage` (430, 339 and 274 lines) each split into a folder under `pages/`, one file per sub-component, with no behavior change. The extracted components take `Category[]`/`Session[]` instead of restating those shapes inline. `App.tsx`'s lazy imports and the `paths:` of `req-value-objects.md`, `csv-import.md` and `mobile-nav.md` follow the new paths.
 - `2026-10-06`: `AuthLayout.tsx` slimmed to the shell itself. `FieldError` moved to `components/FieldError.tsx` and `inputClass`/`primaryButtonClass` to `lib/formStyles.ts`, since Settings and Import (pages behind auth) were importing form styles from the pre-auth layout. Frontend Layout now says `components/layout/` holds both app shells, which `AuthLayout` already did.
