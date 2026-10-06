@@ -87,6 +87,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 - Every response except `/healthz` and the CSV export is a JSON envelope, `{"success": bool, "message": string, "data": T | null}`, written through `respondSuccess`/`respondError` in `response.go`; no endpoint answers `204`. See `.claude/rules/json-api-conventions.md` for the full set of conventions this package follows, several of them written up *because* a real bug violated them (never ship `null` for an array field a client expects `[]` from, never embed another package's untagged struct directly in a response).
 - Ship raw numbers, not pre-formatted display strings. A money amount is a plain `int64` (VND, whole đồng), a percentage a plain `int`, a date `"2006-01-02"` — never a formatted `"50.000₫"` or a pre-composed sentence. The client owns formatting and i18n of its own UI text; this backend only resolves what it alone has the data for (a default category's display name via `i18n`, a User-Agent string via `format.DeviceLabel`).
 - Authentication is a header, not a cookie, for every authenticated endpoint: `Authorization: Bearer <access token>`. The one exception is `POST /api/v1/refresh` and `POST /api/v1/logout`, which read the refresh-token httpOnly cookie instead — see Authentication Model.
+- Every request body is capped at 1 MiB (`limitBody`, `maxRequestBytes` in `middleware.go`), the same as the CSV upload's own limit; a read past it fails and surfaces as the handler's usual 400.
 - Localization: none — every message this API writes is English. Only default-category *names* are resolved through `server/internal/i18n`, keyed by a stable slug rather than the displayed string.
 
 ## Authentication Model
@@ -176,6 +177,7 @@ sqlc generate
 - `APP_BASE_URL` — scheme+host of **`client/`, not this server** — password-reset/verification emails link to its `/reset-password`/`/verify-email` React Router routes, which this API doesn't answer itself. Defaults to `http://localhost:5173` (Vite's default port); set to the Vercel domain in production.
 - `BREVO_API_KEY`, `MAIL_FROM` — password-reset/verification email, sent over Brevo's HTTP API rather than SMTP, because Render's free tier blocks outbound SMTP ports but never 443. Optional — blank leaves forgot-password working end to end except the actual send, which is logged instead.
 - `JWT_SECRET` — signs/verifies access tokens (`internal/auth/jwt.go`). Required, no fallback, same reasoning as `DATABASE_URL`: `config.Load()` refuses to start without it rather than sign tokens with a key baked into the source tree.
+- `GIN_MODE` — set to `release` in `render.yaml`; Gin's default debug mode logs every route at startup. Leave unset locally.
 - `CORS_ALLOWED_ORIGINS` — comma-separated origins the API's CORS middleware accepts credentialed cross-origin requests from (the `client/` deployment's domain). Optional; blank means none, correct until `client/` has a real deployment to allow.
 
 ## Deploy Notes

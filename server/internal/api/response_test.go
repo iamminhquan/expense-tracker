@@ -1,7 +1,9 @@
 package api_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -102,5 +104,54 @@ func TestCORSPreflightSkipsMethodNotAllowed(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != origin {
 		t.Errorf("Access-Control-Allow-Origin = %q, want %q", got, origin)
+	}
+}
+
+// TestRequestBodyIsCapped pins that a body past the cap can't be read, however
+// the handler reads it, while one exactly at the cap still can.
+func TestRequestBodyIsCapped(t *testing.T) {
+	const limit = 1 << 20
+	router := api.NewRouter(api.Deps{})
+	router.POST("/api/v1/read-body", func(c *gin.Context) {
+		if _, err := io.Copy(io.Discard, c.Request.Body); err != nil {
+			c.Status(http.StatusRequestEntityTooLarge)
+			return
+		}
+		c.Status(http.StatusOK)
+	})
+
+	tests := []struct {
+		name string
+		size int
+		want int
+	}{
+		{"at the cap", limit, http.StatusOK},
+		{"one byte over", limit + 1, http.StatusRequestEntityTooLarge},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/read-body", bytes.NewReader(make([]byte, tc.size)))
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != tc.want {
+				t.Fatalf("%d-byte body = %d, want %d", tc.size, rec.Code, tc.want)
+			}
+		})
+	}
+}
+
+// TestOversizedLoginBodyIsRejected checks the cap end to end through a real
+// handler: ShouldBindJSON must fail rather than buffer the whole body. The
+// database is never reached, so no Deps are needed.
+func TestOversizedLoginBodyIsRejected(t *testing.T) {
+	router := api.NewRouter(api.Deps{})
+	body := `{"email":"` + strings.Repeat("a", 2<<20) + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/login", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("oversized login = %d, want 400; body %q", rec.Code, rec.Body.String())
 	}
 }

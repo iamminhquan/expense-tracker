@@ -16,7 +16,7 @@ func NewRouter(deps Deps) *gin.Engine {
 	r.Use(gin.Logger(), gin.CustomRecovery(func(c *gin.Context, _ any) {
 		respondError(c, http.StatusInternalServerError, "internal server error")
 	}))
-	r.Use(corsMiddleware(deps.CORSAllowedOrigins))
+	r.Use(corsMiddleware(deps.CORSAllowedOrigins), limitBody(maxRequestBytes))
 
 	r.HandleMethodNotAllowed = true
 	r.NoRoute(func(c *gin.Context) { respondError(c, http.StatusNotFound, "not found") })

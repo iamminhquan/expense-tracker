@@ -55,3 +55,18 @@ func UserID(c *gin.Context) (int64, bool) {
 	id, ok := v.(int64)
 	return id, ok
 }
+
+// maxRequestBytes caps every request body. The biggest legitimate one is the
+// 1 MB CSV upload (importMaxBytes, which also caps itself); a JSON body is a
+// few hundred bytes. Without a cap, ShouldBindJSON reads a body of any size
+// into memory.
+const maxRequestBytes = 1 << 20
+
+// limitBody makes a read past max fail, which ShouldBindJSON and FormFile
+// report as a bad request.
+func limitBody(max int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, max)
+		c.Next()
+	}
+}
