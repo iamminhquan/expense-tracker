@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronLeft, CircleCheck } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   importTransactions,
@@ -9,9 +10,12 @@ import {
   type MappingNeeded,
 } from '../../lib/api/import'
 import { ApiError } from '../../lib/api/client'
-import { primaryButtonClass } from '../../lib/formStyles'
+import { buttonClass, cardClass, pageTitleClass } from '../../lib/formStyles'
+import { FileRow } from './FileRow'
+import { ImportStepper } from './ImportStepper'
 import { MappingForm } from './MappingForm'
 import { PreviewPanel } from './PreviewPanel'
+import { UploadStep } from './UploadStep'
 
 type Step =
   | { kind: 'upload' }
@@ -23,9 +27,13 @@ export function ImportPage() {
   const [step, setStep] = useState<Step>({ kind: 'upload' })
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  function startOver() {
+    setError(null)
+    setStep({ kind: 'upload' })
+  }
 
   async function handleFile(file: File) {
     setError(null)
@@ -79,61 +87,67 @@ export function ImportPage() {
     }
   }
 
+  const stepIndex = { upload: 0, mapping: 1, preview: 2, done: 3 }[step.kind]
+
   return (
-    <div className="max-w-[640px] space-y-6">
-      <h1 className="text-[20px] font-semibold">Import transactions</h1>
+    <div className="mx-auto max-w-[800px] space-y-4 md:space-y-6">
+      <div>
+        <Link to="/transactions" className="mb-2 inline-flex items-center gap-1 text-[14px] font-semibold text-ink-muted hover:text-ink">
+          <ChevronLeft aria-hidden="true" className="size-4" />
+          Transactions
+        </Link>
+        <h1 className={pageTitleClass}>Import transactions</h1>
+      </div>
 
-      {step.kind === 'upload' && (
-        <div className="rounded-[16px] border border-border-card bg-surface p-6">
-          <p className="mb-4 text-[13px] text-ink-muted">
-            Upload a .csv file -- either one exported from $pend, or one from your bank or another app. We'll ask how to
-            read it if we can't tell automatically.
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) void handleFile(file)
-            }}
-            className="text-[13px]"
+      <div className={`${cardClass} space-y-6`}>
+        <ImportStepper current={stepIndex} />
+
+        {step.kind === 'upload' && <UploadStep reading={submitting} error={error} onFile={(file) => void handleFile(file)} />}
+
+        {(step.kind === 'mapping' || step.kind === 'preview') && (
+          <FileRow file={step.file} rows={step.kind === 'mapping' ? step.data.rows : undefined} onRemove={startOver} />
+        )}
+
+        {step.kind === 'mapping' && (
+          <MappingForm
+            data={step.data}
+            submitting={submitting}
+            error={error}
+            onCancel={startOver}
+            onSubmit={(mapping) => void submitMapping(step.file, mapping)}
           />
-          {submitting && <p className="mt-3 text-[13px] text-ink-faint">Reading file…</p>}
-          {error && <p className="mt-3 text-[13px] text-expense">{error}</p>}
-        </div>
-      )}
+        )}
 
-      {step.kind === 'mapping' && (
-        <MappingForm
-          data={step.data}
-          submitting={submitting}
-          error={error}
-          onCancel={() => setStep({ kind: 'upload' })}
-          onSubmit={(mapping) => void submitMapping(step.file, mapping)}
-        />
-      )}
+        {step.kind === 'preview' && (
+          <PreviewPanel
+            data={step.data}
+            submitting={submitting}
+            error={error}
+            onBack={startOver}
+            onConfirm={() => void confirmImport(step.file, step.mapping, step.data.fingerprint)}
+          />
+        )}
 
-      {step.kind === 'preview' && (
-        <PreviewPanel
-          data={step.data}
-          submitting={submitting}
-          error={error}
-          onBack={() => setStep({ kind: 'upload' })}
-          onConfirm={() => void confirmImport(step.file, step.mapping, step.data.fingerprint)}
-        />
-      )}
-
-      {step.kind === 'done' && (
-        <div className="rounded-[16px] border border-border-card bg-surface p-6 text-center">
-          <p className="mb-4 text-[14px] text-income">
-            Imported {step.data.imported} transaction{step.data.imported === 1 ? '' : 's'}.
-          </p>
-          <button onClick={() => navigate(`/transactions?month=${step.data.month}`)} className={primaryButtonClass}>
-            View transactions
-          </button>
-        </div>
-      )}
+        {step.kind === 'done' && (
+          <div className="flex flex-col items-center py-6 text-center">
+            <span aria-hidden="true" className="mb-4 flex size-[72px] items-center justify-center rounded-full bg-income-tint text-income">
+              <CircleCheck className="size-9" />
+            </span>
+            <p role="status" className="font-display text-[22px] leading-7 font-bold text-ink">
+              Imported {step.data.imported} transaction{step.data.imported === 1 ? '' : 's'}
+            </p>
+            <p className="mt-1.5 text-[14px] leading-[22px] text-ink-muted">Rows that matched earlier transactions are marked "Possible duplicate".</p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
+              <button type="button" onClick={startOver} className={buttonClass('secondary')}>
+                Import another file
+              </button>
+              <button type="button" onClick={() => navigate(`/transactions?month=${step.data.month}`)} className={buttonClass('primary')}>
+                View transactions
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

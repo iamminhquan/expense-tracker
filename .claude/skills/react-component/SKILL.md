@@ -22,6 +22,7 @@ description: Write, split, or refactor React components, pages, and hooks in $pe
 | A route-level screen | `pages/<Name>Page.tsx`, or `pages/<area>/<Name>Page.tsx` once it has its own sub-components (see below). Pre-auth screens live in `pages/auth/`. |
 | A sub-component only one page uses | Start inside that page's file; move to a sibling file in the page's folder when it outgrows the file (below). |
 | A component two or more pages use | `components/<Name>.tsx` |
+| A design-system primitive (a field, button-like control, badge, banner, dialog, empty/loading state) | `components/ui/<Name>.tsx`. Check what's already there before adding one |
 | A piece of the authenticated shell (nav, header widgets, route guards) | `components/layout/` |
 | Server data: queries + mutations | `hooks/use<Resource>.ts`, calling `lib/api/<resource>.ts`, typed by `lib/api/types.ts` |
 | A reusable non-data behavior | `hooks/use<Behavior>.ts` (like `useLongPress.ts`) |
@@ -63,28 +64,31 @@ A page component is the orchestrator. It reads the URL and the queries, handles 
 Branch on `data` first, then tell an error apart from a load in progress:
 
 ```tsx
-const { data, error } = useTransactions(filters)
+const { data, error, refetch } = useTransactions(filters)
 if (!data) {
-  if (error) return <p role="alert" className="text-expense">Could not load transactions.</p>
-  return <p role="status" className="text-ink-faint">Loading…</p>
+  if (error) return <InlineError message="Could not load transactions." onRetry={() => void refetch()} />
+  return <PageSkeleton label="Loading transactions…" />
 }
 ```
 
 In TanStack Query v5 a failed query has `isLoading === false` and `data === undefined`, so the old `if (isLoading || !data) return <Loading/>; if (error) ...` never reached the error branch: a failed request showed "Loading…" forever. Checking `error` before `data` is wrong the other way: a background refetch that fails keeps the cached `data` but sets `error`, and the page would throw away what it was showing. Every page follows the shape above; keep it.
 
-Empty is its own state, and it should say *why* it's empty. `TransactionsPage` tells "No transactions in October" apart from "Nothing matches your filters". Those two need different responses from the user.
+`InlineError` and `PageSkeleton` live in `components/ui/`; `PageSkeleton` waits 150ms before drawing, so a fast response never flashes a skeleton.
+
+Empty is its own state, and it should say *why* it's empty. `TransactionsPage` tells "No transactions in October" apart from "Nothing matches your filters" (both through `components/ui/EmptyState`). Those two need different responses from the user.
 
 ### Mutations
 - Call `mutation.mutateAsync(...)` inside `try`/`catch`, and show `err instanceof ApiError ? err.message : 'Could not <verb> the <thing>.'` next to the form. `ApiError` comes from `lib/api/client.ts`. The server's messages are written for users.
-- Disable the submit button with `disabled={mutation.isPending}`.
+- Confirm success with `useToast().success(...)` (`lib/toast/ToastContext.tsx`) when the change isn't already visible where the user is looking. A destructive action asks first through `components/ui/ConfirmDialog`, never `window.confirm()`.
+- Disable the submit button with `disabled={mutation.isPending}` and mark it `aria-busy`.
 - Cache invalidation lives in the hook, never in the component. A new mutation in `hooks/use<Resource>.ts` invalidates every query key its write can change, not just its own. `useTransactions.ts`'s `invalidateEverythingATransactionTouches` is the pattern.
 
 ### Styling
-- Use Tailwind utilities against the theme tokens: `bg-app`, `bg-surface`, `bg-track`, `text-ink`, `text-ink-muted`, `text-ink-faint`, `border-border-card`, `border-border-input`, `bg-accent`, `text-on-solid`, `text-expense`, `text-income`. Never use a hex or rgb value, in a class or in `style`. If a new color is needed, add it as a token to `index.css`, in both dark-palette blocks (`.claude/rules/theming.md`). Otherwise it breaks dark mode. The one exception is user data that is itself a color, like `transaction.categoryColor`.
-- Match the neighbors' scale. The app uses explicit sizes (`text-[13px]`, `rounded-[10px]`, `px-3 py-2`) rather than Tailwind's named steps.
+- Use Tailwind utilities against the theme tokens, chosen by role: `bg-app`, `bg-surface`, `bg-surface-2`, `border-border`, `border-border-strong`, `text-ink`, `text-ink-muted`, `bg-accent`/`text-on-accent`, `text-expense`, `text-income`, `text-danger`, `text-warning`, and the `*-tint` fills behind them. Headings and money figures use `font-display`; amounts, dates and counts add `tabular`. Never use a hex or rgb value, in a class or in `style`. If a new color is needed, add it as a token to `index.css`, in both dark-palette blocks (`.claude/rules/theming.md`). Otherwise it breaks dark mode. The one exception is user data that is itself a color, like `transaction.categoryColor`.
+- Match the neighbors' scale. The app uses explicit sizes (`text-[15px] leading-[22px]`, `rounded-[12px]` controls, `rounded-[28px]` cards) rather than Tailwind's named steps. Controls and buttons are 44px tall (`h-11`); a touch target is never smaller.
 - Build conditional classes with a template literal, as the existing code does. There's no `clsx` dependency; don't add one for a single use.
-- When the same long class string appears three or more times, hoist it into a constant (`lib/formStyles.ts`'s `inputClass` / `primaryButtonClass`) or a small component, so the next change to it happens in one place.
-- Design for both breakpoints. Mobile first, with `md:` for desktop (see `Layout.tsx`). A touch gesture like long-press is an *added* way to reach an action. The same action must also be reachable through a visible button (`.claude/rules/mobile-nav.md`).
+- Reuse before writing: buttons come from `buttonClass(variant, size)` in `lib/formStyles.ts` (with `inputClass`, `selectClass`, `cardClass`, `pageTitleClass` beside it), and fields from `components/ui/` (`Field`, `SelectControl`, `AmountInput`, `PasswordInput`, `SegmentedControl`, `Checkbox`, `Badge`, `Banner`). When a new long class string appears three or more times, hoist it the same way, so the next change to it happens in one place.
+- Design for both breakpoints. Mobile first, with `md:` for desktop (see `Layout.tsx`). When the two layouts differ in structure rather than spacing (a table row on desktop, a stacked card on mobile), pick one with `useIsDesktop()` instead of rendering both and hiding one, so a screen reader never meets duplicate controls. A touch gesture like long-press is an *added* way to reach an action. The same action must also be reachable through a visible button (`.claude/rules/mobile-nav.md`).
 
 ### Lists and performance
 - `key` is the entity's id, never the array index. Index keys make React reuse a row's state (like an open edit form) for a different item after a delete or re-sort.
@@ -101,14 +105,14 @@ Write a comment only when the code can't say it: a constraint that isn't visible
 
 Go through these for every component you write or touch. `references/accessibility.md` has the code patterns for each one. Read it when you're building a form, a dialog, a toggle group, or a list with row actions.
 
-- **Use the native element.** `<button type="button">` for actions, `<Link>` for navigation, `<form onSubmit>` so Enter submits, `<dialog>` with `showModal()` for anything modal (as `BottomSheet` does). A clickable `<div>` has no keyboard support and no role.
-- **Every input has a label.** Use a visible `<label htmlFor>`, with ids from `useId()`, since a component can render more than once on a page and two `id="amount"` inputs collide. A placeholder is not a label: it disappears as soon as the user types. When a compact layout (the filter bar) truly has no room for a visible label, `aria-label` is the minimum. `pages/transactions/` shows both: visible labels in `AddTransactionForm`, `aria-label`s in `FilterBar` and `TransactionRow`'s inline edit form. `CategoriesPage`'s add form and the Settings cards still rely on placeholders alone. Fix them when you touch them.
+- **Use the native element.** `<button type="button">` for actions, `<Link>` for navigation, `<form onSubmit>` so Enter submits, `<dialog>` with `showModal()` for anything modal (as `BottomSheet` and `ConfirmDialog` do). A clickable `<div>` has no keyboard support and no role.
+- **Every input has a label.** Use a visible label: `components/ui/Field` renders one and wires the id from `useId()` (a component can render more than once on a page, and two `id="amount"` inputs collide). A placeholder is not a label: it disappears as soon as the user types. When a compact layout (the filter bar) truly has no room for a visible label, `aria-label` is the minimum. `pages/transactions/` shows both: visible labels in `AddTransactionForm`, `aria-label`s in `FilterBar` and the desktop inline edit row.
 - **Repeated row actions need context.** A list of rows that each have "Edit" and "Delete" gives a screen reader ten identical "Delete" buttons. Name them with what they act on: `aria-label={\`Delete ${transaction.description || transaction.categoryName}\`}`. An `aria-label` that just repeats the visible text (`aria-label="Edit"` on a button reading "Edit") adds nothing.
 - **Errors are announced and attached to their field.** A form-level error goes in `role="alert"`. A field error sets `aria-invalid` and is linked with `aria-describedby`.
 - **Loading text uses `role="status"`**, so it's announced without stealing focus.
-- **Toggle buttons expose their state** with `aria-pressed` (as `UserMenu`'s theme picker does). A tab-like segmented control does the same.
+- **Toggle buttons expose their state** with `aria-pressed` (`components/ui/SegmentedControl` does this for the type toggles and `UserMenu`'s theme switch).
 - **Color is never the only signal.** Expense vs. income is also carried by the sign (`formatVNDSigned`). A category color dot sits next to the category's name.
-- **Focus stays visible and stays put.** Never remove an outline without a replacement (`focus:outline-2 focus:outline-accent/40` is the existing style). When an inline edit form opens, move focus into its first field. When it closes, focus should land back on the button that opened it.
+- **Focus stays visible and stays put.** `index.css` gives every `:focus-visible` element a 3px `accent` outline; never remove it. When an inline edit form opens, move focus into its first field. When it closes, focus should land back on the button that opened it.
 - **Headings follow the page.** One `<h1>` per page, then `<h2>` for its sections.
 
 ## 4. Verify
@@ -129,21 +133,24 @@ Then:
 ## Example: a page section done right
 
 ```tsx
-import { useId, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
+import { Plus } from 'lucide-react'
 import { useCreateCategory } from '../../hooks/useCategories'
 import { ApiError } from '../../lib/api/client'
+import { buttonClass, inputClass } from '../../lib/formStyles'
+import { useToast } from '../../lib/toast/ToastContext'
+import { Field } from '../../components/ui/Field'
 import type { Category } from '../../lib/api/types'
 
-interface AddCategoryFormProps {
+interface QuickCategoryFormProps {
   type: Category['type']
   /** One of the swatches; picked by the parent's color picker. */
   color: string
 }
 
-export function AddCategoryForm({ type, color }: AddCategoryFormProps) {
+export function QuickCategoryForm({ type, color }: QuickCategoryFormProps) {
   const createCategory = useCreateCategory()
-  const nameId = useId()
-  const errorId = useId()
+  const toast = useToast()
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -152,6 +159,7 @@ export function AddCategoryForm({ type, color }: AddCategoryFormProps) {
     setError(null)
     try {
       await createCategory.mutateAsync({ name, type, color })
+      toast.success(`Added "${name}"`)
       setName('')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not add the category.')
@@ -159,36 +167,17 @@ export function AddCategoryForm({ type, color }: AddCategoryFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
-      <div className="flex-1">
-        <label htmlFor={nameId} className="mb-1 block text-[13px] text-ink-muted">
-          New {type} category
-        </label>
-        <input
-          id={nameId}
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-          className="w-full rounded-[10px] border border-border-input bg-surface px-3 py-2 text-[13px] text-ink focus:outline-2 focus:outline-accent/40"
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={createCategory.isPending}
-        className="rounded-[10px] bg-accent px-4 py-2 text-[13px] font-semibold text-on-solid hover:opacity-90 disabled:opacity-50"
-      >
+    <form onSubmit={onSubmit} className="space-y-4">
+      <Field label={`New ${type} category`} error={error}>
+        {(control) => <input {...control} required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />}
+      </Field>
+      <button type="submit" disabled={createCategory.isPending} aria-busy={createCategory.isPending} className={buttonClass('primary')}>
+        <Plus aria-hidden="true" />
         Add
       </button>
-      {error && (
-        <p id={errorId} role="alert" className="w-full text-[13px] text-expense">
-          {error}
-        </p>
-      )}
     </form>
   )
 }
 ```
 
-What it shows: a props interface built from the API type, the mutation coming from the hook (which owns invalidation), a label wired with `useId`, an error that's both announced and attached to its field, a submit button disabled while pending, and token-only colors. The hook and input type are the real ones (`useCreateCategory`, `CreateCategoryInput` in `lib/api/categories.ts`). The component itself is illustrative: `CategoriesPage.tsx` has its own add form.
+What it shows: a props interface built from the API type, the mutation coming from the hook (which owns invalidation), `Field` supplying the label, the ids and the error wiring (`aria-invalid`, `aria-describedby`, the message itself), a toast on success, a submit button disabled while pending, and no colour or size invented on the spot. The hook and input type are the real ones (`useCreateCategory`, `CreateCategoryInput` in `lib/api/categories.ts`). The component itself is illustrative: `pages/categories/AddCategoryForm.tsx` is the real add form.

@@ -1,147 +1,135 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
+import { ArrowDownLeft, ArrowUpRight, Plus } from 'lucide-react'
 import { useCreateTransaction } from '../../hooks/useTransactions'
 import { ApiError } from '../../lib/api/client'
-import type { Category } from '../../lib/api/types'
+import { buttonClass, cardClass, cardTitleClass, inputClass } from '../../lib/formStyles'
+import { useToast } from '../../lib/toast/ToastContext'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { AmountInput } from '../../components/ui/AmountInput'
+import { Field } from '../../components/ui/Field'
+import { FieldErrorText } from '../../components/ui/FieldErrorText'
+import { SegmentedControl } from '../../components/ui/SegmentedControl'
+import { SelectControl } from '../../components/ui/SelectControl'
+import type { Category, Transaction } from '../../lib/api/types'
 
-const todayISO = () => new Date().toISOString().slice(0, 10)
-
-const labelClass = 'mb-1 block text-[12px] text-ink-faint'
-
-interface AddTransactionFormProps {
-  categories: Category[]
+// Local date, not toISOString(): UTC would still be yesterday before 7am in Vietnam.
+function todayISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function AddTransactionForm({ categories }: AddTransactionFormProps) {
+export function AddTransactionForm({ categories }: { categories: Category[] }) {
   const createTransaction = useCreateTransaction()
-  const [type, setType] = useState<'expense' | 'income'>('expense')
+  const toast = useToast()
+  const [type, setType] = useState<Transaction['type']>('expense')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [amount, setAmount] = useState('')
   const [occurredOn, setOccurredOn] = useState(todayISO())
   const [description, setDescription] = useState('')
+  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const categoryFieldId = useId()
-  const amountId = useId()
-  const dateId = useId()
-  const noteId = useId()
 
+  const isWide = useMediaQuery('(min-width: 1024px)')
   const options = categories.filter((c) => c.type === type)
+
+  function changeType(next: Transaction['type']) {
+    setType(next)
+    setCategoryId('')
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     if (!categoryId) {
-      setError('Please choose a category.')
+      setCategoryError('Choose a category.')
       return
     }
     try {
-      await createTransaction.mutateAsync({
-        categoryId: Number(categoryId),
-        amount: Number(amount),
-        occurredOn,
-        description,
-        type,
-      })
+      await createTransaction.mutateAsync({ categoryId: Number(categoryId), amount: Number(amount), occurredOn, description, type })
       setAmount('')
       setDescription('')
+      toast.success(type === 'expense' ? 'Expense added' : 'Income added')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not add the transaction.')
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded-[16px] border border-border-card bg-surface p-4">
-      <div className="flex flex-wrap items-end gap-2">
-        <div role="group" aria-label="Transaction type" className="flex gap-1 rounded-[9px] bg-track p-[3px]">
-          {(['expense', 'income'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-pressed={type === t}
-              onClick={() => {
-                setType(t)
-                setCategoryId('')
-              }}
-              className={`rounded-[6px] px-3 py-1.5 text-[13px] capitalize ${
-                type === t ? 'bg-surface font-semibold text-ink shadow-sm' : 'text-ink-faint'
-              }`}
-            >
-              {t}
+    <section aria-labelledby="add-title" className={cardClass}>
+      <h2 id="add-title" className={`${cardTitleClass} mb-5`}>
+        Add a transaction
+      </h2>
+      <form onSubmit={onSubmit}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,0.9fr)_auto_minmax(0,1.3fr)_auto] lg:items-start">
+          <div>
+            <span className="mb-1.5 block text-[13px] leading-[18px] font-semibold text-ink" aria-hidden="true">
+              Type
+            </span>
+            <SegmentedControl
+              label="Transaction type"
+              value={type}
+              onChange={changeType}
+              size={isWide ? 'md' : 'tall'}
+              fullWidth={!isWide}
+              options={[
+                { value: 'expense', label: 'Expense', icon: <ArrowUpRight aria-hidden="true" /> },
+                { value: 'income', label: 'Income', icon: <ArrowDownLeft aria-hidden="true" /> },
+              ]}
+            />
+          </div>
+          <Field label="Category" error={categoryError}>
+            {(control) => (
+              <SelectControl
+                {...control}
+                value={categoryId}
+                onChange={(e) => {
+                  setCategoryId(Number(e.target.value))
+                  setCategoryError(null)
+                }}
+              >
+                <option value="" disabled>
+                  Choose…
+                </option>
+                {options.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </SelectControl>
+            )}
+          </Field>
+          <Field label="Amount">
+            {(control) => <AmountInput {...control} required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />}
+          </Field>
+          <Field label="Date">
+            {(control) => (
+              <input {...control} type="date" required value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className={inputClass} />
+            )}
+          </Field>
+          <Field label="Note (optional)">
+            {(control) => (
+              <input
+                {...control}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Cà phê với Minh"
+                className={inputClass}
+              />
+            )}
+          </Field>
+          <div className="lg:pt-[24px]">
+            <button type="submit" disabled={createTransaction.isPending} aria-busy={createTransaction.isPending} className={`${buttonClass('primary')} w-full`}>
+              <Plus aria-hidden="true" />
+              Add
             </button>
-          ))}
+          </div>
         </div>
-        <div>
-          <label htmlFor={categoryFieldId} className={labelClass}>
-            Category
-          </label>
-          <select
-            id={categoryFieldId}
-            required
-            value={categoryId}
-            onChange={(e) => setCategoryId(Number(e.target.value))}
-            className="rounded-[10px] border border-border-input bg-surface px-2 py-2 text-[13px]"
-          >
-            <option value="" disabled>
-              Choose…
-            </option>
-            {options.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor={amountId} className={labelClass}>
-            Amount
-          </label>
-          <input
-            id={amountId}
-            type="number"
-            inputMode="numeric"
-            required
-            min={1}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-[120px] rounded-[10px] border border-border-input bg-surface px-2 py-2 text-[13px]"
-          />
-        </div>
-        <div>
-          <label htmlFor={dateId} className={labelClass}>
-            Date
-          </label>
-          <input
-            id={dateId}
-            type="date"
-            required
-            value={occurredOn}
-            onChange={(e) => setOccurredOn(e.target.value)}
-            className="rounded-[10px] border border-border-input bg-surface px-2 py-2 text-[13px]"
-          />
-        </div>
-        <div className="min-w-[140px] flex-1">
-          <label htmlFor={noteId} className={labelClass}>
-            Note (optional)
-          </label>
-          <input
-            id={noteId}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full rounded-[10px] border border-border-input bg-surface px-2 py-2 text-[13px]"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={createTransaction.isPending}
-          className="rounded-[10px] bg-accent px-4 py-2 text-[13px] font-semibold text-on-solid hover:opacity-90 disabled:opacity-50"
-        >
-          Add
-        </button>
-      </div>
-      {error && (
-        <p role="alert" className="mt-2 text-[13px] text-expense">
-          {error}
-        </p>
-      )}
-    </form>
+        {error && (
+          <div role="alert">
+            <FieldErrorText>{error}</FieldErrorText>
+          </div>
+        )}
+      </form>
+    </section>
   )
 }

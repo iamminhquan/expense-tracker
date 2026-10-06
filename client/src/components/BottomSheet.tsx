@@ -3,11 +3,15 @@ import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from '
 interface BottomSheetProps {
   open: boolean
   onClose: () => void
+  /** Names the dialog for screen readers, since the sheet has no visible title of its own. */
+  label: string
   children: ReactNode
 }
 
+const EXIT_MS = 200
+
 // A native <dialog> gives focus trapping, Escape-to-close and the backdrop for free.
-export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
+export function BottomSheet({ open, onClose, label, children }: BottomSheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ startY: number; startedAt: number } | null>(null)
@@ -19,9 +23,15 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
     if (!dialog) return
     if (open && !dialog.open) {
       dialog.showModal()
-      setDragY(0)
-    } else if (!open && dialog.open) {
-      dialog.close()
+      return
+    }
+    if (!open && dialog.open) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const timer = window.setTimeout(() => {
+        dialog.close()
+        setDragY(0)
+      }, reduce ? 0 : EXIT_MS)
+      return () => window.clearTimeout(timer)
     }
   }, [open])
 
@@ -51,33 +61,46 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
     }
   }
 
+  // While closing, `open` is already false but the dialog stays up for the exit slide.
+  const leaving = !open
+  const transform = leaving ? 'translateY(100%)' : `translateY(${dragY}px)`
+  const transition = dragging
+    ? 'none'
+    : leaving
+      ? `transform ${EXIT_MS}ms var(--ease-in)`
+      : 'transform 240ms var(--ease-sheet)'
+
   return (
     <dialog
       ref={dialogRef}
+      aria-label={label}
       onClose={onClose}
-      onCancel={onClose}
+      onCancel={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
       onClick={(e) => {
         // A backdrop click targets the <dialog> itself, never a descendant.
         if (e.target === dialogRef.current) onClose()
       }}
-      className="fixed inset-x-0 top-auto bottom-0 m-0 w-full max-w-none rounded-t-[20px] border-0 bg-surface p-0 backdrop:bg-black/40"
+      className="fixed inset-x-0 top-auto bottom-0 m-0 w-full max-w-none overflow-visible border-0 bg-transparent p-0"
     >
       <div
         ref={sheetRef}
-        style={{
-          transform: `translateY(${dragY}px)`,
-          transition: dragging ? 'none' : 'transform 180ms ease-out',
-        }}
+        style={{ transform, transition }}
+        className="animate-sheet-in rounded-t-[28px] border border-b-0 border-border bg-surface px-4 pt-2.5 pb-7 shadow-popover"
       >
         <div
           onPointerDown={onHandlePointerDown}
           onPointerMove={onHandlePointerMove}
           onPointerUp={releaseDrag}
           onPointerCancel={releaseDrag}
-          className="mx-auto my-3 h-1.5 w-10 touch-none rounded-full bg-border-nav"
+          className="-mx-4 -mt-2.5 flex h-8 touch-none items-center justify-center"
           aria-hidden="true"
-        />
-        <div className="px-4 pb-6">{children}</div>
+        >
+          <span className="h-[5px] w-11 rounded-full bg-border-strong" />
+        </div>
+        {children}
       </div>
     </dialog>
   )

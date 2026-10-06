@@ -8,30 +8,40 @@ function ratioLabel(balance: Balance): string {
   return `Spent ${balance.spentPct}% of this month's income`
 }
 
+const RADIUS = 15.5
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+
 export function BalanceWidget({ balance }: { balance: Balance }) {
-  const amountClass = balance.empty ? 'text-ink-zero' : balance.remaining < 0 ? 'text-expense' : 'text-ink-muted'
-  const amount = balance.empty ? '0₫' : formatVND(balance.remaining)
+  const amount = balance.empty ? formatVND(0) : `${balance.remaining < 0 ? '-' : ''}${formatVND(balance.remaining)}`
+  const pct = balance.hasIncome ? Math.min(100, Math.max(0, balance.spentPct)) : 0
+  const label = ratioLabel(balance)
 
   return (
-    <details className="relative shrink-0">
-      <summary
-        className={`cursor-pointer list-none rounded-[7px] px-2 py-1 font-mono text-[13px] font-medium hover:bg-track [&::-webkit-details-marker]:hidden ${amountClass}`}
-      >
-        {amount}
-      </summary>
-      <div className="absolute right-0 top-full z-50 mt-1 w-[200px] rounded-[14px] border border-border-card bg-surface p-3 shadow-lg">
-        <p className="mb-2 text-[10px] font-semibold tracking-[0.08em] text-ink-faintest">LEFT THIS MONTH</p>
-        <p
-          className={`mb-2 font-mono text-[19px] font-semibold ${balance.empty ? 'text-ink-zero' : balance.remaining < 0 ? 'text-expense' : 'text-ink'}`}
-          style={{ letterSpacing: '-0.02em' }}
-        >
+    <div className="flex items-center gap-3">
+      <svg viewBox="0 0 36 36" className="size-9 shrink-0 -rotate-90" role="img" aria-label={label}>
+        <circle cx="18" cy="18" r={RADIUS} fill="none" strokeWidth="5" className="stroke-surface-2" />
+        {pct > 0 && (
+          <circle
+            cx="18"
+            cy="18"
+            r={RADIUS}
+            fill="none"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={`${(pct / 100) * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+            className="stroke-accent"
+          />
+        )}
+      </svg>
+      <div className="min-w-0">
+        <p className={`font-display tabular text-[17px] leading-[22px] font-bold ${balance.remaining < 0 ? 'text-danger' : 'text-ink'}`}>
+          <span className="sr-only">Left this month: </span>
           {amount}
         </p>
-        <div className="mb-2 h-[6px] overflow-hidden rounded-full bg-track">
-          <div className="h-full rounded-full bg-expense" style={{ width: `${balance.spentPct}%` }} />
-        </div>
-        <p className="text-[12px] text-ink-faint">{ratioLabel(balance)}</p>
+        <p aria-hidden="true" className="text-[12px] leading-4 text-ink-muted">
+          {label}
+        </p>
       </div>
-    </details>
+    </div>
   )
 }

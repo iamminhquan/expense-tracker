@@ -1,24 +1,18 @@
 import { useSearchParams } from 'react-router-dom'
-import { Bar, Doughnut } from 'react-chartjs-2'
-import '../lib/charts'
-import { useDashboard } from '../hooks/useDashboard'
-import { MonthPicker } from '../components/MonthPicker'
-import { formatVND, formatVNDSigned } from '../lib/format'
-
-function comparison(current: number, previous: number, hasPrevData: boolean): string {
-  if (!hasPrevData) return 'No data for last month'
-  if (previous === 0) return `Last month ${formatVND(previous)}`
-  const diff = current - previous
-  const pct = Math.round((Math.abs(diff) / previous) * 100)
-  if (diff === 0) return `Last month ${formatVND(previous)} · unchanged`
-  return `Last month ${formatVND(previous)} · ${diff > 0 ? 'up' : 'down'} ${pct}%`
-}
+import { useDashboard } from '../../hooks/useDashboard'
+import { MonthPicker } from '../../components/MonthPicker'
+import { InlineError } from '../../components/ui/InlineError'
+import { PageSkeleton } from '../../components/ui/PageSkeleton'
+import { pageTitleClass } from '../../lib/formStyles'
+import { KpiCards } from './KpiCards'
+import { MonthlyBars } from './MonthlyBars'
+import { SpendingDoughnut } from './SpendingDoughnut'
 
 export function DashboardPage() {
   // The month lives in the URL, so reloads and links keep it.
   const [searchParams, setSearchParams] = useSearchParams()
   const month = searchParams.get('month') ?? undefined
-  const { data, error } = useDashboard(month)
+  const { data, error, refetch } = useDashboard(month)
 
   function setMonth(value: string) {
     const next = new URLSearchParams(searchParams)
@@ -27,89 +21,30 @@ export function DashboardPage() {
   }
 
   if (!data) {
-    if (error) return <p role="alert" className="text-expense">Could not load the dashboard.</p>
-    return <p role="status" className="text-ink-faint">Loading…</p>
+    if (error) return <InlineError message="Could not load the overview." onRetry={() => void refetch()} />
+    return <PageSkeleton label="Loading the overview…" />
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-semibold">Overview</h1>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className={pageTitleClass}>Overview</h1>
         <MonthPicker
           value={data.monthValue}
           label={data.monthLabel}
           currentMonthValue={data.currentMonthValue}
           availableMonths={data.availableMonths}
           onChange={setMonth}
+          size="lg"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-[16px] border border-border-card bg-surface p-5">
-          <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-ink-faint">Spent</p>
-          <p className="font-mono text-[26px] font-semibold text-expense">{formatVND(data.totalExpense)}</p>
-          <p className="mt-1 text-[13px] text-ink-faint">{comparison(data.totalExpense, data.previousTotalExpense, data.hasPreviousMonthData)}</p>
-        </div>
-        <div className="rounded-[16px] border border-border-card bg-surface p-5">
-          <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-ink-faint">Earned</p>
-          <p className="font-mono text-[26px] font-semibold text-income">{formatVND(data.totalIncome)}</p>
-          <p className="mt-1 text-[13px] text-ink-faint">{comparison(data.totalIncome, data.previousTotalIncome, data.hasPreviousMonthData)}</p>
-        </div>
+      <KpiCards data={data} />
+
+      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
+        <SpendingDoughnut pie={data.pie} total={data.totalExpense} monthLabel={data.monthLabel} />
+        <MonthlyBars bar={data.bar} />
       </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-[16px] border border-border-card bg-surface p-5">
-          <p className="mb-4 text-[14px] font-semibold">Spending by category</p>
-          {data.pie.labels.length === 0 ? (
-            <p className="text-[13px] text-ink-faint">No expenses this month.</p>
-          ) : (
-            <div className="flex flex-col items-center gap-4 sm:flex-row">
-              <div className="h-[180px] w-[180px] shrink-0">
-                <Doughnut
-                  data={{
-                    labels: data.pie.labels,
-                    datasets: [{ data: data.pie.values, backgroundColor: data.pie.colors, borderWidth: 0 }],
-                  }}
-                  options={{ plugins: { legend: { display: false } }, cutout: '65%' }}
-                />
-              </div>
-              <ul className="w-full space-y-1.5">
-                {data.pie.legend.map((entry) => (
-                  <li key={entry.name} className="flex items-center justify-between text-[13px]">
-                    <span className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                      <span className="text-ink-muted">{entry.name}</span>
-                    </span>
-                    <span className="font-mono text-ink-faint">
-                      {entry.percent}% · {formatVND(entry.amount)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-[16px] border border-border-card bg-surface p-5">
-          <p className="mb-4 text-[14px] font-semibold">Last {data.bar.labels.length} months</p>
-          <Bar
-            data={{
-              labels: data.bar.labels,
-              datasets: [
-                { label: 'Expense', data: data.bar.expense, backgroundColor: 'rgb(180 35 24)' },
-                { label: 'Income', data: data.bar.income, backgroundColor: 'rgb(47 125 91)' },
-              ],
-            }}
-            options={{ responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }}
-          />
-        </div>
-      </div>
-
-      {!data.headerBalance.empty && (
-        <p className="text-center text-[13px] text-ink-faint">
-          Balance carried into this month: <span className="font-mono">{formatVNDSigned(data.headerBalance.remaining)}</span>
-        </p>
-      )}
     </div>
   )
 }

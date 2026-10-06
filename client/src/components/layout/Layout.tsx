@@ -1,69 +1,78 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { ArrowLeftRight, ChartPie, Tags } from 'lucide-react'
 import { useDashboard } from '../../hooks/useDashboard'
 import { BalanceWidget } from './BalanceWidget'
 import { UserMenu } from './UserMenu'
 
 const NAV_LINKS = [
-  { to: '/dashboard', label: 'Overview' },
-  { to: '/transactions', label: 'Transactions' },
-  { to: '/categories', label: 'Categories' },
+  { to: '/dashboard', label: 'Overview', Icon: ChartPie },
+  { to: '/transactions', label: 'Transactions', Icon: ArrowLeftRight },
+  { to: '/categories', label: 'Categories', Icon: Tags },
 ]
 
 export function Layout() {
   // Fetched once here, so every page shares the one headerBalance request.
   const { data: dashboard } = useDashboard()
+  const location = useLocation()
 
   return (
     <div className="min-h-screen bg-app text-ink">
-      <nav className="sticky top-0 z-40 hidden h-[60px] items-center border-b border-border-nav bg-surface md:flex">
-        <div className="mx-auto flex h-full w-full max-w-[1280px] items-center gap-10 px-9">
-          <span className="wordmark shrink-0 text-[19px]">$pend</span>
-          <div className="flex items-center gap-2">
-            {NAV_LINKS.map((link) => (
+      <header className="sticky top-0 z-40 hidden h-16 border-b border-border bg-surface md:block">
+        <div className="mx-auto flex h-full w-full max-w-[1280px] items-center gap-10 px-10">
+          <span className="wordmark shrink-0 text-[28px] leading-8">$pend</span>
+          <nav aria-label="Main" className="flex h-full items-center gap-7">
+            {NAV_LINKS.map(({ to, label }) => (
               <NavLink
-                key={link.to}
-                to={link.to}
+                key={to}
+                to={to}
                 className={({ isActive }) =>
-                  `rounded-[7px] px-[16px] py-[7px] text-[13px] ${
-                    isActive ? 'bg-accent/10 font-semibold text-accent' : 'text-nav-idle hover:bg-track hover:text-ink'
+                  `relative flex h-full items-center text-[14px] leading-5 font-semibold after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 ${
+                    isActive ? 'text-ink after:bg-accent' : 'text-ink-muted hover:text-ink'
                   }`
                 }
               >
-                {link.label}
+                {label}
               </NavLink>
             ))}
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            {dashboard && <BalanceWidget balance={dashboard.headerBalance} />}
+          </nav>
+          <div className="ml-auto flex items-center gap-6">
+            {dashboard && (
+              <div className="border-l border-border pl-6">
+                <BalanceWidget balance={dashboard.headerBalance} />
+              </div>
+            )}
             <UserMenu />
           </div>
         </div>
-      </nav>
-
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border-nav bg-surface px-4 md:hidden">
-        <span className="wordmark text-[18px]">$pend</span>
-        <div className="flex items-center gap-2">
-          {dashboard && <BalanceWidget balance={dashboard.headerBalance} />}
-          <UserMenu />
-        </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-9">
-        <Outlet />
+      <header className="sticky top-0 z-50 flex h-16 items-center justify-between bg-app px-4 md:hidden">
+        <span className="wordmark text-[28px] leading-8">$pend</span>
+        <UserMenu balance={dashboard?.headerBalance} />
+      </header>
+
+      <main className="mx-auto w-full max-w-[1280px] px-4 pt-2 pb-[120px] md:px-10 md:pt-9 md:pb-16">
+        <div key={location.pathname} className="animate-page-in">
+          <Outlet />
+        </div>
       </main>
 
-      <nav className="sticky bottom-4 z-40 mx-4 mb-4 mt-[14px] flex rounded-[20px] border border-border-card bg-surface p-[6px] shadow-lg md:hidden">
-        {NAV_LINKS.map((link) => (
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-4 bottom-4 z-40 flex gap-1 rounded-[34px] border border-border bg-surface p-2 shadow-float md:hidden"
+      >
+        {NAV_LINKS.map(({ to, label, Icon }) => (
           <NavLink
-            key={link.to}
-            to={link.to}
+            key={to}
+            to={to}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center justify-center gap-[3px] rounded-[14px] py-2 ${isActive ? 'bg-accent/10' : ''}`
+              `flex h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[26px] text-[12px] leading-4 font-semibold ${
+                isActive ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-surface-2 hover:text-ink'
+              }`
             }
           >
-            {({ isActive }) => (
-              <span className={`text-[11px] ${isActive ? 'font-semibold text-accent' : 'text-ink-faint'}`}>{link.label}</span>
-            )}
+            <Icon aria-hidden="true" className="size-[22px]" />
+            {label}
           </NavLink>
         ))}
       </nav>

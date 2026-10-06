@@ -3,6 +3,7 @@ paths:
   - "server/internal/api/dashboard_handlers.go"
   - "client/src/components/layout/BalanceWidget.tsx"
   - "client/src/components/layout/Layout.tsx"
+  - "client/src/components/layout/UserMenu.tsx"
 ---
 
 # The balance widget
@@ -19,5 +20,6 @@ paths:
 ## Client (`BalanceWidget.tsx`, `Layout.tsx`)
 
 - `Layout.tsx` calls `useDashboard()` once, at the top of the authenticated route tree, so every page shares the one cached `headerBalance` instead of each page issuing its own request -- the client-side equivalent of the widget living in a shared layout rather than each page.
+- `BalanceWidget.tsx` draws a ring for `spentPct` (empty when `hasIncome` is false) beside the balance. On desktop it sits in the header; on mobile `UserMenu.tsx` renders it at the top of its panel, since the mobile header has no room.
 - `BalanceWidget.tsx`'s `ratioLabel` composes the "Spent X% of this month's income" / "No income this month" sentence from `spentPct` + `hasIncome` -- the thing `dashboard_handlers.go` deliberately stopped doing server-side (see `.claude/rules/dashboard.md`).
 - A mutation (create/update/delete a transaction) invalidates the `['dashboard']` TanStack Query key (see `useTransactions.ts`'s `invalidateEverythingATransactionTouches`), which is what keeps the widget correct after an edit -- the client-side replacement for the old `header_balance_oob` out-of-band swap.

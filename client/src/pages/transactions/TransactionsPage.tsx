@@ -1,12 +1,22 @@
 import { useSearchParams, Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, Download, Inbox, SearchX, Upload } from 'lucide-react'
 import { useCategories } from '../../hooks/useCategories'
 import { useTransactions } from '../../hooks/useTransactions'
+import { useIsDesktop } from '../../hooks/useMediaQuery'
 import { MonthPicker } from '../../components/MonthPicker'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { InlineError } from '../../components/ui/InlineError'
+import { PageSkeleton } from '../../components/ui/PageSkeleton'
 import { downloadTransactionsExport } from '../../lib/api/import'
+import { buttonClass, pageTitleClass } from '../../lib/formStyles'
+import { useToast } from '../../lib/toast/ToastContext'
 import type { TransactionFilters } from '../../lib/api/types'
 import { AddTransactionForm } from './AddTransactionForm'
 import { FilterBar } from './FilterBar'
+import { DESKTOP_ROW_GRID } from './rowLayout'
 import { TransactionRow } from './TransactionRow'
+
+const FILTER_KEYS = ['q', 'type', 'category', 'min', 'max', 'sort'] as const
 
 // Filters live in the URL, not useState, so reloads, bookmarks and links keep them.
 function filtersFromSearchParams(params: URLSearchParams): TransactionFilters {
@@ -40,9 +50,12 @@ function exportQueryString(filters: TransactionFilters): string {
 export function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = filtersFromSearchParams(searchParams)
-  const { data, error } = useTransactions(filters)
+  const { data, error, refetch } = useTransactions(filters)
   const { data: categories } = useCategories()
+  const isDesktop = useIsDesktop()
+  const toast = useToast()
   const allCategories = categories ? categories.expenseCategories.concat(categories.incomeCategories) : []
+  const hasFilters = FILTER_KEYS.some((key) => searchParams.has(key))
 
   function setFilter<K extends keyof TransactionFilters>(key: K, value: TransactionFilters[K]) {
     const next = new URLSearchParams(searchParams)
@@ -55,25 +68,43 @@ export function TransactionsPage() {
     setSearchParams(next, { replace: true })
   }
 
+  function clearFilters() {
+    const next = new URLSearchParams(searchParams)
+    for (const key of FILTER_KEYS) next.delete(key)
+    next.delete('page')
+    setSearchParams(next, { replace: true })
+  }
+
+  async function onExport() {
+    try {
+      await downloadTransactionsExport(exportQueryString(filters))
+    } catch {
+      toast.error('Could not export transactions.')
+    }
+  }
+
   if (!data) {
-    if (error) return <p role="alert" className="text-expense">Could not load transactions.</p>
-    return <p role="status" className="text-ink-faint">Loading…</p>
+    if (error) return <InlineError message="Could not load transactions." onRetry={() => void refetch()} />
+    return <PageSkeleton label="Loading transactions…" />
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[20px] font-semibold">Transactions</h1>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => void downloadTransactionsExport(exportQueryString(filters))}
-            className="text-[13px] text-ink-faint hover:text-ink"
-          >
-            Export CSV
-          </button>
-          <Link to="/transactions/import" className="text-[13px] text-ink-faint hover:text-ink">
-            Import CSV
+        <h1 className={pageTitleClass}>Transactions</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/transactions/import" className={buttonClass('secondary')}>
+            <Upload aria-hidden="true" />
+            <span>
+              Import<span className="max-sm:sr-only"> CSV</span>
+            </span>
           </Link>
+          <button type="button" onClick={() => void onExport()} className={buttonClass('secondary')}>
+            <Download aria-hidden="true" />
+            <span>
+              Export<span className="max-sm:sr-only"> CSV</span>
+            </span>
+          </button>
           <MonthPicker
             value={data.monthValue}
             label={data.monthLabel}
@@ -87,42 +118,64 @@ export function TransactionsPage() {
 
       <AddTransactionForm categories={allCategories} />
 
-      <FilterBar filters={filters} categories={allCategories} onChange={setFilter} />
+      <FilterBar filters={filters} categories={allCategories} onChange={setFilter} onClear={clearFilters} />
 
-      <div className="rounded-[16px] border border-border-card bg-surface">
+      <section aria-label="Transaction list" className="overflow-hidden rounded-[24px] border border-border bg-surface md:rounded-[28px]">
         {data.transactions.length === 0 ? (
-          <p className="p-6 text-center text-[13px] text-ink-faint">
-            {data.totalCount === 0 ? `No transactions in ${data.monthLabel.toLowerCase()}.` : 'Nothing matches your filters.'}
-          </p>
+          hasFilters ? (
+            <EmptyState
+              icon={<SearchX />}
+              title="Nothing matches your filters"
+              actions={
+                <button type="button" onClick={clearFilters} className={buttonClass('secondary')}>
+                  Clear filters
+                </button>
+              }
+            >
+              Try a different search or remove a filter.
+            </EmptyState>
+          ) : (
+            <EmptyState icon={<Inbox />} title={data.allMonths ? 'No transactions yet' : `No transactions in ${data.monthLabel}`}>
+              Add one with the form above, or import a CSV from your bank.
+            </EmptyState>
+          )
         ) : (
-          <ul className="divide-y divide-border-list">
-            {data.transactions.map((t) => (
-              <TransactionRow key={t.id} transaction={t} showYear={data.allMonths} categories={allCategories} />
-            ))}
-          </ul>
+          <>
+            {isDesktop && (
+              <div
+                aria-hidden="true"
+                className={`${DESKTOP_ROW_GRID} bg-surface-2 px-5 py-2.5 text-[12px] leading-4 font-semibold text-ink-muted`}
+              >
+                <span>Note</span>
+                <span>Category</span>
+                <span>Date</span>
+                <span className="text-right">Amount</span>
+                <span />
+              </div>
+            )}
+            <ul>
+              {data.transactions.map((t) => (
+                <TransactionRow key={t.id} transaction={t} showYear={data.allMonths} categories={allCategories} />
+              ))}
+            </ul>
+          </>
         )}
-      </div>
+      </section>
 
       {data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3 text-[13px]">
-          <button
-            disabled={!data.hasPrev}
-            onClick={() => setFilter('page', data.page - 1)}
-            className="rounded-[8px] px-3 py-1.5 text-ink-muted hover:bg-track disabled:opacity-40"
-          >
+        <nav aria-label="Pages" className="flex items-center justify-between gap-3">
+          <button type="button" disabled={!data.hasPrev} onClick={() => setFilter('page', data.page - 1)} className={buttonClass('secondary', 'sm')}>
+            <ChevronLeft aria-hidden="true" />
             Previous
           </button>
-          <span className="text-ink-faint">
-            Page {data.page} of {data.totalPages}
+          <span className="tabular text-[14px] text-ink-muted">
+            Page {data.page} of {data.totalPages} · {data.totalCount} transactions
           </span>
-          <button
-            disabled={!data.hasNext}
-            onClick={() => setFilter('page', data.page + 1)}
-            className="rounded-[8px] px-3 py-1.5 text-ink-muted hover:bg-track disabled:opacity-40"
-          >
+          <button type="button" disabled={!data.hasNext} onClick={() => setFilter('page', data.page + 1)} className={buttonClass('secondary', 'sm')}>
             Next
+            <ChevronRight aria-hidden="true" />
           </button>
-        </div>
+        </nav>
       )}
     </div>
   )
