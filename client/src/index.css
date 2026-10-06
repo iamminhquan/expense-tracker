@@ -204,6 +204,16 @@ input, select, textarea, dialog {
   outline-offset: 2px;
 }
 
+/* The theme reveal (lib/theme/revealTheme.ts) animates its own clip-path instead of a crossfade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-switching *, .theme-switching *::before, .theme-switching *::after {
+  transition: none !important;
+}
+
 dialog::backdrop {
   background-color: rgb(var(--c-scrim) / var(--scrim-alpha));
   animation: fade-in var(--dur-base) var(--ease-out) backwards;
