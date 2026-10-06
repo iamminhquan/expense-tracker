@@ -29,6 +29,8 @@ export function revealTheme(change: () => void) {
   const { x, y } = origin()
   const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
 
+  root.style.setProperty('--reveal-x', `${x}px`)
+  root.style.setProperty('--reveal-y', `${y}px`)
   root.classList.add('theme-switching')
   const transition = document.startViewTransition(async () => {
     change()
@@ -39,9 +41,13 @@ export function revealTheme(change: () => void) {
     .then(() => {
       root.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: DURATION_MS, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', pseudoElement: '::view-transition-new(root)' },
+        { duration: DURATION_MS, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards', pseudoElement: '::view-transition-new(root)' },
       )
     })
     .catch(() => {})
-  void transition.finished.finally(() => root.classList.remove('theme-switching'))
+  void transition.finished.finally(() => {
+    root.classList.remove('theme-switching')
+    root.style.removeProperty('--reveal-x')
+    root.style.removeProperty('--reveal-y')
+  })
 }

@@ -204,13 +204,20 @@ input, select, textarea, dialog {
   outline-offset: 2px;
 }
 
-/* The theme reveal (lib/theme/revealTheme.ts) animates its own clip-path instead of a crossfade. */
+/*
+ * The theme reveal (lib/theme/revealTheme.ts) animates its own clip-path instead of a crossfade.
+ * The new snapshot starts clipped to nothing here, in CSS, because the script's animation only
+ * attaches once the transition is ready: a frame drawn before that showed the whole new theme.
+ */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
-.theme-switching *, .theme-switching *::before, .theme-switching *::after {
+::view-transition-new(root) {
+  clip-path: circle(0px at var(--reveal-x, 50%) var(--reveal-y, 50%));
+}
+.theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
   transition: none !important;
 }
 
