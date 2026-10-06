@@ -39,19 +39,17 @@ interface RequestOptions {
   skipAuth?: boolean
 }
 
-async function doFetch(path: string, options: RequestOptions): Promise<Response> {
-  const headers: Record<string, string> = {}
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-  if (!options.skipAuth) {
+function send(path: string, init: RequestInit, withAuth: boolean): Promise<Response> {
+  const headers = new Headers(init.headers)
+  if (withAuth) {
     const token = getAccessToken()
-    if (token) headers.Authorization = `Bearer ${token}`
+    if (token) headers.set('Authorization', `Bearer ${token}`)
   }
   return fetch(`${API_BASE}${path}`, {
-    method: options.method ?? 'GET',
+    ...init,
     headers,
     // Needed for the refresh-token cookie, which is cross-origin in production.
     credentials: 'include',
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   })
 }
 
@@ -65,7 +63,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight
   refreshInFlight = (async () => {
     try {
-      const res = await doFetch('/api/v1/refresh', { method: 'POST', skipAuth: true })
+      const res = await send('/api/v1/refresh', { method: 'POST' }, false)
       if (!res.ok) return null
       const data = await readApiResponse<{ accessToken: string }>(res)
       setAccessToken(data.accessToken)
@@ -81,19 +79,30 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+/*
+ * For requests that can't go through api.* (multipart uploads, file downloads).
+ * Sends the access token; on a 401 refreshes it once and sends the same request
+ * again, so `init.body` must be reusable (a string, FormData, not a stream).
+ * The caller reads the Response itself.
+ */
+export async function authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const res = await send(path, init, true)
+  if (res.status !== 401) return res
+
+  const newToken = await refreshAccessToken()
+  if (newToken) return send(path, init, true)
+  setAccessToken(null)
+  notifyUnauthorized()
+  return res
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  let res = await doFetch(path, options)
-
-  if (res.status === 401 && !options.skipAuth) {
-    const newToken = await refreshAccessToken()
-    if (newToken) {
-      res = await doFetch(path, options)
-    } else {
-      setAccessToken(null)
-      notifyUnauthorized()
-    }
+  const init: RequestInit = {
+    method: options.method ?? 'GET',
+    headers: options.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   }
-
+  const res = options.skipAuth ? await send(path, init, false) : await authedFetch(path, init)
   return readApiResponse<T>(res)
 }
 

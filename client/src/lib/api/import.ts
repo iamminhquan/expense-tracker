@@ -1,7 +1,4 @@
-import { getAccessToken } from './tokenStore'
-import { ApiError, readApiResponse } from './client'
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+import { ApiError, authedFetch, readApiResponse } from './client'
 
 export interface MappingGuess {
   dateCol: number
@@ -60,7 +57,7 @@ export interface MappingFields {
   fallbackCategory: string
 }
 
-// Multipart can't use api.post (always JSON), so the token and 401 retry are done here.
+// Multipart can't use api.post (always JSON), hence authedFetch.
 export async function importTransactions(
   file: File,
   options: { mapping?: MappingFields; confirm?: boolean; fingerprint?: string } = {},
@@ -83,23 +80,13 @@ export async function importTransactions(
     form.set('fingerprint', options.fingerprint ?? '')
   }
 
-  const token = getAccessToken()
-  const res = await fetch(`${API_BASE}/api/v1/transactions/import`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    credentials: 'include',
-    body: form,
-  })
+  const res = await authedFetch('/api/v1/transactions/import', { method: 'POST', body: form })
   return readApiResponse(res)
 }
 
 // <a href> can't send the Authorization header, so fetch it and save via an object URL.
 export async function downloadTransactionsExport(query: string): Promise<void> {
-  const token = getAccessToken()
-  const res = await fetch(`${API_BASE}/api/v1/transactions/export${query}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    credentials: 'include',
-  })
+  const res = await authedFetch(`/api/v1/transactions/export${query}`)
   if (!res.ok) {
     throw new ApiError(res.status, 'Could not export transactions.')
   }
