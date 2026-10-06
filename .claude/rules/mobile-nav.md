@@ -3,6 +3,7 @@ paths:
   - "client/src/components/layout/Layout.tsx"
   - "client/src/components/BottomSheet.tsx"
   - "client/src/hooks/useLongPress.ts"
+  - "client/src/pages/transactions/TransactionRow.tsx"
 ---
 
 # Mobile navigation and gestures
@@ -13,7 +14,7 @@ paths:
 - The mobile bottom bar is icon-free right now (text labels only) -- a simplification from the original SVG-icon bar, not a deliberate redesign. Add icons back if you pick this up.
 - `useDashboard()` is called once at the top of `Layout`, shared by every page below it (see `.claude/rules/balance-widget.md`) -- there is exactly one request for `headerBalance`, not one per page.
 
-## Long-press action sheet (`useLongPress.ts`, used in `TransactionsPage.tsx`'s `TransactionRow`)
+## Long-press action sheet (`useLongPress.ts`, used in `pages/transactions/TransactionRow.tsx`)
 
 - Ports `server/internal/web/static/app.js`'s long-press IIFE: pointer events (not a touch/mouse pair) unify both input kinds into one set of handlers, a ~500ms hold fires the callback, and a move past `moveTolerance` (10px default) cancels it the same way a scroll does there.
 - It's an *added* affordance, not a replacement: `TransactionRow` keeps its always-visible Edit/Delete text buttons for a mouse/keyboard user or anyone who never discovers the gesture, and the long-press opens a `BottomSheet` offering the identical two actions.

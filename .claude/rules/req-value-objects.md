@@ -2,7 +2,7 @@
 paths:
   - "server/internal/api/transaction_query.go"
   - "server/internal/api/transaction_handlers.go"
-  - "client/src/pages/TransactionsPage.tsx"
+  - "client/src/pages/transactions/TransactionsPage.tsx"
   - "client/src/pages/DashboardPage.tsx"
 ---
 

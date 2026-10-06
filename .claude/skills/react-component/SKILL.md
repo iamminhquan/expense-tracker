@@ -28,7 +28,7 @@ description: Write, split, or refactor React components, pages, and hooks in $pe
 | App-wide client state | A context in `lib/<area>/<Name>Context.tsx` — rare; the TanStack cache plus the URL already cover most of what a global store would hold |
 | Pure helpers (formatting, parsing) | `lib/` (e.g. `lib/format.ts`) |
 
-**When a page becomes a folder.** Once a page file passes roughly 250 lines, or holds three or more sub-components, turn it into a folder: `pages/transactions/TransactionsPage.tsx` plus `FilterBar.tsx`, `AddTransactionForm.tsx`, `TransactionRow.tsx` beside it. Update the lazy import path in `App.tsx`. `TransactionsPage.tsx` (443 lines), `ImportPage.tsx`, and `SettingsPage.tsx` are already past that line. Don't grow them further. If you're making a real change in one, split it as part of the change.
+**When a page becomes a folder.** Once a page file passes roughly 250 lines, or holds three or more sub-components, turn it into a folder: `pages/transactions/TransactionsPage.tsx` plus `FilterBar.tsx`, `AddTransactionForm.tsx`, `TransactionRow.tsx` beside it. Update the lazy import path in `App.tsx`. `pages/transactions/`, `pages/import/` and `pages/settings/` are already laid out this way; `CategoriesPage.tsx` and `auth/AuthPage.tsx` are the next closest, so split them as part of any real change that grows them.
 
 **Promote late.** A component moves up to `components/` only when a second page actually needs it. Don't do it because it "might be reused." A shared component built too early collects a prop for every caller's special case. A page-local one stays small because it serves one caller.
 
@@ -44,7 +44,7 @@ description: Write, split, or refactor React components, pages, and hooks in $pe
 
 ### Props and types
 - An exported component declares `interface <Name>Props` right above it and destructures in the signature (see `MonthPicker.tsx`, `BottomSheet.tsx`). A small file-local sub-component can use an inline object type.
-- Reuse the API types instead of restating them. Write `categories: Category[]` or `Pick<Category, 'id' | 'name'>[]`, not `{ id: number; name: string; type: string }[]`. `TransactionsPage.tsx` restates that inline shape three times. That's the pattern to avoid: when the DTO changes, the compiler should point at every caller.
+- Reuse the API types instead of restating them. Write `categories: Category[]` or `Pick<Category, 'id' | 'name'>[]`, not `{ id: number; name: string; type: string }[]`. Restating the shape inline is the pattern to avoid: when the DTO changes, the compiler should point at every caller.
 - Document a prop with `/** ... */` only when *why* it exists isn't obvious (see `MonthPicker`'s `allowAllMonths`).
 - Callback props are `on<Event>` (`onChange`, `onClose`). Handlers inside a component follow the existing `onSubmit` / `onSave` / `onDelete` naming.
 - `verbatimModuleSyntax` is on, so type-only imports need `type`: `import { useState, type FormEvent, type ReactNode } from 'react'`. Prefer that over the global `React.FormEvent`.
