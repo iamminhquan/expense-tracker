@@ -23,7 +23,7 @@
   - the TanStack Query cache-invalidation strategy
   - build tooling (`vite.config.ts`, `package.json` scripts)
 - If a change does not affect behavior, no rewrite is required, but check whether the existing text is still accurate.
-- Keep updates short and factual — this is not a changelog of component diffs; the Change Log section at the bottom is, one line per change.
+- Keep updates short and factual.
 
 ## Stack
 
@@ -142,18 +142,3 @@ Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before commi
 - No client-side email-verification reminder (see Important Reality Checks above).
 - Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress` and the CSV import flow; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.
-
-## Change Log
-
-- `2026-10-06`: Settings' danger-zone card gained an "Export all transactions (CSV)" button above the delete form (`?month=all`). Checked in Chromium: it downloads `spend-all.csv` with every month.
-- `2026-10-06`: Vitest + Testing Library added (`pnpm test`, run in CI). First tests: the API client, `useLongPress`, the CSV import API and `ImportPage`. They found that `importTransactions` and `downloadTransactionsExport` never retried after a 401 despite saying they did, so an import confirmed more than 15 minutes after login failed; both now go through `authedFetch` in `lib/api/client.ts`, which also backs `api.*`.
-- `2026-10-06`: every page now shows an error when its query fails, instead of "Loading…" forever (it checked `isLoading || !data` before `error`, which TanStack Query v5 never reaches); the `react-component` skill's Loading section describes the new shape. Transactions got an accessibility pass: labels on the add form, `aria-label`s on the filter bar and the inline edit form, `aria-pressed` on the expense/income toggle, row-specific names on Edit/Delete, focus moved into the edit form and back to Edit on save/cancel/Escape, and a failed delete shown inline instead of in `alert()`. Checked in Chromium (desktop, and mobile in dark mode).
-- `2026-10-06`: `TransactionsPage`, `ImportPage` and `SettingsPage` (430, 339 and 274 lines) each split into a folder under `pages/`, one file per sub-component, with no behavior change. The extracted components take `Category[]`/`Session[]` instead of restating those shapes inline. `App.tsx`'s lazy imports and the `paths:` of `req-value-objects.md`, `csv-import.md` and `mobile-nav.md` follow the new paths.
-- `2026-10-06`: `AuthLayout.tsx` slimmed to the shell itself. `FieldError` moved to `components/FieldError.tsx` and `inputClass`/`primaryButtonClass` to `lib/formStyles.ts`, since Settings and Import (pages behind auth) were importing form styles from the pre-auth layout. Frontend Layout now says `components/layout/` holds both app shells, which `AuthLayout` already did.
-- `2026-10-06`: comments across `client/` cut to the ones the code can't speak for. History and pointers to the deleted HTML app are gone, and anything longer than one line is now a single `/* */` block. The Safe Edit Rules and the `react-component` skill now state that convention.
-- `2026-10-06`: `.claude/skills/react-component/` added, covering where a component/page/hook file goes, how props/state/async states are written, and an accessibility pass, with patterns in its `references/accessibility.md`. Read This First no longer lists individual rule files (see `.claude/context/README.md`'s Maintenance Rule).
-- `2026-10-05`: pnpm workspace removed. `pnpm-workspace.yaml` deleted and `pnpm-lock.yaml` moved from the repo root into `client/` (regenerated as a standalone lockfile, same resolved versions); `packageManager` added to `client/package.json`; CI points at `client/pnpm-lock.yaml`. `client/` is now a plain standalone package. Added Setup and Run and Deploy Notes sections to this file.
-- `2026-10-05`: this file renamed from `frontend.md` to `client.md` to match the `client/` directory it describes.
-- `2026-10-05`: the Gin/React migration completed. The old `html/template` + htmx frontend (`server/internal/web`, the `view_*.go` render pipeline, `server/internal/csrf`) was deleted in full. This file rewritten from scratch to describe `client/`'s React SPA as the frontend, replacing the previous version which described the now-deleted templates/static-asset system.
-- `2026-10-05`: `client/` built out across several commits to full feature parity with the deleted HTML app (auth, all four main pages, CSV import UI, mobile gestures, code-splitting) — see git log on this date for the detailed, phase-by-phase history; this file no longer tracks that transition day by day now that it's finished.
-- `2026-10-05`: `client/` scaffolded (Vite + React + TypeScript + Tailwind v4 + pnpm), as part of converting the repo into a monorepo (`server/` + `client/`).
