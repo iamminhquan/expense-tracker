@@ -12,6 +12,7 @@ paths:
 ## Server
 
 - `buildPieData` feeds the doughnut with the top `pieTopN` = 6 categories plus a synthetic "Other" aggregate, so the chart never grows a tail of one-percent slivers. The real `other` default category is lifted out of the ranking and summed into that same aggregate rather than left to compete for one of the six spots -- see the function's own comment for why (the reserved `#A1A1AA` color would otherwise draw two identically-colored, identically-named slices).
+- The legend's `percent` values always add up to exactly 100: `wholePercents` gives each slice its floor and hands the missing points to the largest remainders. Rounding each slice on its own let three equal thirds show as 33% + 33% + 33% = 99%; `TestDashboardPieLegendPercentsSumTo100` pins it.
 - `buildBarSeries` feeds the `barMonths` = 4 month comparison and zero-pads any month the query returned no row for.
 - Every number in the response is raw -- `previousTotalExpense`, a pie legend's `percent` as a plain `int`, an `amount` as a plain `int64` -- not a pre-formatted sentence or `template.JS`-wrapped JSON. There is no template here that can't itself divide or format a currency string; the client composes whatever sentence or chart call it needs, in whatever language it needs it in. Resolve category labels through `i18n` in Go regardless (the client has no copy of that table) -- see `categories.md`.
 - `headerBalance`'s "always the real current month" rule lives in `.claude/rules/balance-widget.md`.

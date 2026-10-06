@@ -147,7 +147,6 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 
 - Parts of the design handoff's motion spec aren't built: the inline-edit row doesn't animate its height (it fades in), there's no post-save row flash, no View Transitions, and dialogs close without an exit fade. The bottom sheet's drag thresholds stay at the existing 25% / 40px-in-250ms rather than the handoff's 30% / 0.5px/ms (`.claude/rules/mobile-nav.md`).
 - The dark-mode chart colors (`#818CF8`, `#34D399`) sit slightly above the lightness band the dataviz palette validator wants for a dark surface. They pass contrast and colorblind separation, so they were kept as the handoff specified.
-- Legend percentages come from the server rounded one by one, so a doughnut legend can add up to 99% or 101%.
 - No client-side email-verification reminder (see Important Reality Checks above).
 - Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
 - No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.

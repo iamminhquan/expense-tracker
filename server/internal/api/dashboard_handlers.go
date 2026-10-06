@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"sort"
 	"time"
 
 	"expensetracker/internal/i18n"
@@ -213,7 +214,7 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 		d.Colors = append(d.Colors, row.CategoryColor)
 		d.Legend = append(d.Legend, pieLegendEntryDTO{
 			Name: name, Color: row.CategoryColor,
-			Percent: percentOf(row.Total, totalExpense), Amount: row.Total,
+			Amount: row.Total,
 		})
 	}
 	if otherSum > 0 {
@@ -223,17 +224,39 @@ func buildPieData(breakdown []sqlcgen.CategoryBreakdownRow, totalExpense int64) 
 		d.Colors = append(d.Colors, "#A1A1AA")
 		d.Legend = append(d.Legend, pieLegendEntryDTO{
 			Name: otherName, Color: "#A1A1AA",
-			Percent: percentOf(otherSum, totalExpense), Amount: otherSum,
+			Amount: otherSum,
 		})
+	}
+	amounts := make([]int64, len(d.Legend))
+	for i, entry := range d.Legend {
+		amounts[i] = entry.Amount
+	}
+	for i, pct := range wholePercents(amounts, totalExpense) {
+		d.Legend[i].Percent = pct
 	}
 	return d
 }
 
-func percentOf(part, total int64) int {
-	if total == 0 {
-		return 0
+// wholePercents rounds shares to whole percents that add up to 100 (largest remainder first).
+func wholePercents(parts []int64, total int64) []int {
+	out := make([]int, len(parts))
+	if total <= 0 {
+		return out
 	}
-	return int(float64(part)/float64(total)*100 + 0.5)
+	order := make([]int, len(parts))
+	missing := 100
+	for i, part := range parts {
+		out[i] = int(part * 100 / total)
+		missing -= out[i]
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool {
+		return parts[order[a]]*100%total > parts[order[b]]*100%total
+	})
+	for i := 0; i < missing && i < len(order); i++ {
+		out[order[i]]++
+	}
+	return out
 }
 
 // buildBarSeries mirrors handlers.buildBarSeries exactly: exactly `months`
