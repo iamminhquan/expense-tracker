@@ -306,3 +306,31 @@ func TestReusedRefreshTokenEndsTheSession(t *testing.T) {
 		t.Errorf("the owner's newer token after a reuse = %d, want 401: the whole session must end", rec.Code)
 	}
 }
+
+// The client shows its "confirm your email" reminder from this field alone.
+func TestUserCarriesEmailVerified(t *testing.T) {
+	deps := newTestDeps(t)
+	router := api.NewRouter(deps)
+	email, _, accessToken, _ := registerTestAccount(t, deps, router)
+
+	me := func() bool {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, authedTokenRequest(http.MethodGet, "/api/v1/me", accessToken))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET /api/v1/me = %d %s, want 200", rec.Code, rec.Body.String())
+		}
+		return decodeData[struct {
+			EmailVerified bool `json:"emailVerified"`
+		}](t, rec).EmailVerified
+	}
+
+	if me() {
+		t.Fatal("a freshly registered account reads as verified")
+	}
+	if _, err := deps.DB.Exec(context.Background(), "UPDATE users SET email_verified = true WHERE email = $1", email); err != nil {
+		t.Fatal(err)
+	}
+	if !me() {
+		t.Error("a verified account reads as unverified")
+	}
+}

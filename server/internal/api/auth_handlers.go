@@ -61,10 +61,13 @@ type userDTO struct {
 	// on the HTML side. Waiting for a separate /api/v1/settings call would
 	// mean every page flashes the wrong theme before it's ready.
 	Theme string `json:"theme"`
+	// EmailVerified drives the client's "confirm your email" reminder. It
+	// gates nothing on the server -- see .claude/rules/email-verification.md.
+	EmailVerified bool `json:"emailVerified"`
 }
 
 func newUserDTO(u sqlcgen.User) userDTO {
-	return userDTO{ID: u.ID, Name: u.Name, Email: u.Email, Username: u.Username, Theme: u.Theme}
+	return userDTO{ID: u.ID, Name: u.Name, Email: u.Email, Username: u.Username, Theme: u.Theme, EmailVerified: u.EmailVerified}
 }
 
 // authResponse is what register/login/refresh all return: a fresh access

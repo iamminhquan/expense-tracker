@@ -63,7 +63,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 ## Important Reality Checks
 
 - Authorization is single-tier — see Main Business Scope above. There is no roles/permissions system to audit for missing checks.
-- Email verification gates nothing (`email_verified` only matters once a client shows a reminder for it — see `.claude/rules/email-verification.md`'s known gap) — deliberate, not an oversight to "fix".
+- Email verification gates nothing (`email_verified` only drives the reminder strip `client/` shows, via `userDTO.emailVerified` — see `.claude/rules/email-verification.md`) — deliberate, not an oversight to "fix".
 - The default-category history (migrations 000005 → 000006 → 000008 → 000014) is deliberately append/update-in-place, never delete-and-reinsert, because `transactions.category_id` has no `ON DELETE` clause. See Seeder Reality below before "cleaning up" an odd-looking default category.
 - This backend was migrated off an older Chi-routed, `html/template`-rendered monolith. That code (`internal/handlers`, `internal/web`, `internal/csrf`) is deleted, not archived elsewhere in this repo — git history is where it still exists, if you need to see how something used to work.
 
@@ -217,5 +217,4 @@ sqlc generate
 ## Known Gaps and Debt
 
 - No admin/staff role, no audit log, no account-recovery window on deletion — deliberate scope cuts, not oversights (see Authorization Model and `.claude/rules/account-deletion.md`).
-- No client-side reminder for an unverified email address, and `userDTO` doesn't carry `EmailVerified` yet — see `.claude/rules/email-verification.md`'s known gap.
 - Test coverage is table-driven Go `testing` across packages, plus DB-backed integration tests in `internal/api` (`TEST_DATABASE_URL`).
