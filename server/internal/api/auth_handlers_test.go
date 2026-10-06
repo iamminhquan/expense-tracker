@@ -52,8 +52,8 @@ func testUser(t *testing.T, deps api.Deps) (name, email, username, password stri
 	h.Write([]byte(t.Name()))
 	username = "api" + strconv.FormatUint(uint64(h.Sum32()), 36)
 	email = username + "@example.com"
-	deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
-	t.Cleanup(func() { deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
+	_, _ = deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+	t.Cleanup(func() { _, _ = deps.DB.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email) })
 	return "API Test", email, username, "s3cret-pass"
 }
 
