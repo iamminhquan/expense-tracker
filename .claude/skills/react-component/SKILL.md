@@ -117,6 +117,7 @@ From inside `client/`:
 
 ```bash
 pnpm lint    # oxlint: rules-of-hooks, only-export-components
+pnpm test    # vitest
 pnpm build   # tsc -b && vite build
 ```
 

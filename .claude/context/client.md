@@ -98,10 +98,11 @@ cd client
 pnpm install
 pnpm dev     # Vite dev server on :5173, proxies /api/* to http://localhost:8080 (override with VITE_API_PROXY_TARGET)
 pnpm lint    # oxlint
+pnpm test    # vitest run: jsdom + Testing Library, files next to the code as *.test.ts(x)
 pnpm build   # tsc -b && vite build, output in dist/
 ```
 
-Run `pnpm lint` and `pnpm build` from inside `client/` before committing a change that touches it.
+Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before committing a change that touches it.
 
 ## Deploy Notes
 
@@ -140,5 +141,5 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 - Dashboard's Chart.js colors don't react to a theme switch (see Important Reality Checks above).
 - No client-side email-verification reminder (see Important Reality Checks above).
 - Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
-- No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
+- Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress` and the CSV import flow; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.
