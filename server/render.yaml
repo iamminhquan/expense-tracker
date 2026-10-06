@@ -80,6 +80,14 @@ services:
       # once that domain is known, since it isn't a secret either way.
       - key: APP_BASE_URL
         sync: false
+      # Set by hand in the Render dashboard: the ranges Render's proxy
+      # connects from, so the per-IP rate limits (login, register, ...) see
+      # the real client. Left blank, every visitor shares the proxy's address
+      # and one budget, so the first ten logins in a minute from anyone lock
+      # everyone else out. After setting it, check a request's logged client
+      # IP in the Render logs is the visitor's, not a private 10.x address.
+      - key: TRUSTED_PROXIES
+        sync: false
       # Set by hand in the Render dashboard: a Brevo API key (Settings ->
       # SMTP & API -> API Keys), plus the sender address it was verified
       # for. Sent over Brevo's HTTP API rather than SMTP because Render's
