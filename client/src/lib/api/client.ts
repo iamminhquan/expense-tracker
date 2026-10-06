@@ -12,6 +12,26 @@ export class ApiError extends Error {
   }
 }
 
+export interface ApiResponse<T> {
+  success: boolean
+  message: string
+  data: T
+}
+
+// Unwraps the envelope every /api/v1 JSON response carries, throwing ApiError on failure.
+export async function readApiResponse<T>(res: Response): Promise<T> {
+  let body: ApiResponse<T> | undefined
+  try {
+    body = (await res.json()) as ApiResponse<T>
+  } catch {
+    // Not JSON (a proxy's error page, say): fall back to the status text.
+  }
+  if (!res.ok || !body?.success) {
+    throw new ApiError(res.status, body?.message || res.statusText || `request failed with status ${res.status}`)
+  }
+  return body.data
+}
+
 interface RequestOptions {
   method?: string
   body?: unknown
@@ -47,7 +67,7 @@ async function refreshAccessToken(): Promise<string | null> {
     try {
       const res = await doFetch('/api/v1/refresh', { method: 'POST', skipAuth: true })
       if (!res.ok) return null
-      const data = (await res.json()) as { accessToken: string }
+      const data = await readApiResponse<{ accessToken: string }>(res)
       setAccessToken(data.accessToken)
       return data.accessToken
     } catch {
@@ -74,19 +94,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
   }
 
-  if (!res.ok) {
-    let message = res.statusText || `request failed with status ${res.status}`
-    try {
-      const data = (await res.json()) as { error?: string }
-      if (data.error) message = data.error
-    } catch {
-      // Not JSON: keep the statusText fallback.
-    }
-    throw new ApiError(res.status, message)
-  }
-
-  if (res.status === 204) return undefined as T
-  return (await res.json()) as T
+  return readApiResponse<T>(res)
 }
 
 type Opts = Omit<RequestOptions, 'method' | 'body'>

@@ -62,4 +62,5 @@ func TestExportRequiresAuthentication(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("GET /api/v1/transactions/export with no token = %d, want 401", rec.Code)
 	}
+	decodeError(t, rec)
 }

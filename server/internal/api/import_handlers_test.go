@@ -66,7 +66,7 @@ func TestImportExactFormatPreviewThenConfirm(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("preview POST /api/v1/transactions/import = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	preview := decodeJSON[struct {
+	preview := decodeData[struct {
 		Preview     bool   `json:"preview"`
 		RowCount    int    `json:"rowCount"`
 		Importable  bool   `json:"importable"`
@@ -82,7 +82,7 @@ func TestImportExactFormatPreviewThenConfirm(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("confirm POST /api/v1/transactions/import = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	result := decodeJSON[struct {
+	result := decodeData[struct {
 		Imported int    `json:"imported"`
 		Month    string `json:"month"`
 	}](t, rec)
@@ -95,7 +95,7 @@ func TestImportExactFormatPreviewThenConfirm(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/transactions?month=2026-01", userID))
-	list := decodeJSON[struct{ TotalCount int64 }](t, rec)
+	list := decodeData[struct{ TotalCount int64 }](t, rec)
 	if list.TotalCount != 1 {
 		t.Errorf("transactions in 2026-01 after import = %d, want 1", list.TotalCount)
 	}
@@ -113,6 +113,7 @@ func TestImportRejectsWrongFingerprint(t *testing.T) {
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("confirm with wrong fingerprint = %d %s, want 409", rec.Code, rec.Body.String())
 	}
+	decodeError(t, rec)
 }
 
 func TestImportUnknownFormatAsksForMapping(t *testing.T) {
@@ -125,7 +126,7 @@ func TestImportUnknownFormatAsksForMapping(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /api/v1/transactions/import (foreign format) = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	mapping := decodeJSON[struct {
+	mapping := decodeData[struct {
 		NeedsMapping bool     `json:"needsMapping"`
 		Columns      []string `json:"columns"`
 	}](t, rec)

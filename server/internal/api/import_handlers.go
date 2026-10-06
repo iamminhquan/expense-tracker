@@ -168,26 +168,26 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 
 		fileHeader, err := c.FormFile("file")
 		if err != nil {
-			errorResponse(c, http.StatusBadRequest, "that file could not be read, choose a .csv file smaller than 1 MB")
+			respondError(c, http.StatusBadRequest, "that file could not be read, choose a .csv file smaller than 1 MB")
 			return
 		}
 		file, err := fileHeader.Open()
 		if err != nil {
-			errorResponse(c, http.StatusBadRequest, "that file could not be read, choose a .csv file smaller than 1 MB")
+			respondError(c, http.StatusBadRequest, "that file could not be read, choose a .csv file smaller than 1 MB")
 			return
 		}
 		defer file.Close()
 
 		sheet, err := csvimport.Sniff(file)
 		if err != nil {
-			errorResponse(c, http.StatusBadRequest, planFailureMessage(err))
+			respondError(c, http.StatusBadRequest, planFailureMessage(err))
 			return
 		}
 
 		catalog, err := importCatalog(c.Request.Context(), deps, userID)
 		if err != nil {
 			log.Printf("import: load categories: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not load categories")
+			respondError(c, http.StatusInternalServerError, "could not load categories")
 			return
 		}
 
@@ -198,10 +198,10 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 		case !submitted:
 			names, err := categoryNamesForUser(c.Request.Context(), deps, userID)
 			if err != nil {
-				errorResponse(c, http.StatusInternalServerError, "could not load categories")
+				respondError(c, http.StatusInternalServerError, "could not load categories")
 				return
 			}
-			c.JSON(http.StatusOK, mappingNeededResponse{
+			respondOK(c, http.StatusOK, "column mapping needed", mappingNeededResponse{
 				NeedsMapping: true, Columns: sheet.Columns, Sample: sheet.Sample, Rows: sheet.Rows,
 				Guess: newMappingDTO(sheet.Guess), DateFormats: newDateFormatDTOs(csvimport.DateFormats),
 				AmbiguousDate: sheet.AmbiguousDate, CategoryNames: names, Fingerprint: sheet.Fingerprint,
@@ -209,26 +209,26 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 			return
 		default:
 			if msg := validateMapping(mapping, len(sheet.Columns)); msg != "" {
-				errorResponse(c, http.StatusBadRequest, msg)
+				respondError(c, http.StatusBadRequest, msg)
 				return
 			}
 		}
 
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
 			log.Printf("import: rewind upload: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not read the file")
+			respondError(c, http.StatusInternalServerError, "could not read the file")
 			return
 		}
 		plan, err := csvimport.Plan(file, mapping, catalog, time.Now().In(vietnamLocation))
 		if err != nil {
-			errorResponse(c, http.StatusBadRequest, planFailureMessage(err))
+			respondError(c, http.StatusBadRequest, planFailureMessage(err))
 			return
 		}
 
 		duplicates, err := countImportDuplicates(c.Request.Context(), deps, userID, plan)
 		if err != nil {
 			log.Printf("import: count duplicates: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not check for duplicates")
+			respondError(c, http.StatusInternalServerError, "could not check for duplicates")
 			return
 		}
 
@@ -242,7 +242,7 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 			// unlike csvimport.Plan's own Errors/NewCategories fields,
 			// which go nil (not just empty) for a clean file or one that
 			// names no new category. See .claude/rules/json-api-conventions.md.
-			c.JSON(http.StatusOK, importPreviewResponse{
+			respondOK(c, http.StatusOK, "import preview ready", importPreviewResponse{
 				Preview: true, RowCount: len(plan.Rows), NewCategories: newImportNewCategoryDTOs(plan.NewCategories),
 				Errors: newRowErrorDTOs(shown), MoreErrors: more, Rounded: plan.Rounded, Duplicates: duplicates,
 				Fingerprint: plan.Fingerprint, Importable: importable(plan), DateSuspect: mostlyDateErrors(plan.Errors),
@@ -251,21 +251,21 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 		}
 
 		if c.PostForm("fingerprint") != plan.Fingerprint {
-			errorResponse(c, http.StatusConflict, "this is not the file you previewed, preview it again before importing")
+			respondError(c, http.StatusConflict, "this is not the file you previewed, preview it again before importing")
 			return
 		}
 		if !importable(plan) {
-			errorResponse(c, http.StatusBadRequest, "this file still has lines that cannot be imported")
+			respondError(c, http.StatusBadRequest, "this file still has lines that cannot be imported")
 			return
 		}
 
 		if err := applyImport(c.Request.Context(), deps, userID, plan); err != nil {
 			log.Printf("import: apply: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "the import could not be saved, nothing was changed, please try again")
+			respondError(c, http.StatusInternalServerError, "the import could not be saved, nothing was changed, please try again")
 			return
 		}
 
-		c.JSON(http.StatusOK, importResultResponse{Imported: len(plan.Rows), Month: latestMonth(plan)})
+		respondOK(c, http.StatusOK, "transactions imported", importResultResponse{Imported: len(plan.Rows), Month: latestMonth(plan)})
 	}
 }
 

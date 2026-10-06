@@ -13,8 +13,14 @@ import (
 // keep-alive cron (see render.yaml), which probe it by that exact path.
 func NewRouter(deps Deps) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(gin.Logger(), gin.CustomRecovery(func(c *gin.Context, _ any) {
+		respondError(c, http.StatusInternalServerError, "internal server error")
+	}))
 	r.Use(corsMiddleware(deps.CORSAllowedOrigins))
+
+	r.HandleMethodNotAllowed = true
+	r.NoRoute(func(c *gin.Context) { respondError(c, http.StatusNotFound, "not found") })
+	r.NoMethod(func(c *gin.Context) { respondError(c, http.StatusMethodNotAllowed, "method not allowed") })
 
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 

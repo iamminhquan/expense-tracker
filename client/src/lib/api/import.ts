@@ -1,5 +1,5 @@
 import { getAccessToken } from './tokenStore'
-import { ApiError } from './client'
+import { ApiError, readApiResponse } from './client'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
 
@@ -90,11 +90,7 @@ export async function importTransactions(
     credentials: 'include',
     body: form,
   })
-  if (!res.ok) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new ApiError(res.status, data.error ?? res.statusText)
-  }
-  return res.json()
+  return readApiResponse(res)
 }
 
 // <a href> can't send the Authorization header, so fetch it and save via an object URL.

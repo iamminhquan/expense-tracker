@@ -78,15 +78,6 @@ type authResponse struct {
 	User        userDTO   `json:"user"`
 }
 
-// errorResponse is the one error shape every /api/v1/* endpoint uses (the
-// migration plan's locked error-shape decision): a single human-readable
-// message, nothing structured for a client to branch on by field. None of
-// this API's errors need field-level detail yet; this gets revisited if
-// one does.
-func errorResponse(c *gin.Context, status int, message string) {
-	c.AbortWithStatusJSON(status, gin.H{"error": message})
-}
-
 type registerRequest struct {
 	Name            string `json:"name"`
 	Email           string `json:"email"`
@@ -99,7 +90,7 @@ func registerHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req registerRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		req.Name = strings.TrimSpace(req.Name)
@@ -108,26 +99,26 @@ func registerHandler(deps Deps) gin.HandlerFunc {
 
 		switch {
 		case req.Name == "":
-			errorResponse(c, http.StatusBadRequest, "please enter your name")
+			respondError(c, http.StatusBadRequest, "please enter your name")
 			return
 		case func() bool { _, err := mail.ParseAddress(req.Email); return err != nil }():
-			errorResponse(c, http.StatusBadRequest, "that email address is not valid")
+			respondError(c, http.StatusBadRequest, "that email address is not valid")
 			return
 		case !usernamePattern.MatchString(req.Username):
-			errorResponse(c, http.StatusBadRequest, "username must be 3-20 characters: lowercase letters, numbers, or underscores, starting with a letter")
+			respondError(c, http.StatusBadRequest, "username must be 3-20 characters: lowercase letters, numbers, or underscores, starting with a letter")
 			return
 		case len([]rune(req.Password)) < 8:
-			errorResponse(c, http.StatusBadRequest, "password must be at least 8 characters")
+			respondError(c, http.StatusBadRequest, "password must be at least 8 characters")
 			return
 		case req.Password != req.PasswordConfirm:
-			errorResponse(c, http.StatusBadRequest, "the two passwords do not match")
+			respondError(c, http.StatusBadRequest, "the two passwords do not match")
 			return
 		}
 
 		hash, err := auth.HashPassword(req.Password)
 		if err != nil {
 			log.Printf("register: hash password: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not create your account")
+			respondError(c, http.StatusInternalServerError, "could not create your account")
 			return
 		}
 
@@ -141,19 +132,19 @@ func registerHandler(deps Deps) gin.HandlerFunc {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				if pgErr.ConstraintName == "users_username_key" {
-					errorResponse(c, http.StatusConflict, "that username is already taken")
+					respondError(c, http.StatusConflict, "that username is already taken")
 					return
 				}
-				errorResponse(c, http.StatusConflict, "that email is already registered")
+				respondError(c, http.StatusConflict, "that email is already registered")
 				return
 			}
 			log.Printf("register: create user: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not create your account, please try again")
+			respondError(c, http.StatusInternalServerError, "could not create your account, please try again")
 			return
 		}
 
 		queueVerificationEmail(c.Request.Context(), deps, user.ID, user.Email)
-		issueAuthResponse(c, deps, user)
+		issueAuthResponse(c, deps, user, "account created")
 	}
 }
 
@@ -166,7 +157,7 @@ func loginHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req loginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 
@@ -175,7 +166,7 @@ func loginHandler(deps Deps) gin.HandlerFunc {
 		// the question of which addresses are registered.
 		user, err := deps.Queries.GetUserByEmail(c.Request.Context(), req.Email)
 		if err != nil {
-			errorResponse(c, http.StatusUnauthorized, badCredentials)
+			respondError(c, http.StatusUnauthorized, badCredentials)
 			return
 		}
 
@@ -183,17 +174,17 @@ func loginHandler(deps Deps) gin.HandlerFunc {
 		// account can neither be told apart from guessing wrong nor push the
 		// window further out.
 		if left := auth.LockedFor(user.LockedUntil, time.Now()); left > 0 {
-			errorResponse(c, http.StatusUnauthorized, lockedMessage(left))
+			respondError(c, http.StatusUnauthorized, lockedMessage(left))
 			return
 		}
 
 		if !auth.VerifyPassword(user.PasswordHash, req.Password) {
-			errorResponse(c, http.StatusUnauthorized, recordFailedAttempt(c.Request.Context(), deps, user))
+			respondError(c, http.StatusUnauthorized, recordFailedAttempt(c.Request.Context(), deps, user))
 			return
 		}
 
 		clearThrottle(c.Request.Context(), deps, user)
-		issueAuthResponse(c, deps, user)
+		issueAuthResponse(c, deps, user, "logged in")
 	}
 }
 
@@ -206,27 +197,27 @@ func refreshHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cookie, err := c.Cookie(deps.RefreshCookieName)
 		if err != nil || cookie == "" {
-			errorResponse(c, http.StatusUnauthorized, "no refresh token")
+			respondError(c, http.StatusUnauthorized, "no refresh token")
 			return
 		}
 		userID, err := auth.ValidateSession(c.Request.Context(), deps.Queries, cookie)
 		if err != nil {
-			errorResponse(c, http.StatusUnauthorized, "refresh token expired or revoked, please log in again")
+			respondError(c, http.StatusUnauthorized, "refresh token expired or revoked, please log in again")
 			return
 		}
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusUnauthorized, "refresh token expired or revoked, please log in again")
+			respondError(c, http.StatusUnauthorized, "refresh token expired or revoked, please log in again")
 			return
 		}
 
 		accessToken, expiresAt, err := auth.IssueAccessToken(user.ID, deps.JWTSecret)
 		if err != nil {
 			log.Printf("refresh: issue access token: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not refresh your session")
+			respondError(c, http.StatusInternalServerError, "could not refresh your session")
 			return
 		}
-		c.JSON(http.StatusOK, authResponse{AccessToken: accessToken, ExpiresAt: expiresAt, User: newUserDTO(user)})
+		respondOK(c, http.StatusOK, "session refreshed", authResponse{AccessToken: accessToken, ExpiresAt: expiresAt, User: newUserDTO(user)})
 	}
 }
 
@@ -241,7 +232,7 @@ func logoutHandler(deps Deps) gin.HandlerFunc {
 			}
 		}
 		clearRefreshCookie(c, deps)
-		c.Status(http.StatusNoContent)
+		respondOK[any](c, http.StatusOK, "logged out", nil)
 	}
 }
 
@@ -253,26 +244,26 @@ func meHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, ok := UserID(c)
 		if !ok {
-			errorResponse(c, http.StatusUnauthorized, "not authenticated")
+			respondError(c, http.StatusUnauthorized, "not authenticated")
 			return
 		}
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusNotFound, "user not found")
+			respondError(c, http.StatusNotFound, "user not found")
 			return
 		}
-		c.JSON(http.StatusOK, newUserDTO(user))
+		respondOK(c, http.StatusOK, "user retrieved", newUserDTO(user))
 	}
 }
 
 // issueAuthResponse mints both halves of a signed-in session for user --
 // an access token returned in the body, and a refresh token set as an
 // httpOnly cookie -- and writes the JSON response.
-func issueAuthResponse(c *gin.Context, deps Deps, user sqlcgen.User) {
+func issueAuthResponse(c *gin.Context, deps Deps, user sqlcgen.User, message string) {
 	refreshToken, refreshExpiresAt, err := auth.CreateSession(c.Request.Context(), deps.Queries, user.ID, c.Request.UserAgent())
 	if err != nil {
 		log.Printf("issueAuthResponse: create session: %v", err)
-		errorResponse(c, http.StatusInternalServerError, "could not create your session")
+		respondError(c, http.StatusInternalServerError, "could not create your session")
 		return
 	}
 	setRefreshCookie(c, deps, refreshToken, refreshExpiresAt)
@@ -280,10 +271,10 @@ func issueAuthResponse(c *gin.Context, deps Deps, user sqlcgen.User) {
 	accessToken, accessExpiresAt, err := auth.IssueAccessToken(user.ID, deps.JWTSecret)
 	if err != nil {
 		log.Printf("issueAuthResponse: issue access token: %v", err)
-		errorResponse(c, http.StatusInternalServerError, "could not create your session")
+		respondError(c, http.StatusInternalServerError, "could not create your session")
 		return
 	}
-	c.JSON(http.StatusOK, authResponse{AccessToken: accessToken, ExpiresAt: accessExpiresAt, User: newUserDTO(user)})
+	respondOK(c, http.StatusOK, message, authResponse{AccessToken: accessToken, ExpiresAt: accessExpiresAt, User: newUserDTO(user)})
 }
 
 // refreshCookieSameSite picks SameSite to match SecureCookies rather than

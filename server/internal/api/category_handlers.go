@@ -70,7 +70,7 @@ func listCategoriesHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		rows, err := deps.Queries.ListCategoriesWithTransactionCounts(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load categories")
+			respondError(c, http.StatusInternalServerError, "could not load categories")
 			return
 		}
 
@@ -99,7 +99,7 @@ func listCategoriesHandler(deps Deps) gin.HandlerFunc {
 				resp.HasCustomCategories = true
 			}
 		}
-		c.JSON(http.StatusOK, resp)
+		respondOK(c, http.StatusOK, "categories retrieved", resp)
 	}
 }
 
@@ -114,21 +114,21 @@ func createCategoryHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		var req createCategoryRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		req.Name = strings.TrimSpace(req.Name)
 
 		if req.Name == "" {
-			errorResponse(c, http.StatusBadRequest, "please enter a category name")
+			respondError(c, http.StatusBadRequest, "please enter a category name")
 			return
 		}
 		if req.Type != "expense" && req.Type != "income" {
-			errorResponse(c, http.StatusBadRequest, "type must be \"expense\" or \"income\"")
+			respondError(c, http.StatusBadRequest, "type must be \"expense\" or \"income\"")
 			return
 		}
 		if !isValidSwatch(req.Color) {
-			errorResponse(c, http.StatusBadRequest, "invalid color")
+			respondError(c, http.StatusBadRequest, "invalid color")
 			return
 		}
 
@@ -141,15 +141,15 @@ func createCategoryHandler(deps Deps) gin.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				errorResponse(c, http.StatusConflict, "you already have a category with that name")
+				respondError(c, http.StatusConflict, "you already have a category with that name")
 				return
 			}
 			log.Printf("create category: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not create the category, please try again")
+			respondError(c, http.StatusInternalServerError, "could not create the category, please try again")
 			return
 		}
 
-		c.JSON(http.StatusCreated, newCategoryDTO(created, 0))
+		respondOK(c, http.StatusCreated, "category created", newCategoryDTO(created, 0))
 	}
 }
 
@@ -158,7 +158,7 @@ func createCategoryHandler(deps Deps) gin.HandlerFunc {
 func categoryIDParam(c *gin.Context) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		errorResponse(c, http.StatusBadRequest, "invalid id")
+		respondError(c, http.StatusBadRequest, "invalid id")
 		return 0, false
 	}
 	return id, true
@@ -184,17 +184,17 @@ func updateCategoryHandler(deps Deps) gin.HandlerFunc {
 		}
 		var req updateCategoryRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		if req.Name == nil && req.Color == nil {
-			errorResponse(c, http.StatusBadRequest, "nothing to update")
+			respondError(c, http.StatusBadRequest, "nothing to update")
 			return
 		}
 
 		if req.Color != nil {
 			if !isValidSwatch(*req.Color) {
-				errorResponse(c, http.StatusBadRequest, "invalid color")
+				respondError(c, http.StatusBadRequest, "invalid color")
 				return
 			}
 			// UpdateCategoryColor's WHERE clause matches a row owned by
@@ -204,7 +204,7 @@ func updateCategoryHandler(deps Deps) gin.HandlerFunc {
 			if _, err := deps.Queries.UpdateCategoryColor(c.Request.Context(), sqlcgen.UpdateCategoryColorParams{
 				ID: id, UserID: pgval.Int64(userID), Color: *req.Color,
 			}); err != nil {
-				errorResponse(c, http.StatusNotFound, "category not found")
+				respondError(c, http.StatusNotFound, "category not found")
 				return
 			}
 		}
@@ -212,36 +212,36 @@ func updateCategoryHandler(deps Deps) gin.HandlerFunc {
 		if req.Name != nil {
 			name := strings.TrimSpace(*req.Name)
 			if name == "" {
-				errorResponse(c, http.StatusBadRequest, "please enter a category name")
+				respondError(c, http.StatusBadRequest, "please enter a category name")
 				return
 			}
 			existing, err := deps.Queries.GetCategoryForUser(c.Request.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgval.Int64(userID)})
 			if err != nil {
-				errorResponse(c, http.StatusNotFound, "category not found")
+				respondError(c, http.StatusNotFound, "category not found")
 				return
 			}
 			if !existing.UserID.Valid {
-				errorResponse(c, http.StatusForbidden, "default categories cannot be renamed")
+				respondError(c, http.StatusForbidden, "default categories cannot be renamed")
 				return
 			}
 			if _, err := deps.Queries.UpdateCategoryName(c.Request.Context(), sqlcgen.UpdateCategoryNameParams{ID: id, UserID: pgval.Int64(userID), Name: name}); err != nil {
 				var pgErr *pgconn.PgError
 				if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-					errorResponse(c, http.StatusConflict, "you already have a category with that name")
+					respondError(c, http.StatusConflict, "you already have a category with that name")
 					return
 				}
 				log.Printf("update category name: %v", err)
-				errorResponse(c, http.StatusInternalServerError, "could not rename category")
+				respondError(c, http.StatusInternalServerError, "could not rename category")
 				return
 			}
 		}
 
 		row, err := deps.Queries.GetCategoryWithTransactionCount(c.Request.Context(), sqlcgen.GetCategoryWithTransactionCountParams{ID: id, UserID: userID})
 		if err != nil {
-			errorResponse(c, http.StatusNotFound, "category not found")
+			respondError(c, http.StatusNotFound, "category not found")
 			return
 		}
-		c.JSON(http.StatusOK, categoryDTO{
+		respondOK(c, http.StatusOK, "category updated", categoryDTO{
 			ID: row.ID, Name: i18n.CategoryName(row.Slug, row.Name), Type: row.Type,
 			Color: row.Color, TransactionCount: row.TransactionCount, IsDefault: !row.UserID.Valid,
 		})
@@ -264,29 +264,29 @@ func deleteCategoryHandler(deps Deps) gin.HandlerFunc {
 
 		category, err := deps.Queries.GetCategoryForUser(c.Request.Context(), sqlcgen.GetCategoryForUserParams{ID: id, UserID: pgval.Int64(userID)})
 		if err != nil {
-			errorResponse(c, http.StatusNotFound, "category not found")
+			respondError(c, http.StatusNotFound, "category not found")
 			return
 		}
 		if !category.UserID.Valid {
-			errorResponse(c, http.StatusForbidden, "default categories cannot be deleted")
+			respondError(c, http.StatusForbidden, "default categories cannot be deleted")
 			return
 		}
 
 		count, err := deps.Queries.CountTransactionsForCategory(c.Request.Context(), sqlcgen.CountTransactionsForCategoryParams{CategoryID: id, UserID: userID})
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not check category usage")
+			respondError(c, http.StatusInternalServerError, "could not check category usage")
 			return
 		}
 
 		if count > 0 && category.Type == "income" {
-			errorResponse(c, http.StatusConflict, "category has existing transactions")
+			respondError(c, http.StatusConflict, "category has existing transactions")
 			return
 		}
 
 		if count > 0 {
 			tx, err := deps.DB.Begin(c.Request.Context())
 			if err != nil {
-				errorResponse(c, http.StatusInternalServerError, "could not delete category")
+				respondError(c, http.StatusInternalServerError, "could not delete category")
 				return
 			}
 			defer tx.Rollback(c.Request.Context())
@@ -295,35 +295,35 @@ func deleteCategoryHandler(deps Deps) gin.HandlerFunc {
 			other, err := qtx.GetDefaultCategoryForReassignment(c.Request.Context())
 			if err != nil {
 				log.Printf("delete category: load Other default: %v", err)
-				errorResponse(c, http.StatusInternalServerError, "could not delete category")
+				respondError(c, http.StatusInternalServerError, "could not delete category")
 				return
 			}
 			if _, err := qtx.ReassignCategoryTransactions(c.Request.Context(), sqlcgen.ReassignCategoryTransactionsParams{
 				CategoryID: other.ID, CategoryID_2: id, UserID: userID,
 			}); err != nil {
 				log.Printf("delete category: reassign transactions: %v", err)
-				errorResponse(c, http.StatusInternalServerError, "could not delete category")
+				respondError(c, http.StatusInternalServerError, "could not delete category")
 				return
 			}
 			if _, err := qtx.DeleteCategory(c.Request.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgval.Int64(userID)}); err != nil {
 				log.Printf("delete category: %v", err)
-				errorResponse(c, http.StatusInternalServerError, "could not delete category")
+				respondError(c, http.StatusInternalServerError, "could not delete category")
 				return
 			}
 			if err := tx.Commit(c.Request.Context()); err != nil {
 				log.Printf("delete category: commit: %v", err)
-				errorResponse(c, http.StatusInternalServerError, "could not delete category")
+				respondError(c, http.StatusInternalServerError, "could not delete category")
 				return
 			}
-			c.Status(http.StatusNoContent)
+			respondOK[any](c, http.StatusOK, "category deleted", nil)
 			return
 		}
 
 		if _, err := deps.Queries.DeleteCategory(c.Request.Context(), sqlcgen.DeleteCategoryParams{ID: id, UserID: pgval.Int64(userID)}); err != nil {
 			log.Printf("delete category: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not delete category")
+			respondError(c, http.StatusInternalServerError, "could not delete category")
 			return
 		}
-		c.Status(http.StatusNoContent)
+		respondOK[any](c, http.StatusOK, "category deleted", nil)
 	}
 }

@@ -16,7 +16,7 @@ Deleting an account is a hard delete: `deleteAccountHandler` / `deleteAccount` i
 - `deleteAccount` removes, in one DB transaction and in this order: transactions, then the account's own categories, then the user row. Keep those steps explicit; don't lean on the `ON DELETE CASCADE` on `users`.
 - Never touch the shared defaults. They carry a NULL `user_id`, so `WHERE user_id = $1` cannot reach them.
 - Sessions and both token tables cascade; leave them to it.
-- Gate the delete on the current password, like the email and password endpoints. On success the handler clears the refresh-token cookie and answers 204 -- there is no account left for a redirect to land on.
+- Gate the delete on the current password, like the email and password endpoints. On success the handler clears the refresh-token cookie and answers 200 with `data: null` -- there is no account left for a redirect to land on.
 - The deleted HTML app offered a CSV export above the delete button in Settings' danger-zone card, since the history is the part anyone regrets losing. The React port has not carried that over: `pages/settings/DangerZoneCard.tsx` is just the password field and the button, and export lives on the Transactions page. Known gap -- add the export link back if you touch this card.
 - The email is released at once and can be re-registered (`TestDeleteAccount` checks the `users` row is really gone, which is what frees the unique email). Don't reserve it or keep a tombstone: that would keep the one piece of personal data the owner asked to be rid of.
 

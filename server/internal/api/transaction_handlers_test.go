@@ -25,7 +25,7 @@ func createTestCategory(t *testing.T, deps api.Deps, router http.Handler, userID
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create test category: POST /api/v1/categories = %d %s", rec.Code, rec.Body.String())
 	}
-	created := decodeJSON[struct{ ID int64 }](t, rec)
+	created := decodeData[struct{ ID int64 }](t, rec)
 	return created.ID
 }
 
@@ -67,7 +67,7 @@ func TestCreateAndListTransactions(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST /api/v1/transactions = %d %s, want 201", rec.Code, rec.Body.String())
 	}
-	created := decodeJSON[struct {
+	created := decodeData[struct {
 		ID           int64  `json:"id"`
 		CategoryName string `json:"categoryName"`
 		Amount       int64  `json:"amount"`
@@ -84,7 +84,7 @@ func TestCreateAndListTransactions(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /api/v1/transactions = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	list := decodeJSON[struct {
+	list := decodeData[struct {
 		Transactions []struct{ ID int64 } `json:"transactions"`
 		TotalCount   int64                `json:"totalCount"`
 	}](t, rec)
@@ -119,6 +119,7 @@ func TestCreateTransactionRejectsMismatchedCategoryType(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("POST /api/v1/transactions (income category, expense type) = %d %s, want 400", rec.Code, rec.Body.String())
 	}
+	decodeError(t, rec)
 }
 
 func TestUpdateAndDeleteTransaction(t *testing.T) {
@@ -136,7 +137,7 @@ func TestUpdateAndDeleteTransaction(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	created := decodeJSON[struct{ ID int64 }](t, rec)
+	created := decodeData[struct{ ID int64 }](t, rec)
 
 	req = authedRequest(t, deps, http.MethodPatch, fmt.Sprintf("/api/v1/transactions/%d", created.ID), userID)
 	req.Body = jsonBody(t, map[string]any{
@@ -148,7 +149,7 @@ func TestUpdateAndDeleteTransaction(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PATCH /api/v1/transactions/%d = %d %s, want 200", created.ID, rec.Code, rec.Body.String())
 	}
-	updated := decodeJSON[struct {
+	updated := decodeData[struct {
 		Amount      int64  `json:"amount"`
 		Description string `json:"description"`
 		Type        string `json:"type"`
@@ -165,8 +166,8 @@ func TestUpdateAndDeleteTransaction(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodDelete, fmt.Sprintf("/api/v1/transactions/%d", created.ID), userID))
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("DELETE /api/v1/transactions/%d = %d, want 204", created.ID, rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /api/v1/transactions/%d = %d, want 200", created.ID, rec.Code)
 	}
 
 	req = authedRequest(t, deps, http.MethodPatch, fmt.Sprintf("/api/v1/transactions/%d", created.ID), userID)
@@ -177,6 +178,7 @@ func TestUpdateAndDeleteTransaction(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("PATCH deleted transaction = %d, want 404", rec.Code)
 	}
+	decodeError(t, rec)
 }
 
 func TestCreateTransactionRejectsFutureDate(t *testing.T) {
@@ -197,6 +199,7 @@ func TestCreateTransactionRejectsFutureDate(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("POST /api/v1/transactions (30 days future) = %d %s, want 400", rec.Code, rec.Body.String())
 	}
+	decodeError(t, rec)
 }
 
 func TestListTransactionsFiltersByType(t *testing.T) {
@@ -228,7 +231,7 @@ func TestListTransactionsFiltersByType(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/transactions?type=income", userID))
-	list := decodeJSON[struct {
+	list := decodeData[struct {
 		Transactions []struct{ Type string } `json:"transactions"`
 	}](t, rec)
 	for _, txn := range list.Transactions {

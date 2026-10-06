@@ -96,14 +96,14 @@ func listTransactionsHandler(deps Deps) gin.HandlerFunc {
 
 		count, err := deps.Queries.CountTransactionsForMonth(c.Request.Context(), filters.countParams(userID, from, to))
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load transactions")
+			respondError(c, http.StatusInternalServerError, "could not load transactions")
 			return
 		}
 		pgr := newPager(pageParam(query.Get("page")), count)
 
 		rows, err := deps.Queries.ListTransactionsForMonth(c.Request.Context(), filters.listParams(userID, from, to, pgr.offset()))
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load transactions")
+			respondError(c, http.StatusInternalServerError, "could not load transactions")
 			return
 		}
 		dtos := make([]transactionDTO, len(rows))
@@ -114,12 +114,12 @@ func listTransactionsHandler(deps Deps) gin.HandlerFunc {
 
 		months, err := deps.Queries.ListDistinctTransactionMonths(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load transactions")
+			respondError(c, http.StatusInternalServerError, "could not load transactions")
 			return
 		}
 		currentFrom, _ := currentMonthRange()
 
-		c.JSON(http.StatusOK, listTransactionsResponse{
+		respondOK(c, http.StatusOK, "transactions retrieved", listTransactionsResponse{
 			Transactions:      dtos,
 			TotalCount:        count,
 			Page:              pgr.Page,
@@ -198,18 +198,18 @@ func createTransactionHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		var req txnWriteRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		if req.Type == nil || (*req.Type != "expense" && *req.Type != "income") {
-			errorResponse(c, http.StatusBadRequest, "type must be \"expense\" or \"income\"")
+			respondError(c, http.StatusBadRequest, "type must be \"expense\" or \"income\"")
 			return
 		}
 		txnType := *req.Type
 
 		form, msg := parseTxnForm(req)
 		if msg != "" {
-			errorResponse(c, http.StatusBadRequest, msg)
+			respondError(c, http.StatusBadRequest, msg)
 			return
 		}
 
@@ -217,11 +217,11 @@ func createTransactionHandler(deps Deps) gin.HandlerFunc {
 			ID: form.CategoryID, UserID: pgval.Int64(userID),
 		})
 		if err != nil {
-			errorResponse(c, http.StatusForbidden, "category not found")
+			respondError(c, http.StatusForbidden, "category not found")
 			return
 		}
 		if v := form.violation(category.Type, txnType); v != "" {
-			errorResponse(c, http.StatusBadRequest, v)
+			respondError(c, http.StatusBadRequest, v)
 			return
 		}
 
@@ -231,11 +231,11 @@ func createTransactionHandler(deps Deps) gin.HandlerFunc {
 		})
 		if err != nil {
 			log.Printf("create transaction: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not add the transaction, please try again")
+			respondError(c, http.StatusInternalServerError, "could not add the transaction, please try again")
 			return
 		}
 
-		c.JSON(http.StatusCreated, transactionDTO{
+		respondOK(c, http.StatusCreated, "transaction created", transactionDTO{
 			ID: created.ID, CategoryID: created.CategoryID,
 			CategoryName: i18n.CategoryName(category.Slug, category.Name), CategoryColor: category.Color,
 			Description: created.Description, Amount: created.Amount, Type: created.Type,
@@ -247,7 +247,7 @@ func createTransactionHandler(deps Deps) gin.HandlerFunc {
 func transactionIDParam(c *gin.Context) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		errorResponse(c, http.StatusBadRequest, "invalid id")
+		respondError(c, http.StatusBadRequest, "invalid id")
 		return 0, false
 	}
 	return id, true
@@ -267,28 +267,28 @@ func updateTransactionHandler(deps Deps) gin.HandlerFunc {
 
 		existing, err := deps.Queries.GetTransaction(c.Request.Context(), sqlcgen.GetTransactionParams{ID: id, UserID: userID})
 		if err != nil {
-			errorResponse(c, http.StatusNotFound, "transaction not found")
+			respondError(c, http.StatusNotFound, "transaction not found")
 			return
 		}
 
 		var req txnWriteRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		form, msg := parseTxnForm(req)
 		if msg != "" {
-			errorResponse(c, http.StatusBadRequest, msg)
+			respondError(c, http.StatusBadRequest, msg)
 			return
 		}
 
 		category, err := deps.Queries.GetCategoryForUser(c.Request.Context(), sqlcgen.GetCategoryForUserParams{ID: form.CategoryID, UserID: pgval.Int64(userID)})
 		if err != nil {
-			errorResponse(c, http.StatusForbidden, "category not found")
+			respondError(c, http.StatusForbidden, "category not found")
 			return
 		}
 		if v := form.violation(category.Type, existing.Type); v != "" {
-			errorResponse(c, http.StatusBadRequest, v)
+			respondError(c, http.StatusBadRequest, v)
 			return
 		}
 
@@ -298,11 +298,11 @@ func updateTransactionHandler(deps Deps) gin.HandlerFunc {
 		})
 		if err != nil {
 			log.Printf("update transaction: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not update transaction")
+			respondError(c, http.StatusInternalServerError, "could not update transaction")
 			return
 		}
 
-		c.JSON(http.StatusOK, transactionDTO{
+		respondOK(c, http.StatusOK, "transaction updated", transactionDTO{
 			ID: updated.ID, CategoryID: updated.CategoryID,
 			CategoryName: i18n.CategoryName(category.Slug, category.Name), CategoryColor: category.Color,
 			Description: updated.Description, Amount: updated.Amount, Type: updated.Type,
@@ -319,9 +319,9 @@ func deleteTransactionHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 		if _, err := deps.Queries.DeleteTransaction(c.Request.Context(), sqlcgen.DeleteTransactionParams{ID: id, UserID: userID}); err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not delete transaction")
+			respondError(c, http.StatusInternalServerError, "could not delete transaction")
 			return
 		}
-		c.Status(http.StatusNoContent)
+		respondOK[any](c, http.StatusOK, "transaction deleted", nil)
 	}
 }

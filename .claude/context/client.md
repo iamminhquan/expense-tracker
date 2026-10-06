@@ -45,7 +45,7 @@
 
 - `client/src/App.tsx`: the route table. Every page component is `lazy()`-loaded (one chunk per route, behind a single `<Suspense>` boundary) — Chart.js alone is ~170KB, and this keeps it out of a signed-out visitor's first paint.
 - `client/src/lib/api/`: the whole API client.
-  - `client.ts` — the one place that calls `fetch`. Attaches the access token, retries once through a silent refresh on a 401, collapses concurrent refreshes into one request.
+  - `client.ts` — the one place that calls `fetch`. Unwraps the server's `{success, message, data}` envelope (`readApiResponse`, also used by `import.ts` and `AuthContext.tsx`) so hooks get `data` and errors become `ApiError(status, message)`. Attaches the access token, retries once through a silent refresh on a 401, collapses concurrent refreshes into one request.
   - `tokenStore.ts` — the access token itself, a plain module variable (never `localStorage`/`sessionStorage` — the migration's locked JWT-storage decision), so `client.ts` can read it without importing React/`AuthContext` and creating a cycle.
   - `types.ts` — hand-written TypeScript types mirroring `server/internal/api`'s DTOs (the migration's locked type-sync decision: no codegen).
   - One file per resource: `auth.ts`, `categories.ts`, `transactions.ts`, `dashboard.ts`, `settings.ts`, `import.ts` (the one multipart/file-upload exception, bypassing `client.ts`'s always-JSON `request()`).
