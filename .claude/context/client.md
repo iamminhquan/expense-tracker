@@ -64,7 +64,7 @@
 - The access token lives in memory only (a module variable in `tokenStore.ts`) and does not survive a page reload by design. Every page load runs `AuthContext`'s silent-refresh bootstrap (a `POST /api/v1/refresh` using the httpOnly cookie) before rendering anything behind `ProtectedRoute`. Don't "fix" a reload losing auth state by persisting the access token to storage — that's the locked decision this migration made, not a bug.
 - `TransactionsPage` and `DashboardPage` keep their filters/month in the URL's own query string (`useSearchParams`), never local `useState`. This isn't a style preference — a real browser test caught the bug that happens otherwise (a link to a specific month silently reset to the current one because nothing read the URL it landed on). See `.claude/rules/req-value-objects.md`.
 - A mutation (create/update/delete a transaction or category) invalidates more than its own TanStack Query key: deleting a category can reassign transactions, a transaction changes totals the dashboard and a category's `transactionCount` both depend on. See each `hooks/use*.ts` file's invalidation calls rather than assuming one key is enough when adding a new mutation.
-- Chart.js cannot react to a CSS variable changing — `DashboardPage.tsx`'s chart colors are currently hardcoded to the light palette and do **not** rebuild on a theme switch. Known gap, not a deliberate choice — see `.claude/rules/dashboard.md`.
+- Chart.js cannot react to a CSS variable changing, so `DashboardPage.tsx` takes its chart colors from `hooks/useChartTheme.ts`, which re-reads `:root`'s palette on a theme or OS color-scheme change. Any new color option on a chart must come from it — see `.claude/rules/dashboard.md`.
 - There is no client-side reminder for an unverified email address yet, and `userDTO`/`User` doesn't carry `EmailVerified`. See `.claude/rules/email-verification.md`'s known gap.
 
 ## Frontend Layout
@@ -138,7 +138,6 @@ Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before commi
 ## Known Gaps and Debt
 
 - No long-press/drag-to-dismiss pixel-perfect parity audit beyond the gesture logic itself (thresholds/timing match the deleted original; visual polish like SVG nav icons was simplified to text labels).
-- Dashboard's Chart.js colors don't react to a theme switch (see Important Reality Checks above).
 - No client-side email-verification reminder (see Important Reality Checks above).
 - Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
 - Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress` and the CSV import flow; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
