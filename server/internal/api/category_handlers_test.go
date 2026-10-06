@@ -60,15 +60,6 @@ func createTestUser(t *testing.T, deps api.Deps) int64 {
 	return id
 }
 
-func decodeJSON[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
-	t.Helper()
-	var v T
-	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil {
-		t.Fatalf("decode response body %q: %v", rec.Body.String(), err)
-	}
-	return v
-}
-
 func TestCreateAndListCategories(t *testing.T) {
 	deps := newTestDeps(t)
 	router := api.NewRouter(deps)
@@ -82,7 +73,7 @@ func TestCreateAndListCategories(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST /api/v1/categories = %d %s, want 201", rec.Code, rec.Body.String())
 	}
-	created := decodeJSON[struct {
+	created := decodeData[struct {
 		ID        int64  `json:"id"`
 		Name      string `json:"name"`
 		IsDefault bool   `json:"isDefault"`
@@ -99,7 +90,7 @@ func TestCreateAndListCategories(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /api/v1/categories = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	list := decodeJSON[struct {
+	list := decodeData[struct {
 		ExpenseCategories   []struct{ ID int64 } `json:"expenseCategories"`
 		HasCustomCategories bool                 `json:"hasCustomCategories"`
 	}](t, rec)
@@ -127,7 +118,7 @@ func TestUpdateCategoryRenameAndRecolor(t *testing.T) {
 	req.Body = jsonBody(t, map[string]string{"name": "Old Name", "type": "expense", "color": "#D97757"})
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(rec, req)
-	created := decodeJSON[struct{ ID int64 }](t, rec)
+	created := decodeData[struct{ ID int64 }](t, rec)
 
 	rec = httptest.NewRecorder()
 	req = authedRequest(t, deps, http.MethodPatch, fmt.Sprintf("/api/v1/categories/%d", created.ID), userID)
@@ -137,7 +128,7 @@ func TestUpdateCategoryRenameAndRecolor(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PATCH /api/v1/categories/%d = %d %s, want 200", created.ID, rec.Code, rec.Body.String())
 	}
-	updated := decodeJSON[struct {
+	updated := decodeData[struct {
 		Name  string `json:"name"`
 		Color string `json:"color"`
 	}](t, rec)
@@ -159,12 +150,12 @@ func TestDeleteCategory(t *testing.T) {
 	req.Body = jsonBody(t, map[string]string{"name": "To Delete", "type": "expense", "color": "#D97757"})
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(rec, req)
-	created := decodeJSON[struct{ ID int64 }](t, rec)
+	created := decodeData[struct{ ID int64 }](t, rec)
 
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodDelete, fmt.Sprintf("/api/v1/categories/%d", created.ID), userID))
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("DELETE /api/v1/categories/%d = %d %s, want 204", created.ID, rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /api/v1/categories/%d = %d %s, want 200", created.ID, rec.Code, rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()
@@ -175,6 +166,7 @@ func TestDeleteCategory(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("PATCH deleted category = %d, want 404", rec.Code)
 	}
+	decodeError(t, rec)
 }
 
 func TestDeleteDefaultCategoryForbidden(t *testing.T) {
@@ -184,7 +176,7 @@ func TestDeleteDefaultCategoryForbidden(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, authedRequest(t, deps, http.MethodGet, "/api/v1/categories", userID))
-	list := decodeJSON[struct {
+	list := decodeData[struct {
 		ExpenseCategories []struct {
 			ID        int64 `json:"id"`
 			IsDefault bool  `json:"isDefault"`
@@ -207,4 +199,5 @@ func TestDeleteDefaultCategoryForbidden(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("DELETE default category = %d, want 403", rec.Code)
 	}
+	decodeError(t, rec)
 }

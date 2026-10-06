@@ -15,8 +15,8 @@ func TestForgotAndResetPassword(t *testing.T) {
 	email, _, _, _ := registerTestAccount(t, deps, router)
 
 	rec := doJSON(t, router, http.MethodPost, "/api/v1/forgot-password", map[string]string{"email": email})
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("POST /api/v1/forgot-password = %d %s, want 204", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/v1/forgot-password = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	// The mailer isn't configured in tests (newTestDeps uses mailer.New
@@ -35,8 +35,8 @@ func TestForgotAndResetPassword(t *testing.T) {
 	rec = httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reset-password?token="+token, nil)
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("GET /api/v1/reset-password?token=... = %d %s, want 204", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/v1/reset-password?token=... = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	const newPassword = "a-brand-new-password"
@@ -64,6 +64,7 @@ func TestResetPasswordRejectsInvalidToken(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("GET /api/v1/reset-password (bad token) = %d, want 404", rec.Code)
 	}
+	decodeError(t, rec)
 
 	rec = doJSON(t, router, http.MethodPost, "/api/v1/reset-password", map[string]string{
 		"token": "not-a-real-token", "password": "whatever123", "passwordConfirm": "whatever123",
@@ -71,6 +72,7 @@ func TestResetPasswordRejectsInvalidToken(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("POST /api/v1/reset-password (bad token) = %d, want 404", rec.Code)
 	}
+	decodeError(t, rec)
 }
 
 func TestVerifyEmail(t *testing.T) {
@@ -91,7 +93,7 @@ func TestVerifyEmail(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /api/v1/verify-email = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	result := decodeJSON[struct {
+	result := decodeData[struct {
 		Verified bool `json:"verified"`
 		Conflict bool `json:"conflict"`
 	}](t, rec)
@@ -111,7 +113,7 @@ func TestVerifyEmailInvalidTokenIsNotAnError(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /api/v1/verify-email (bad token) = %d %s, want 200 (mirrors handlers.verifyEmailPage's zero-value outcome)", rec.Code, rec.Body.String())
 	}
-	result := decodeJSON[struct {
+	result := decodeData[struct {
 		Verified bool `json:"verified"`
 		Conflict bool `json:"conflict"`
 	}](t, rec)

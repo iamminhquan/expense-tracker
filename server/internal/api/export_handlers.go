@@ -38,7 +38,7 @@ func exportTransactionsHandler(deps Deps) gin.HandlerFunc {
 		rows, err := deps.Queries.ListTransactionsForMonth(c.Request.Context(), filters.exportParams(userID, from, to))
 		if err != nil {
 			log.Printf("export transactions: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not export transactions")
+			respondError(c, http.StatusInternalServerError, "could not export transactions")
 			return
 		}
 

@@ -32,12 +32,12 @@ func RequireAuth(secret []byte) gin.HandlerFunc {
 		header := c.GetHeader("Authorization")
 		token, ok := strings.CutPrefix(header, "Bearer ")
 		if !ok || token == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or malformed Authorization header"})
+			respondError(c, http.StatusUnauthorized, "missing or malformed Authorization header")
 			return
 		}
 		userID, err := auth.ParseAccessToken(token, secret)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired access token"})
+			respondError(c, http.StatusUnauthorized, "invalid or expired access token")
 			return
 		}
 		c.Set(string(userIDContextKey), userID)

@@ -38,7 +38,7 @@ type sessionDTO struct {
 // sessions list. There is no Saved/error-message field here the way
 // handlers.settingsView has -- that existed only to survive a
 // POST-redirect-GET round trip; a JSON mutation response answers for
-// itself (2xx or an errorResponse body) without needing the next GET to
+// itself (the envelope's success and message) without needing the next GET to
 // carry the verdict.
 type settingsResponse struct {
 	Name         string       `json:"name"`
@@ -53,14 +53,14 @@ func settingsHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load settings")
+			respondError(c, http.StatusInternalServerError, "could not load settings")
 			return
 		}
 
 		currentToken, _ := c.Cookie(deps.RefreshCookieName)
 		sessions, err := deps.Queries.ListSessionsForUser(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load settings")
+			respondError(c, http.StatusInternalServerError, "could not load settings")
 			return
 		}
 		dtos := make([]sessionDTO, 0, len(sessions))
@@ -73,7 +73,7 @@ func settingsHandler(deps Deps) gin.HandlerFunc {
 			})
 		}
 
-		c.JSON(http.StatusOK, settingsResponse{
+		respondSuccess(c, http.StatusOK, "settings retrieved", settingsResponse{
 			Name: user.Name, Username: user.Username, Email: user.Email,
 			PendingEmail: user.PendingEmail.String, Sessions: dtos,
 		})
@@ -90,18 +90,18 @@ func updateProfileHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		var req updateProfileRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		name := strings.TrimSpace(req.Name)
 		username := strings.ToLower(strings.TrimSpace(req.Username))
 
 		if name == "" {
-			errorResponse(c, http.StatusBadRequest, "please enter your name")
+			respondError(c, http.StatusBadRequest, "please enter your name")
 			return
 		}
 		if !usernamePattern.MatchString(username) {
-			errorResponse(c, http.StatusBadRequest, "username must be 3-20 characters: lowercase letters, numbers, or underscores, starting with a letter")
+			respondError(c, http.StatusBadRequest, "username must be 3-20 characters: lowercase letters, numbers, or underscores, starting with a letter")
 			return
 		}
 
@@ -111,14 +111,14 @@ func updateProfileHandler(deps Deps) gin.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				errorResponse(c, http.StatusConflict, "that username is already taken")
+				respondError(c, http.StatusConflict, "that username is already taken")
 				return
 			}
 			log.Printf("update profile: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not update profile")
+			respondError(c, http.StatusInternalServerError, "could not update profile")
 			return
 		}
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "profile updated", nil)
 	}
 }
 
@@ -137,26 +137,26 @@ func updateEmailHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		var req updateEmailRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		email := strings.TrimSpace(req.Email)
 
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not update email")
+			respondError(c, http.StatusInternalServerError, "could not update email")
 			return
 		}
 		if !auth.VerifyPassword(user.PasswordHash, req.CurrentPassword) {
-			errorResponse(c, http.StatusUnauthorized, "that current password is not correct")
+			respondError(c, http.StatusUnauthorized, "that current password is not correct")
 			return
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
-			errorResponse(c, http.StatusBadRequest, "that email address is not valid")
+			respondError(c, http.StatusBadRequest, "that email address is not valid")
 			return
 		}
 		if existing, err := deps.Queries.GetUserByEmail(c.Request.Context(), email); err == nil && existing.ID != userID {
-			errorResponse(c, http.StatusConflict, "that email is already registered")
+			respondError(c, http.StatusConflict, "that email is already registered")
 			return
 		}
 
@@ -164,12 +164,12 @@ func updateEmailHandler(deps Deps) gin.HandlerFunc {
 			ID: userID, PendingEmail: pgtype.Text{String: email, Valid: true},
 		}); err != nil {
 			log.Printf("update email: set pending: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not update email")
+			respondError(c, http.StatusInternalServerError, "could not update email")
 			return
 		}
 
 		queueVerificationEmail(c.Request.Context(), deps, userID, email)
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "check your new inbox to confirm the change", nil)
 	}
 }
 
@@ -181,18 +181,18 @@ func resendVerificationHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not resend verification email")
+			respondError(c, http.StatusInternalServerError, "could not resend verification email")
 			return
 		}
 		target := user.Email
 		if user.PendingEmail.Valid {
 			target = user.PendingEmail.String
 		} else if user.EmailVerified {
-			errorResponse(c, http.StatusBadRequest, "your email is already verified")
+			respondError(c, http.StatusBadRequest, "your email is already verified")
 			return
 		}
 		queueVerificationEmail(c.Request.Context(), deps, userID, target)
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "verification email sent", nil)
 	}
 }
 
@@ -207,43 +207,43 @@ func updatePasswordHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		var req updatePasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not update password")
+			respondError(c, http.StatusInternalServerError, "could not update password")
 			return
 		}
 		if !auth.VerifyPassword(user.PasswordHash, req.CurrentPassword) {
-			errorResponse(c, http.StatusUnauthorized, "that current password is not correct")
+			respondError(c, http.StatusUnauthorized, "that current password is not correct")
 			return
 		}
 		if len([]rune(req.NewPassword)) < 8 {
-			errorResponse(c, http.StatusBadRequest, "new password must be at least 8 characters")
+			respondError(c, http.StatusBadRequest, "new password must be at least 8 characters")
 			return
 		}
 		if req.NewPassword != req.NewPasswordConfirm {
-			errorResponse(c, http.StatusBadRequest, "the two new passwords do not match")
+			respondError(c, http.StatusBadRequest, "the two new passwords do not match")
 			return
 		}
 		if req.NewPassword == req.CurrentPassword {
-			errorResponse(c, http.StatusBadRequest, "the new password must be different from the current one")
+			respondError(c, http.StatusBadRequest, "the new password must be different from the current one")
 			return
 		}
 
 		hash, err := auth.HashPassword(req.NewPassword)
 		if err != nil {
 			log.Printf("update password: hash: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not update password")
+			respondError(c, http.StatusInternalServerError, "could not update password")
 			return
 		}
 		if err := deps.Queries.UpdateUserPassword(c.Request.Context(), sqlcgen.UpdateUserPasswordParams{
 			ID: userID, PasswordHash: hash,
 		}); err != nil {
 			log.Printf("update password: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not update password")
+			respondError(c, http.StatusInternalServerError, "could not update password")
 			return
 		}
 
@@ -258,7 +258,7 @@ func updatePasswordHandler(deps Deps) gin.HandlerFunc {
 				log.Printf("update password: delete other sessions: %v", err)
 			}
 		}
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "password updated", nil)
 	}
 }
 
@@ -270,10 +270,10 @@ func revokeSessionHandler(deps Deps) gin.HandlerFunc {
 			ID: sessionID, UserID: userID,
 		}); err != nil {
 			log.Printf("revoke session: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not revoke session")
+			respondError(c, http.StatusInternalServerError, "could not revoke session")
 			return
 		}
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "session revoked", nil)
 	}
 }
 
@@ -282,17 +282,17 @@ func revokeOtherSessionsHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		cookie, err := c.Cookie(deps.RefreshCookieName)
 		if err != nil {
-			errorResponse(c, http.StatusBadRequest, "no refresh token on this request")
+			respondError(c, http.StatusBadRequest, "no refresh token on this request")
 			return
 		}
 		if err := deps.Queries.DeleteOtherSessionsForUser(c.Request.Context(), sqlcgen.DeleteOtherSessionsForUserParams{
 			UserID: userID, ID: cookie,
 		}); err != nil {
 			log.Printf("revoke other sessions: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not revoke other sessions")
+			respondError(c, http.StatusInternalServerError, "could not revoke other sessions")
 			return
 		}
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "other sessions revoked", nil)
 	}
 }
 
@@ -313,27 +313,27 @@ func deleteAccountHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		var req deleteAccountRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not delete account")
+			respondError(c, http.StatusInternalServerError, "could not delete account")
 			return
 		}
 		if !auth.VerifyPassword(user.PasswordHash, req.CurrentPassword) {
-			errorResponse(c, http.StatusUnauthorized, "that password is not correct")
+			respondError(c, http.StatusUnauthorized, "that password is not correct")
 			return
 		}
 
 		if err := deleteAccount(c.Request.Context(), deps, userID); err != nil {
 			log.Printf("delete account: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not delete account")
+			respondError(c, http.StatusInternalServerError, "could not delete account")
 			return
 		}
 		clearRefreshCookie(c, deps)
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "account deleted", nil)
 	}
 }
 
@@ -383,20 +383,20 @@ func updateThemeHandler(deps Deps) gin.HandlerFunc {
 		userID, _ := UserID(c)
 		var req updateThemeRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		if !validTheme(req.Theme) {
-			errorResponse(c, http.StatusBadRequest, "invalid theme")
+			respondError(c, http.StatusBadRequest, "invalid theme")
 			return
 		}
 		if err := deps.Queries.UpdateUserTheme(c.Request.Context(), sqlcgen.UpdateUserThemeParams{
 			ID: userID, Theme: req.Theme,
 		}); err != nil {
 			log.Printf("update theme: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not update theme")
+			respondError(c, http.StatusInternalServerError, "could not update theme")
 			return
 		}
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "theme updated", nil)
 	}
 }

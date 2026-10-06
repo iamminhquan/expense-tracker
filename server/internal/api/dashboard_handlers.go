@@ -111,7 +111,7 @@ func dashboardHandler(deps Deps) gin.HandlerFunc {
 
 		totals, err := deps.Queries.MonthlyTotals(ctx, sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load dashboard")
+			respondError(c, http.StatusInternalServerError, "could not load dashboard")
 			return
 		}
 
@@ -122,7 +122,7 @@ func dashboardHandler(deps Deps) gin.HandlerFunc {
 		} else {
 			headerTotals, err = deps.Queries.MonthlyTotals(ctx, sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: currentFrom, OccurredOn_2: currentTo})
 			if err != nil {
-				errorResponse(c, http.StatusInternalServerError, "could not load dashboard")
+				respondError(c, http.StatusInternalServerError, "could not load dashboard")
 				return
 			}
 		}
@@ -130,14 +130,14 @@ func dashboardHandler(deps Deps) gin.HandlerFunc {
 		prevFrom := pgval.Date(from.Time.AddDate(0, -1, 0))
 		prevTotals, err := deps.Queries.MonthlyTotals(ctx, sqlcgen.MonthlyTotalsParams{UserID: userID, OccurredOn: prevFrom, OccurredOn_2: from})
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load dashboard")
+			respondError(c, http.StatusInternalServerError, "could not load dashboard")
 			return
 		}
 		hasPrevData := prevTotals.TotalExpense > 0 || prevTotals.TotalIncome > 0
 
 		breakdown, err := deps.Queries.CategoryBreakdown(ctx, sqlcgen.CategoryBreakdownParams{UserID: userID, OccurredOn: from, OccurredOn_2: to})
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load dashboard")
+			respondError(c, http.StatusInternalServerError, "could not load dashboard")
 			return
 		}
 		pie := buildPieData(breakdown, totals.TotalExpense)
@@ -145,18 +145,18 @@ func dashboardHandler(deps Deps) gin.HandlerFunc {
 		seriesFrom := pgval.Date(from.Time.AddDate(0, -(barMonths - 1), 0))
 		series, err := deps.Queries.MonthlyTotalsSeries(ctx, sqlcgen.MonthlyTotalsSeriesParams{UserID: userID, OccurredOn: seriesFrom, OccurredOn_2: to})
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load dashboard")
+			respondError(c, http.StatusInternalServerError, "could not load dashboard")
 			return
 		}
 		bar := buildBarSeries(series, from.Time, barMonths)
 
 		months, err := deps.Queries.ListDistinctTransactionMonths(ctx, userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not load dashboard")
+			respondError(c, http.StatusInternalServerError, "could not load dashboard")
 			return
 		}
 
-		c.JSON(http.StatusOK, dashboardResponse{
+		respondSuccess(c, http.StatusOK, "dashboard retrieved", dashboardResponse{
 			MonthValue:           from.Time.Format("2006-01"),
 			MonthLabel:           monthLabel(from.Time),
 			CurrentMonthValue:    currentFrom.Time.Format("2006-01"),

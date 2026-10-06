@@ -58,7 +58,7 @@ func TestSettingsShowsProfileAndCurrentSession(t *testing.T) {
 		t.Fatalf("GET /api/v1/settings = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
-	settings := decodeJSON[struct {
+	settings := decodeData[struct {
 		Email    string `json:"email"`
 		Sessions []struct {
 			ID        string `json:"id"`
@@ -92,14 +92,14 @@ func TestUpdateProfile(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH /api/v1/settings/profile = %d %s, want 204", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PATCH /api/v1/settings/profile = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	req = authedTokenRequest(http.MethodGet, "/api/v1/settings", accessToken)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	settings := decodeJSON[struct{ Name string }](t, rec)
+	settings := decodeData[struct{ Name string }](t, rec)
 	if settings.Name != "New Name" {
 		t.Errorf("Name after update = %q, want %q", settings.Name, "New Name")
 	}
@@ -122,8 +122,8 @@ func TestUpdatePasswordRevokesOtherSessions(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH /api/v1/settings/password = %d %s, want 204", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PATCH /api/v1/settings/password = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	// Session A (the one that changed the password) still refreshes.
@@ -143,6 +143,7 @@ func TestUpdatePasswordRevokesOtherSessions(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("POST /api/v1/refresh with the other session's cookie = %d, want 401 (password change should revoke it)", rec.Code)
 	}
+	decodeError(t, rec)
 }
 
 func TestUpdatePasswordRejectsWrongCurrentPassword(t *testing.T) {
@@ -160,6 +161,7 @@ func TestUpdatePasswordRejectsWrongCurrentPassword(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("PATCH /api/v1/settings/password (wrong current password) = %d %s, want 401", rec.Code, rec.Body.String())
 	}
+	decodeError(t, rec)
 }
 
 func TestDeleteAccount(t *testing.T) {
@@ -173,8 +175,8 @@ func TestDeleteAccount(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("POST /api/v1/settings/delete-account = %d %s, want 204", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/v1/settings/delete-account = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	// The email is released and the account is really gone -- querying it
@@ -198,8 +200,8 @@ func TestRevokeOtherSessions(t *testing.T) {
 	req.AddCookie(refreshCookieA)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("POST /api/v1/settings/sessions/revoke-others = %d %s, want 204", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/v1/settings/sessions/revoke-others = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/refresh", nil)
@@ -217,6 +219,7 @@ func TestRevokeOtherSessions(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("session B after revoke-others = %d, want 401", rec.Code)
 	}
+	decodeError(t, rec)
 }
 
 func TestUpdateTheme(t *testing.T) {
@@ -229,8 +232,8 @@ func TestUpdateTheme(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("PUT /api/v1/settings/theme (dark) = %d %s, want 204", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /api/v1/settings/theme (dark) = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	req = authedTokenRequest(http.MethodPut, "/api/v1/settings/theme", accessToken)
@@ -241,4 +244,5 @@ func TestUpdateTheme(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("PUT /api/v1/settings/theme (invalid) = %d, want 400", rec.Code)
 	}
+	decodeError(t, rec)
 }

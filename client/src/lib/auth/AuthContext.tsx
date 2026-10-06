@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as authApi from '../api/auth'
+import { readApiResponse } from '../api/client'
 import { setAccessToken, setUnauthorizedHandler } from '../api/tokenStore'
 import type { AuthResponse, User } from '../api/types'
 
@@ -30,8 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             `${(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''}/api/v1/refresh`,
             { method: 'POST', credentials: 'include' },
           )
-          if (!res.ok) throw new Error('no refresh token')
-          const data = (await res.json()) as { accessToken: string; user: User }
+          const data = await readApiResponse<{ accessToken: string; user: User }>(res)
           if (cancelled) return
           setAccessToken(data.accessToken)
           setUser(data.user)

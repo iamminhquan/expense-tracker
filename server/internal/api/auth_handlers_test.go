@@ -76,12 +76,9 @@ func doJSON(t *testing.T, router http.Handler, method, path string, body any) *h
 // response carries, failing the test if it's missing.
 func decodeAccessToken(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
-	var got struct {
+	got := decodeData[struct {
 		AccessToken string `json:"accessToken"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatalf("decode response body %q: %v", rec.Body.String(), err)
-	}
+	}](t, rec)
 	if got.AccessToken == "" {
 		t.Fatalf("response %q carries no accessToken", rec.Body.String())
 	}
@@ -129,12 +126,9 @@ func TestRegisterLoginRefreshLogout(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /api/v1/me = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	var me struct {
+	me := decodeData[struct {
 		Email string `json:"email"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &me); err != nil {
-		t.Fatalf("decode /api/v1/me response: %v", err)
-	}
+	}](t, rec)
 	if me.Email != email {
 		t.Errorf("GET /api/v1/me email = %q, want %q", me.Email, email)
 	}
@@ -165,8 +159,8 @@ func TestRegisterLoginRefreshLogout(t *testing.T) {
 	req.AddCookie(refreshCookie)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("POST /api/v1/logout = %d, want 204", rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/v1/logout = %d, want 200", rec.Code)
 	}
 
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/refresh", nil)
@@ -176,6 +170,7 @@ func TestRegisterLoginRefreshLogout(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("POST /api/v1/refresh after logout = %d, want 401 (refresh token should be revoked)", rec.Code)
 	}
+	decodeError(t, rec)
 }
 
 func TestLoginRejectsWrongPassword(t *testing.T) {
@@ -197,6 +192,7 @@ func TestLoginRejectsWrongPassword(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("POST /api/v1/login (wrong password) = %d %s, want 401", rec.Code, rec.Body.String())
 	}
+	decodeError(t, rec)
 }
 
 func TestRegisterRejectsDuplicateEmail(t *testing.T) {
@@ -217,6 +213,7 @@ func TestRegisterRejectsDuplicateEmail(t *testing.T) {
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("second POST /api/v1/register (duplicate email) = %d %s, want 409", rec.Code, rec.Body.String())
 	}
+	decodeError(t, rec)
 }
 
 func TestMeRequiresAuthentication(t *testing.T) {
@@ -229,4 +226,5 @@ func TestMeRequiresAuthentication(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("GET /api/v1/me with no Authorization header = %d, want 401", rec.Code)
 	}
+	decodeError(t, rec)
 }

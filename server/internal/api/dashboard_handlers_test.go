@@ -45,7 +45,7 @@ func TestDashboardReflectsTransactions(t *testing.T) {
 		t.Fatalf("GET /api/v1/dashboard = %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
-	dash := decodeJSON[struct {
+	dash := decodeData[struct {
 		TotalExpense      int64 `json:"totalExpense"`
 		TotalIncome       int64 `json:"totalIncome"`
 		CurrentMonthEmpty bool  `json:"currentMonthEmpty"`
@@ -119,7 +119,7 @@ func TestDashboardEmptyMonthReportsEmpty(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /api/v1/dashboard = %d %s, want 200", rec.Code, rec.Body.String())
 	}
-	dash := decodeJSON[struct {
+	dash := decodeData[struct {
 		CurrentMonthEmpty bool                 `json:"currentMonthEmpty"`
 		HeaderBalance     struct{ Empty bool } `json:"headerBalance"`
 	}](t, rec)
@@ -138,7 +138,7 @@ func TestDashboardEmptyMonthReportsEmpty(t *testing.T) {
 	// brand-new account's very first dashboard load crashed outright.
 	// Checking the raw body is deliberate: unmarshaling "null" into a Go
 	// []T field also reads back as nil, which would hide the regression
-	// from a struct-shaped assertion the way dash's decodeJSON above does.
+	// from a struct-shaped assertion the way decodeData above does.
 	for _, field := range []string{
 		`"availableMonths":null`,
 		`"labels":null`, `"values":null`, `"colors":null`, `"legend":null`,

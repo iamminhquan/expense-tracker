@@ -34,7 +34,7 @@ func forgotPasswordHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req forgotPasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 		email := strings.TrimSpace(req.Email)
@@ -42,7 +42,7 @@ func forgotPasswordHandler(deps Deps) gin.HandlerFunc {
 		if user, err := deps.Queries.GetUserByEmail(c.Request.Context(), email); err == nil {
 			queueResetEmail(c.Request.Context(), deps, user)
 		}
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "if that email is registered, a reset link is on its way", nil)
 	}
 }
 
@@ -84,10 +84,10 @@ func checkResetTokenHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.Query("token")
 		if _, err := auth.ValidateResetToken(c.Request.Context(), deps.Queries, token); err != nil {
-			errorResponse(c, http.StatusNotFound, "that reset link is invalid or has expired")
+			respondError(c, http.StatusNotFound, "that reset link is invalid or has expired")
 			return
 		}
-		c.Status(http.StatusNoContent)
+		respondSuccess[any](c, http.StatusOK, "reset link is valid", nil)
 	}
 }
 
@@ -106,35 +106,35 @@ func resetPasswordHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req resetPasswordRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 
 		userID, err := auth.ValidateResetToken(c.Request.Context(), deps.Queries, req.Token)
 		if err != nil {
-			errorResponse(c, http.StatusNotFound, "that reset link is invalid or has expired")
+			respondError(c, http.StatusNotFound, "that reset link is invalid or has expired")
 			return
 		}
 		if len([]rune(req.Password)) < 8 {
-			errorResponse(c, http.StatusBadRequest, "password must be at least 8 characters")
+			respondError(c, http.StatusBadRequest, "password must be at least 8 characters")
 			return
 		}
 		if req.Password != req.PasswordConfirm {
-			errorResponse(c, http.StatusBadRequest, "the two passwords do not match")
+			respondError(c, http.StatusBadRequest, "the two passwords do not match")
 			return
 		}
 
 		hash, err := auth.HashPassword(req.Password)
 		if err != nil {
 			log.Printf("reset password: hash: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not reset password")
+			respondError(c, http.StatusInternalServerError, "could not reset password")
 			return
 		}
 		if err := deps.Queries.UpdateUserPassword(c.Request.Context(), sqlcgen.UpdateUserPasswordParams{
 			ID: userID, PasswordHash: hash,
 		}); err != nil {
 			log.Printf("reset password: update: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not reset password")
+			respondError(c, http.StatusInternalServerError, "could not reset password")
 			return
 		}
 		// A reset is the way out of a login lock that doesn't involve
@@ -151,10 +151,10 @@ func resetPasswordHandler(deps Deps) gin.HandlerFunc {
 
 		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
 		if err != nil {
-			errorResponse(c, http.StatusInternalServerError, "could not reset password")
+			respondError(c, http.StatusInternalServerError, "could not reset password")
 			return
 		}
-		issueAuthResponse(c, deps, user)
+		issueAuthResponse(c, deps, user, "password reset")
 	}
 }
 
@@ -181,13 +181,13 @@ func verifyEmailHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req verifyEmailRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			errorResponse(c, http.StatusBadRequest, "malformed request body")
+			respondError(c, http.StatusBadRequest, "malformed request body")
 			return
 		}
 
 		userID, email, err := auth.ValidateVerificationToken(c.Request.Context(), deps.Queries, req.Token)
 		if err != nil {
-			c.JSON(http.StatusOK, verifyEmailResponse{})
+			respondSuccess(c, http.StatusOK, "that verification link is invalid or has expired", verifyEmailResponse{})
 			return
 		}
 
@@ -196,16 +196,16 @@ func verifyEmailHandler(deps Deps) gin.HandlerFunc {
 		}); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				c.JSON(http.StatusOK, verifyEmailResponse{Conflict: true})
+				respondSuccess(c, http.StatusOK, "that email is already used by another account", verifyEmailResponse{Conflict: true})
 				return
 			}
 			log.Printf("verify email: apply: %v", err)
-			errorResponse(c, http.StatusInternalServerError, "could not verify email")
+			respondError(c, http.StatusInternalServerError, "could not verify email")
 			return
 		}
 		if err := auth.ConsumeVerificationToken(c.Request.Context(), deps.Queries, req.Token); err != nil {
 			log.Printf("verify email: consume token: %v", err)
 		}
-		c.JSON(http.StatusOK, verifyEmailResponse{Verified: true})
+		respondSuccess(c, http.StatusOK, "email verified", verifyEmailResponse{Verified: true})
 	}
 }
