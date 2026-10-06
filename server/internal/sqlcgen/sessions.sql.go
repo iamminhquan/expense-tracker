@@ -14,7 +14,7 @@ import (
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id, user_id, expires_at, user_agent)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, expires_at, created_at, user_agent
+RETURNING id, user_id, expires_at, created_at, user_agent, public_id
 `
 
 type CreateSessionParams struct {
@@ -38,6 +38,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UserAgent,
+		&i.PublicID,
 	)
 	return i, err
 }
@@ -69,19 +70,20 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 }
 
 const deleteSessionForUser = `-- name: DeleteSessionForUser :exec
-DELETE FROM sessions WHERE id = $1 AND user_id = $2
+DELETE FROM sessions WHERE public_id = $1 AND user_id = $2
 `
 
 type DeleteSessionForUserParams struct {
-	ID     string `json:"id"`
-	UserID int64  `json:"user_id"`
+	PublicID pgtype.UUID `json:"public_id"`
+	UserID   int64       `json:"user_id"`
 }
 
 // DeleteSessionForUser is the scoped counterpart to DeleteSession: it takes
-// a user_id as well as an id so that a session id typed into a form field
+// a user_id as well as the session's public_id (never its id, which is the
+// refresh token and is not sent to clients) so that an id a client sends
 // can only ever delete a session owned by the caller.
 func (q *Queries) DeleteSessionForUser(ctx context.Context, arg DeleteSessionForUserParams) error {
-	_, err := q.db.Exec(ctx, deleteSessionForUser, arg.ID, arg.UserID)
+	_, err := q.db.Exec(ctx, deleteSessionForUser, arg.PublicID, arg.UserID)
 	return err
 }
 
@@ -99,7 +101,7 @@ func (q *Queries) DeleteSessionsForUser(ctx context.Context, userID int64) error
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, user_id, expires_at, created_at, user_agent FROM sessions WHERE id = $1
+SELECT id, user_id, expires_at, created_at, user_agent, public_id FROM sessions WHERE id = $1
 `
 
 func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
@@ -111,12 +113,13 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UserAgent,
+		&i.PublicID,
 	)
 	return i, err
 }
 
 const listSessionsForUser = `-- name: ListSessionsForUser :many
-SELECT id, user_id, expires_at, created_at, user_agent FROM sessions WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, user_id, expires_at, created_at, user_agent, public_id FROM sessions WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListSessionsForUser(ctx context.Context, userID int64) ([]Session, error) {
@@ -134,6 +137,7 @@ func (q *Queries) ListSessionsForUser(ctx context.Context, userID int64) ([]Sess
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UserAgent,
+			&i.PublicID,
 		); err != nil {
 			return nil, err
 		}
