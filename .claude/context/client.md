@@ -138,6 +138,5 @@ Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before commi
 ## Known Gaps and Debt
 
 - No long-press/drag-to-dismiss pixel-perfect parity audit beyond the gesture logic itself (thresholds/timing match the deleted original; visual polish like SVG nav icons was simplified to text labels).
-- Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
 - Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress` and the CSV import flow; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.
