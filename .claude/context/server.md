@@ -175,6 +175,7 @@ sqlc generate
 - `BREVO_API_KEY`, `MAIL_FROM` — password-reset/verification email, sent over Brevo's HTTP API rather than SMTP, because Render's free tier blocks outbound SMTP ports but never 443. Optional — blank leaves forgot-password working end to end except the actual send, which is logged instead.
 - `JWT_SECRET` — signs/verifies access tokens (`internal/auth/jwt.go`). Required, no fallback, same reasoning as `DATABASE_URL`: `config.Load()` refuses to start without it rather than sign tokens with a key baked into the source tree.
 - `CORS_ALLOWED_ORIGINS` — comma-separated origins the API's CORS middleware accepts credentialed cross-origin requests from (the `client/` deployment's domain). Optional; blank means none, correct until `client/` has a real deployment to allow.
+- `TRUSTED_PROXIES` — comma-separated IPs/CIDRs of the reverse proxies whose `X-Forwarded-For` is believed when finding a client's IP for the rate limits. Blank trusts none (client = TCP peer), right locally. On Render it must name Render's proxy ranges or every visitor shares one budget; an invalid entry stops the server starting. See `render.yaml`.
 
 ## Deploy Notes
 
