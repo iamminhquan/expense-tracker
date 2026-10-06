@@ -124,7 +124,7 @@ pnpm build   # tsc -b && vite build
 Then:
 - **Keyboard-only pass** for anything interactive. Tab through it, use Enter/Space on every control, and use Escape on dialogs. Check that focus is visible at each stop and never gets lost.
 - **Real-browser check** for anything that touches auth, a response shape, the URL, or a gesture. Several real bugs here were invisible to `tsc`/`oxlint` and only showed up in Chromium (`.claude/context/client.md`, Safe Edit Rules). Check light and dark mode, and a narrow mobile viewport.
-- **Docs.** If you added a folder, moved a page into one, or changed a convention above, update `.claude/context/client.md`'s Frontend Layout section (and its Change Log) in the same change.
+- **Docs.** If you added a folder, moved a page into one, or changed a convention above, update `.claude/context/client.md`'s Frontend Layout section in the same change.
 - **Rule paths.** If you moved or renamed a file, run `grep -rn '<old path>' .claude/`. Every rule's `paths:` entry that still names the old path stops loading silently, so fix those in the same change.
 
 ## Example: a page section done right
