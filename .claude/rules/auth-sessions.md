@@ -14,7 +14,8 @@ paths:
 - `server/internal/auth/session.go` issues and validates a random opaque token against the `sessions` table. Its functions, like the reset- and verification-token files beside it, take `*sqlcgen.Queries` as an argument rather than a type wrapping one, so a caller inside a transaction can pass `Queries.WithTx(tx)`.
 - That same token is the refresh token the API sends as an httpOnly cookie (`Path=/api`) -- there is no second session mechanism. `internal/auth/jwt.go`'s doc comment has the full reasoning: a stateless access token (15 min TTL, issued/validated by `internal/api.RequireAuth`) sits on top, and the refresh token is what's actually revocable (logout, "log out everywhere else", a password change).
 - `password.go` handles bcrypt hashing and verification.
-- Sessions last 7 days. A password change deletes every *other* session for that user and keeps the current one.
+- Every `POST /api/v1/refresh` replaces the session's token (`auth.RefreshSession`, migration 000020); `server.md`'s Authentication Model has the grace-period and reuse rules. When touching refresh, logout or revoke queries, remember the row can be addressed by `id` (current token) or `previous_id` (the one just replaced).
+- Sessions last 7 days, counted from login: rotation does not extend them. A password change deletes every *other* session for that user and keeps the current one.
 - `internal/api.UserID(c)` reads the authenticated user's ID an access token named; it's the Gin-context equivalent of a context value.
 - The refresh-token cookie's `SameSite` must track `SecureCookies` (`refreshCookieSameSite` in `auth_handlers.go`), never a hardcoded `None` -- see `.claude/rules/json-api-conventions.md` for why a hardcoded `None` silently broke every hard page reload in local dev (Chrome drops a `SameSite=None` cookie outright without `Secure`, and `SecureCookies` is false there).
 

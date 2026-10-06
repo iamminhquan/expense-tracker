@@ -228,3 +228,81 @@ func TestMeRequiresAuthentication(t *testing.T) {
 	}
 	decodeError(t, rec)
 }
+
+func refreshWith(router http.Handler, cookie *http.Cookie) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/refresh", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestRefreshRotatesTheRefreshToken(t *testing.T) {
+	deps := newTestDeps(t)
+	router := api.NewRouter(deps)
+	_, _, _, cookie := registerTestAccount(t, deps, router)
+
+	rec := refreshWith(router, cookie)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/v1/refresh = %d %s, want 200", rec.Code, rec.Body.String())
+	}
+	_, rotated := decodeAuthResponse(t, rec)
+	if rotated.Value == cookie.Value {
+		t.Fatal("refresh set the same refresh token back, want a new one")
+	}
+	if !rotated.HttpOnly {
+		t.Error("the rotated refresh token is not httpOnly")
+	}
+
+	// Its successor works, and rotates in turn.
+	if rec := refreshWith(router, rotated); rec.Code != http.StatusOK {
+		t.Fatalf("refresh with the new token = %d %s, want 200", rec.Code, rec.Body.String())
+	}
+}
+
+// A second tab refreshing with the token the first one just replaced is the
+// normal race, and must not sign anyone out.
+func TestRefreshWithTheJustReplacedTokenIsAnswered(t *testing.T) {
+	deps := newTestDeps(t)
+	router := api.NewRouter(deps)
+	_, _, _, cookie := registerTestAccount(t, deps, router)
+
+	_, rotated := decodeAuthResponse(t, refreshWith(router, cookie))
+	rec := refreshWith(router, cookie)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("racing refresh with the replaced token = %d %s, want 200", rec.Code, rec.Body.String())
+	}
+	if _, again := decodeAuthResponse(t, rec); again.Value != rotated.Value {
+		t.Errorf("racing refresh was handed %q, want the token the first one got (%q)", again.Value, rotated.Value)
+	}
+}
+
+func TestReusedRefreshTokenEndsTheSession(t *testing.T) {
+	deps := newTestDeps(t)
+	router := api.NewRouter(deps)
+	_, _, _, cookie := registerTestAccount(t, deps, router)
+
+	_, rotated := decodeAuthResponse(t, refreshWith(router, cookie))
+	if _, err := deps.DB.Exec(context.Background(),
+		"UPDATE sessions SET rotated_at = now() - interval '1 hour' WHERE id = $1", rotated.Value); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := refreshWith(router, cookie)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("reused refresh token = %d %s, want 401", rec.Code, rec.Body.String())
+	}
+	decodeError(t, rec)
+	cleared := false
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "session_id" && c.MaxAge < 0 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Error("the refresh-token cookie was not cleared after a reuse")
+	}
+	if rec := refreshWith(router, rotated); rec.Code != http.StatusUnauthorized {
+		t.Errorf("the owner's newer token after a reuse = %d, want 401: the whole session must end", rec.Code)
+	}
+}
