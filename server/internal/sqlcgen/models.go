@@ -32,12 +32,14 @@ type PasswordResetToken struct {
 }
 
 type Session struct {
-	ID        string             `json:"id"`
-	UserID    int64              `json:"user_id"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UserAgent pgtype.Text        `json:"user_agent"`
-	PublicID  pgtype.UUID        `json:"public_id"`
+	ID         string             `json:"id"`
+	UserID     int64              `json:"user_id"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UserAgent  pgtype.Text        `json:"user_agent"`
+	PublicID   pgtype.UUID        `json:"public_id"`
+	PreviousID pgtype.Text        `json:"previous_id"`
+	RotatedAt  pgtype.Timestamptz `json:"rotated_at"`
 }
 
 type Transaction struct {

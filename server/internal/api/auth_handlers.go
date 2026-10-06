@@ -200,13 +200,27 @@ func refreshHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusUnauthorized, "no refresh token")
 			return
 		}
-		userID, err := auth.ValidateSession(c.Request.Context(), deps.Queries, cookie)
+		refreshed, err := auth.RefreshSession(c.Request.Context(), deps.Queries, cookie)
 		if err != nil {
+			switch {
+			case errors.Is(err, auth.ErrRefreshTokenReused):
+				log.Printf("refresh: a replaced refresh token was reused; its session was revoked")
+				// The session is gone, so the browser's newer token is dead too.
+				clearRefreshCookie(c, deps)
+			case errors.Is(err, auth.ErrInvalidRefreshToken):
+				// Not cleared: this may be a request still carrying a token the
+				// browser has since replaced, and clearing would take the new one.
+			default:
+				log.Printf("refresh: %v", err)
+				respondError(c, http.StatusInternalServerError, "could not refresh your session")
+				return
+			}
 			respondError(c, http.StatusUnauthorized, "refresh token expired or revoked, please log in again")
 			return
 		}
-		user, err := deps.Queries.GetUserByID(c.Request.Context(), userID)
+		user, err := deps.Queries.GetUserByID(c.Request.Context(), refreshed.UserID)
 		if err != nil {
+			clearRefreshCookie(c, deps)
 			respondError(c, http.StatusUnauthorized, "refresh token expired or revoked, please log in again")
 			return
 		}
@@ -217,6 +231,7 @@ func refreshHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not refresh your session")
 			return
 		}
+		setRefreshCookie(c, deps, refreshed.Token, refreshed.ExpiresAt)
 		respondSuccess(c, http.StatusOK, "session refreshed", authResponse{AccessToken: accessToken, ExpiresAt: expiresAt, User: newUserDTO(user)})
 	}
 }

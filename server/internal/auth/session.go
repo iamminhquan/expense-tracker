@@ -42,21 +42,71 @@ func CreateSession(ctx context.Context, q *sqlcgen.Queries, userID int64, userAg
 	return session.ID, session.ExpiresAt.Time, nil
 }
 
-// ValidateSession reports which user token belongs to, or an error if the
-// session is not found or has expired.
-func ValidateSession(ctx context.Context, q *sqlcgen.Queries, token string) (int64, error) {
-	session, err := q.GetSession(ctx, token)
+// ErrInvalidRefreshToken means the token is unknown, expired, or was replaced
+// long enough ago that it can no longer be told apart from one never issued.
+var ErrInvalidRefreshToken = errors.New("invalid refresh token")
+
+// ErrRefreshTokenReused means a token that had already been replaced came back
+// after RotationGrace. The legitimate client holds the newer token by then, so
+// this is a copy being replayed, and the session it belonged to has been ended.
+var ErrRefreshTokenReused = errors.New("refresh token reused")
+
+// RotationGrace is how long a replaced token still works. Two requests can
+// carry one token honestly: a second browser tab refreshing at the same moment,
+// a retry after the response carrying the new token was lost. Past it, the
+// replaced token is evidence of a stolen copy.
+const RotationGrace = 30 * time.Second
+
+// RefreshedSession is what a client holds after a refresh.
+type RefreshedSession struct {
+	UserID int64
+	// Token is the refresh token the client should now send. It is the one
+	// just minted, or, for a request inside the grace period, the one the
+	// racing request was already given.
+	Token     string
+	ExpiresAt time.Time
+}
+
+// RefreshSession exchanges a refresh token for its successor. The session's
+// expiry does not move: rotating a token limits how long a stolen copy is
+// useful, it does not extend how long the login lasts.
+//
+// A token already replaced is not rotated again. Inside RotationGrace it gets
+// the current token back; after, the session is deleted and
+// ErrRefreshTokenReused returned, so a thief and the owner replaying the same
+// token both lose it rather than the thief keeping it quietly.
+func RefreshSession(ctx context.Context, q *sqlcgen.Queries, token string) (RefreshedSession, error) {
+	next, err := generateToken()
+	if err != nil {
+		return RefreshedSession{}, err
+	}
+
+	rotated, err := q.RotateSession(ctx, sqlcgen.RotateSessionParams{ID: token, ID_2: next})
+	if err == nil {
+		return RefreshedSession{UserID: rotated.UserID, Token: rotated.ID, ExpiresAt: rotated.ExpiresAt.Time}, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return RefreshedSession{}, err
+	}
+
+	// Unknown, expired, or already replaced: only the last is worth a second look.
+	replaced, err := q.GetSessionByPreviousID(ctx, pgtype.Text{String: token, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, errors.New("session not found")
+			return RefreshedSession{}, ErrInvalidRefreshToken
 		}
-		return 0, err
+		return RefreshedSession{}, err
 	}
-	if time.Now().After(session.ExpiresAt.Time) {
-		_ = q.DeleteSession(ctx, token)
-		return 0, errors.New("session expired")
+	if time.Now().After(replaced.ExpiresAt.Time) {
+		return RefreshedSession{}, ErrInvalidRefreshToken
 	}
-	return session.UserID, nil
+	if time.Since(replaced.RotatedAt.Time) > RotationGrace {
+		if err := q.DeleteSession(ctx, replaced.ID); err != nil {
+			return RefreshedSession{}, err
+		}
+		return RefreshedSession{}, ErrRefreshTokenReused
+	}
+	return RefreshedSession{UserID: replaced.UserID, Token: replaced.ID, ExpiresAt: replaced.ExpiresAt.Time}, nil
 }
 
 // DeleteSession removes token from the sessions table.
