@@ -25,10 +25,11 @@ gofmt -l .        # must print nothing
 go vet ./...
 ```
 
-Touched `client/`? Both must pass, run from inside `client/`:
+Touched `client/`? All three must pass, run from inside `client/`:
 
 ```bash
 pnpm lint
+pnpm test
 pnpm build
 ```
 

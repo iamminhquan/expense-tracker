@@ -95,7 +95,7 @@ func isExportHeader(header []string) bool {
 	}
 	for i, want := range columns {
 		got := normalize(header[i])
-		if got != want && !(want == "note" && got == "description") {
+		if got != want && (want != "note" || got != "description") {
 			return false
 		}
 	}

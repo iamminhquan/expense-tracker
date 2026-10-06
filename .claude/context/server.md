@@ -24,7 +24,7 @@
   - deployment flow
   - package layout or source-of-truth files
 - If a code change does not affect behavior or operational context, no content rewrite is required, but the agent should still check whether the existing text remains accurate.
-- Keep updates short and factual. Do not turn this file into a full changelog of code diffs — that is what the Change Log section is for, and even there, one line per change.
+- Keep updates short and factual.
 
 ## Stack
 
@@ -63,7 +63,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 ## Important Reality Checks
 
 - Authorization is single-tier — see Main Business Scope above. There is no roles/permissions system to audit for missing checks.
-- Email verification gates nothing (`email_verified` only matters once a client shows a reminder for it — see `.claude/rules/email-verification.md`'s known gap) — deliberate, not an oversight to "fix".
+- Email verification gates nothing (`email_verified` only drives the reminder strip `client/` shows, via `userDTO.emailVerified` — see `.claude/rules/email-verification.md`) — deliberate, not an oversight to "fix".
 - The default-category history (migrations 000005 → 000006 → 000008 → 000014) is deliberately append/update-in-place, never delete-and-reinsert, because `transactions.category_id` has no `ON DELETE` clause. See Seeder Reality below before "cleaning up" an odd-looking default category.
 - This backend was migrated off an older Chi-routed, `html/template`-rendered monolith. That code (`internal/handlers`, `internal/web`, `internal/csrf`) is deleted, not archived elsewhere in this repo — git history is where it still exists, if you need to see how something used to work.
 
@@ -87,6 +87,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 - Every response except `/healthz` and the CSV export is a JSON envelope, `{"success": bool, "message": string, "data": T | null}`, written through `respondSuccess`/`respondError` in `response.go`; no endpoint answers `204`. See `.claude/rules/json-api-conventions.md` for the full set of conventions this package follows, several of them written up *because* a real bug violated them (never ship `null` for an array field a client expects `[]` from, never embed another package's untagged struct directly in a response).
 - Ship raw numbers, not pre-formatted display strings. A money amount is a plain `int64` (VND, whole đồng), a percentage a plain `int`, a date `"2006-01-02"` — never a formatted `"50.000₫"` or a pre-composed sentence. The client owns formatting and i18n of its own UI text; this backend only resolves what it alone has the data for (a default category's display name via `i18n`, a User-Agent string via `format.DeviceLabel`).
 - Authentication is a header, not a cookie, for every authenticated endpoint: `Authorization: Bearer <access token>`. The one exception is `POST /api/v1/refresh` and `POST /api/v1/logout`, which read the refresh-token httpOnly cookie instead — see Authentication Model.
+- Every request body is capped at 1 MiB (`limitBody`, `maxRequestBytes` in `middleware.go`), the same as the CSV upload's own limit; a read past it fails and surfaces as the handler's usual 400.
 - Localization: none — every message this API writes is English. Only default-category *names* are resolved through `server/internal/i18n`, keyed by a stable slug rather than the displayed string.
 
 ## Authentication Model
@@ -94,8 +95,9 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 - Plain email+password login, no OAuth/SSO. Two tokens, not one:
   - **Access token** (`internal/auth/jwt.go`): a stateless, HS256-signed JWT naming a user ID, 15-minute TTL. Never checked against the database — it self-expires, and that's the entire point: it can't be revoked before it does, which is why it's kept short-lived.
   - **Refresh token**: the pre-existing opaque session-row token (`sessions` table, `internal/auth/session.go`), reused as-is rather than built as a second mechanism — see `jwt.go`'s doc comment for the full reasoning. Sent as an httpOnly, `Path=/api` cookie; 7-day TTL (`sessions.expires_at`).
-- `POST /api/v1/refresh` exchanges a valid refresh-token cookie for a fresh access token without re-checking the password. It does not rotate the refresh token itself.
+- `POST /api/v1/refresh` exchanges a valid refresh-token cookie for a fresh access token without re-checking the password, and **rotates the refresh token**: the session row's `id` is replaced in place (`auth.RefreshSession`; the row's `public_id`, `created_at` and `expires_at` do not change, so rotating never extends a login) and the new token comes back as the cookie. The replaced token is kept in `previous_id`. Presented again within `auth.RotationGrace` (30s: a second tab, a retry) it is answered with the current token; after that it is a replayed copy, so the session is deleted and the cookie cleared. Only the latest replaced token is remembered, and an unknown token is a plain 401 that leaves the cookie alone, since it may be an in-flight request carrying a token the browser has already replaced.
 - A password change deletes every *other* session (refresh token) for the user but keeps the current one; "Log out everywhere else" in Settings calls the same deletion deliberately, as a user action rather than a side effect.
+- Per-IP rate limits (`ratelimit.go`, in-memory token buckets, single instance): `login`, `reset-password` (GET and POST) and `verify-email` get a burst of 10 then 10 a minute; `register` and `forgot-password` share a burst of 5 then 5 an hour. Over budget answers `429` with `Retry-After`. `refresh` is not limited (its token is unguessable). The client IP is `c.ClientIP()`, trustworthy only because the router trusts no proxy unless `TRUSTED_PROXIES` names it. A second server instance would double every budget and need a shared store.
 - Login lockout: 5 consecutive wrong passwords lock the account for 15 minutes (`users.failed_login_attempts`, `users.locked_until`), checked *before* password comparison so a locked account can't be used to extend its own lock. A completed password reset clears it.
 - Password reset: `password_reset_tokens`, 1-hour TTL, single-use, emailed via Brevo. Resetting signs the visitor in (a fresh access token + refresh cookie), matching register/login.
 - Email verification: `email_verification_tokens`, 24-hour TTL, shared by both signup confirmation and a settings email change (via `pending_email`, promoted onto `users.email` only once its own link is visited). Verification gates nothing — see Important Reality Checks.
@@ -111,7 +113,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 ## Core Data Model
 
 - `users` — email (unique, login identity), password_hash (bcrypt), name, username (unique, `^[a-z][a-z0-9_]{2,19}$`), theme (`auto`/`light`/`dark`), email_verified + pending_email, failed_login_attempts + locked_until.
-- `sessions` — id (opaque token, primary key, **this is the refresh token**), user_id, expires_at, created_at, user_agent (nullable — predates migration 000012).
+- `sessions` — id (opaque token, primary key, **this is the refresh token** — never send it to a client), public_id (UUID, the identifier clients see and send back to revoke a session), previous_id + rotated_at (the token a refresh just replaced, and when; see Authentication Model), user_id, expires_at, created_at, user_agent (nullable — predates migration 000012).
 - `categories` — user_id (NULL = shared default, else a personal category), name, type (`expense`|`income`), color (fixed 9-value palette via CHECK), slug (NULL for personal; a stable, unique, language-independent key for the 9 shared defaults — **match on this, never on `name`**). Unique index on `(user_id, type, name)`.
 - `transactions` — user_id, category_id (FK to `categories`, **no `ON DELETE` clause**, deliberate — see below), amount (BIGINT, `CHECK (amount > 0)`, VND as a whole-number integer), type (`expense`|`income`), description, occurred_on (DATE).
 - `password_reset_tokens`, `email_verification_tokens` — single-use token tables, FK to `users` with `ON DELETE CASCADE`.
@@ -158,7 +160,10 @@ cd server
 go build ./...
 gofmt -l .        # must print nothing
 go vet ./...
+golangci-lint run ./...   # config in server/.golangci.yml
 ```
+
+- CI runs the same checks, plus `sqlc generate` leaving no diff, and runs the DB-backed tests against a Postgres 16 service container. The tests need the schema to exist before they start, and only `TestRunMigrations` (`cmd/server`) creates it, so CI runs that one test first (`go test -run '^TestRunMigrations$' ./cmd/server`). Do the same on a fresh scratch database, or packages race it and fail on a missing table.
 
 - Regenerate `server/internal/sqlcgen` after changing SQL in `server/internal/database/queries` or the migrations:
 
@@ -173,7 +178,9 @@ sqlc generate
 - `APP_BASE_URL` — scheme+host of **`client/`, not this server** — password-reset/verification emails link to its `/reset-password`/`/verify-email` React Router routes, which this API doesn't answer itself. Defaults to `http://localhost:5173` (Vite's default port); set to the Vercel domain in production.
 - `BREVO_API_KEY`, `MAIL_FROM` — password-reset/verification email, sent over Brevo's HTTP API rather than SMTP, because Render's free tier blocks outbound SMTP ports but never 443. Optional — blank leaves forgot-password working end to end except the actual send, which is logged instead.
 - `JWT_SECRET` — signs/verifies access tokens (`internal/auth/jwt.go`). Required, no fallback, same reasoning as `DATABASE_URL`: `config.Load()` refuses to start without it rather than sign tokens with a key baked into the source tree.
+- `GIN_MODE` — set to `release` in `render.yaml`; Gin's default debug mode logs every route at startup. Leave unset locally.
 - `CORS_ALLOWED_ORIGINS` — comma-separated origins the API's CORS middleware accepts credentialed cross-origin requests from (the `client/` deployment's domain). Optional; blank means none, correct until `client/` has a real deployment to allow.
+- `TRUSTED_PROXIES` — comma-separated IPs/CIDRs of the reverse proxies whose `X-Forwarded-For` is believed when finding a client's IP for the rate limits. Blank trusts none (client = TCP peer), right locally. On Render it must name Render's proxy ranges or every visitor shares one budget; an invalid entry stops the server starting. See `render.yaml`.
 
 ## Deploy Notes
 
@@ -210,19 +217,4 @@ sqlc generate
 ## Known Gaps and Debt
 
 - No admin/staff role, no audit log, no account-recovery window on deletion — deliberate scope cuts, not oversights (see Authorization Model and `.claude/rules/account-deletion.md`).
-- No client-side reminder for an unverified email address, and `userDTO` doesn't carry `EmailVerified` yet — see `.claude/rules/email-verification.md`'s known gap.
 - Test coverage is table-driven Go `testing` across packages, plus DB-backed integration tests in `internal/api` (`TEST_DATABASE_URL`).
-
-## Change Log
-
-- `2026-10-07`: the dashboard pie legend's percentages now add up to exactly 100 (largest-remainder rounding in `wholePercents`); rounding each slice separately could total 99 or 101. See `.claude/rules/dashboard.md`.
-- `2026-10-06`: every `/api/v1` JSON response now uses one envelope, `JSONResponse` (`{success, message, data}`, in `response.go`), success and error alike. `errorResponse` was replaced by `respondError`, and every `c.JSON` by `respondSuccess` with a message per endpoint. The thirteen endpoints that answered `204` now answer `200` with `data: null`. Unknown routes (404), wrong methods (405, `HandleMethodNotAllowed` now on), recovered panics (500, `CustomRecovery`) and `RequireAuth`'s 401s now answer in the envelope too, where before they gave plain text, an empty body or a bare `gin.H`. The design spec lived in `docs/superpowers/specs/` until it was implemented; see commit `31347a5`.
-- `2026-10-06`: dead code removed (found with `deadcode`): `internal/auth/middleware.go` (`RequireAuth`/`UserIDFromContext`, the cookie-session + htmx `HX-Redirect` middleware from the Chi era, with its test; `internal/api/middleware.go` is the only auth middleware), `pgval.Text`, and `monthScope.LabelLower` / `txnFilters.Any` / `txnFilters.ActiveCount` in `transaction_query.go`.
-- `2026-10-05`: every API route moved from `/api/*` to `/api/v1/*` (`router.go`'s group, `client/src/lib/api/*`, tests, docs); `/healthz` stays at the root. No unversioned alias is kept. The refresh-token cookie keeps `Path=/api` on purpose — it still matches `/api/v1/refresh` and `/logout`, and survives a future `/api/v2`.
-- `2026-10-05`: `/healthz` moved from `/api/healthz` to the root. `render.yaml`'s `healthCheckPath` and the keep-alive cron both probe `/healthz`, which the deleted Chi app used to serve; after the cutover cleanup nothing answered it and Render would have marked every deploy unhealthy. `TestHealthzAtRoot` pins it.
-- `2026-10-05`: `APP_BASE_URL` now documented (and defaulted, to `http://localhost:5173`) as `client/`'s URL, not this server's — email links point at client routes.
-- `2026-10-05`: this file renamed from `backend.md` to `server.md` to match the `server/` directory it describes.
-- `2026-10-05`: the Gin/React migration completed — `internal/handlers`, `internal/web`, and `internal/csrf` (the old Chi-routed, `html/template`-rendered app and its CSRF middleware) deleted in full, along with the now-unused parts of `internal/format` (only `DeviceLabel` survives) and the `go-chi/chi` dependency. `cmd/server/main.go` now runs `internal/api`'s Gin router alone — no more dual-router `http.ServeMux` dispatch. This file rewritten from scratch to describe the JSON API as the backend, not as one of two halves.
-- `2026-10-05`: `internal/api` built out across several commits to full parity with the deleted HTML app (auth, categories, transactions, dashboard, settings, CSV import/export) — see git log on this date for the detailed, phase-by-phase history; this file no longer tracks that transition day by day now that it's finished.
-- `2026-10-05`: repo converted into a monorepo (`server/` + `client/`).
-- `2026-10-05`: bank-email auto-tracking feature removed in full (predates the Gin/React migration). Deleted `bankmail`, `inbound`, `inboxproc`, `classify`, and `emailworker/`; the `/inbox/{token}` and `/settings/inbox/*` routes; the `GEMINI_*`/`INBOUND_*` env vars; and, via migration `000018_drop_email_tracking`, the `bank_emails`/`category_hints`/`bank_accounts` tables and `transactions.source`/`bank_email_id`/`users.inbox_token` columns. The `other_income` default category was kept — it is a shared category like `other`, not specific to that feature.

@@ -1,8 +1,10 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ArrowLeftRight, ChartPie, Tags } from 'lucide-react'
 import { useDashboard } from '../../hooks/useDashboard'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { BalanceWidget } from './BalanceWidget'
 import { UserMenu } from './UserMenu'
+import { VerifyEmailBanner } from './VerifyEmailBanner'
 
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Overview', Icon: ChartPie },
@@ -52,8 +54,11 @@ export function Layout() {
       </header>
 
       <main className="mx-auto w-full max-w-[1280px] px-4 pt-2 pb-[120px] md:px-10 md:pt-9 md:pb-16">
+        <VerifyEmailBanner />
         <div key={location.pathname} className="animate-page-in">
-          <Outlet />
+          <ErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
 

@@ -103,3 +103,34 @@ func TestLoadSplitsCORSAllowedOrigins(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadTrustedProxies(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("JWT_SECRET", "s")
+
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/8, 203.0.113.7 ,fc00::/7")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	want := []string{"10.0.0.0/8", "203.0.113.7", "fc00::/7"}
+	if len(cfg.TrustedProxies) != len(want) {
+		t.Fatalf("TrustedProxies = %v, want %v", cfg.TrustedProxies, want)
+	}
+	for i := range want {
+		if cfg.TrustedProxies[i] != want[i] {
+			t.Fatalf("TrustedProxies = %v, want %v", cfg.TrustedProxies, want)
+		}
+	}
+
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/8,not-an-ip")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load accepted a TRUSTED_PROXIES entry that is neither an IP nor a CIDR")
+	}
+
+	t.Setenv("TRUSTED_PROXIES", "")
+	cfg, err = Load()
+	if err != nil || len(cfg.TrustedProxies) != 0 {
+		t.Fatalf("unset TRUSTED_PROXIES = (%v, %v), want none and no error", cfg.TrustedProxies, err)
+	}
+}

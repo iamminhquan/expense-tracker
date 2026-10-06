@@ -30,5 +30,5 @@ paths:
 
 ## Client: the URL is the source of truth, not `useState`
 
-- `TransactionsPage.tsx` and `DashboardPage.tsx` both keep their filters in the URL's own query string (`useSearchParams`), not local component state. This isn't just style -- a real browser test caught the bug that happens otherwise: a link to a specific month (the CSV import flow's "view results" link, a bookmark, a reload) silently reset to whatever the component's initial state happened to be, because nothing ever read the URL it landed on. See `.claude/rules/json-api-conventions.md`'s browser-testing note and `.claude/context/README.md`'s Change Log for the exact bug.
+- `TransactionsPage.tsx` and `DashboardPage.tsx` both keep their filters in the URL's own query string (`useSearchParams`), not local component state. This isn't just style -- a real browser test caught the bug that happens otherwise: a link to a specific month (the CSV import flow's "view results" link, a bookmark, a reload) silently reset to whatever the component's initial state happened to be, because nothing ever read the URL it landed on. See `.claude/rules/json-api-conventions.md`'s browser-testing note.
 - Any new page with its own filters (CSV import's result links, say) should follow the same pattern from the start rather than needing the same fix applied after the fact.

@@ -4,6 +4,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout'
 import { StatusIcon } from '../../components/ui/StatusIcon'
 import { buttonClass } from '../../lib/formStyles'
 import { verifyEmail } from '../../lib/api/auth'
+import { useAuth } from '../../lib/auth/AuthContext'
 
 const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
 
@@ -14,6 +15,7 @@ export function VerifyEmailPage() {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const [outcome, setOutcome] = useState<Outcome>('checking')
+  const { reloadUser } = useAuth()
 
   useEffect(() => {
     if (!token) {
@@ -21,9 +23,12 @@ export function VerifyEmailPage() {
       return
     }
     verifyEmail(token)
-      .then((res) => setOutcome(res.verified ? 'verified' : res.conflict ? 'conflict' : 'invalid'))
+      .then((res) => {
+        setOutcome(res.verified ? 'verified' : res.conflict ? 'conflict' : 'invalid')
+        if (res.verified) void reloadUser()
+      })
       .catch(() => setOutcome('invalid'))
-  }, [token])
+  }, [token, reloadUser])
 
   return (
     <AuthLayout>

@@ -6,6 +6,7 @@ export interface User {
   email: string
   username: string
   theme: Theme
+  emailVerified: boolean
 }
 
 export interface AuthResponse {

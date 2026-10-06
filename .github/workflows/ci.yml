@@ -16,14 +16,52 @@ jobs:
     defaults:
       run:
         working-directory: server
+    # The DB-backed tests skip themselves without TEST_DATABASE_URL, so a
+    # database has to be up for them to run at all. Neon (production) runs
+    # Postgres 16.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: spend
+          POSTGRES_PASSWORD: spend
+          POSTGRES_DB: expense_tracker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U spend -d expense_tracker_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://spend:spend@localhost:5432/expense_tracker_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: server/go.mod
       - run: go build ./...
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
-      - run: go test ./...
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.14.0
+          working-directory: server
+      # Generated code must match the SQL it came from; the version is the one
+      # named in the header of server/internal/sqlcgen.
+      - name: sqlc generate leaves no diff
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          sqlc generate
+          git diff --exit-code -- internal/sqlcgen
+      # Go runs packages' tests concurrently, and the DB-backed ones expect the
+      # schema to exist already -- only TestRunMigrations creates it. Without
+      # this step, whichever package starts first races it and fails on a
+      # missing table or column.
+      - name: migrate the test database
+        run: go test -count=1 -run '^TestRunMigrations$' ./cmd/server
+      - run: go test -count=1 ./...
 
   client:
     name: client (React)
@@ -43,4 +81,5 @@ jobs:
           cache-dependency-path: client/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - run: pnpm test
       - run: pnpm build

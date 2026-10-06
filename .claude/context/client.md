@@ -23,7 +23,7 @@
   - the TanStack Query cache-invalidation strategy
   - build tooling (`vite.config.ts`, `package.json` scripts)
 - If a change does not affect behavior, no rewrite is required, but check whether the existing text is still accurate.
-- Keep updates short and factual — this is not a changelog of component diffs; the Change Log section at the bottom is, one line per change.
+- Keep updates short and factual.
 
 ## Stack
 
@@ -73,13 +73,13 @@
 - A mutation (create/update/delete a transaction or category) invalidates more than its own TanStack Query key: deleting a category can reassign transactions, a transaction changes totals the dashboard and a category's `transactionCount` both depend on. See each `hooks/use*.ts` file's invalidation calls rather than assuming one key is enough when adding a new mutation.
 - Chart.js paints on a canvas and can't follow a CSS variable. `useThemeColors()` reads the palette from `index.css` and changes `key` on every theme switch; the charts are keyed on it, so they rebuild in the new colors, without animating once `switched` is true. Updating the existing chart in place with `updateMode="none"` left the bars in the old color, so don't go back to that. See `.claude/rules/dashboard.md`.
 - Rows and dialogs that differ between phone and desktop choose their layout with `useIsDesktop()` and render one variant, rather than rendering both and hiding one with CSS, so a screen reader never meets duplicate controls. Only `Layout.tsx`'s two headers use the CSS approach (`.claude/rules/mobile-nav.md`).
-- There is no client-side reminder for an unverified email address yet, and `userDTO`/`User` doesn't carry `EmailVerified`. See `.claude/rules/email-verification.md`'s known gap.
+- An unconfirmed email gets a reminder (`components/layout/VerifyEmailBanner.tsx`, a warning `Banner` at the top of `Layout`'s `<main>`, from `User.emailVerified`) with a resend button. It is only a reminder and blocks nothing. `VerifyEmailPage` calls `reloadUser()` so it goes away when the link is opened in an already-signed-in browser. See `.claude/rules/email-verification.md`.
 
 ## Frontend Layout
 
-- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider` → `ToastProvider`).
+- `client/src/App.tsx`: route table, lazy-loading, the provider tree (`QueryClientProvider` → `AuthProvider` → `ThemeProvider` → `ToastProvider`), all inside a full-page `ErrorBoundary`. `Layout` wraps its `<Outlet />` in a second one keyed on the pathname, so a page that crashes leaves the nav up and recovers when the user navigates. A lazy chunk that has vanished after a deploy shows a "reload" message instead of "try again".
 - `client/src/pages/`: one folder per page, holding the page plus one file per sub-component: `pages/dashboard/` (`KpiCards`, `SpendingDoughnut`, `MonthlyBars`), `pages/transactions/` (`FilterBar`, `AddTransactionForm`, `TransactionRow`, and `rowLayout.ts` for the grid the header and rows share), `pages/import/` (`ImportStepper`, `UploadStep`, `FileRow`, `MappingForm`, `PreviewPanel`), `pages/categories/` (`CategoryRow`, `AddCategoryForm`, `SwatchPicker`), `pages/settings/` (one file per card, plus the `Card` frame they share), and `pages/auth/` for the five pre-auth pages (`AuthPage` composes `AuthTabs`, `LoginForm`, `RegisterForm`).
-- `client/src/components/`: shared components. `components/ui/` holds the design system's primitives; `components/layout/` holds the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
+- `client/src/components/`: shared components (`ErrorBoundary` is the one class component, since React has no hook for it). `components/ui/` holds the design system's primitives; `components/layout/` holds the two app shells: the authenticated one (`Layout`, `ProtectedRoute` and the header widgets) and the pre-auth `AuthLayout`.
 - `client/src/hooks/`: TanStack Query hooks, one module per resource.
 - `client/src/lib/api/`: the API client — see What Is Actually Implemented above.
 - `client/src/lib/auth/`, `client/src/lib/theme/`, `client/src/lib/toast/`: the three app-wide React contexts.
@@ -106,10 +106,11 @@ cd client
 pnpm install
 pnpm dev     # Vite dev server on :5173, proxies /api/* to http://localhost:8080 (override with VITE_API_PROXY_TARGET)
 pnpm lint    # oxlint
+pnpm test    # vitest run: jsdom + Testing Library, files next to the code as *.test.ts(x)
 pnpm build   # tsc -b && vite build, output in dist/
 ```
 
-Run `pnpm lint` and `pnpm build` from inside `client/` before committing a change that touches it.
+Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before committing a change that touches it.
 
 ## Deploy Notes
 
@@ -145,25 +146,7 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 
 ## Known Gaps and Debt
 
-- Parts of the design handoff's motion spec aren't built: the inline-edit row doesn't animate its height (it fades in), there's no post-save row flash, no View Transitions, and dialogs close without an exit fade. The bottom sheet's drag thresholds stay at the existing 25% / 40px-in-250ms rather than the handoff's 30% / 0.5px/ms (`.claude/rules/mobile-nav.md`).
+- Parts of the design handoff's motion spec aren't built: the inline-edit row doesn't animate its height (it fades in), there's no post-save row flash, no View Transitions between pages (only the theme switch uses one), and dialogs close without an exit fade. The bottom sheet's drag thresholds stay at the existing 25% / 40px-in-250ms rather than the handoff's 30% / 0.5px/ms (`.claude/rules/mobile-nav.md`).
 - The dark-mode chart colors (`#818CF8`, `#34D399`) sit slightly above the lightness band the dataviz palette validator wants for a dark surface. They pass contrast and colorblind separation, so they were kept as the handoff specified.
-- No client-side email-verification reminder (see Important Reality Checks above).
-- Settings' danger-zone card has no CSV export link above the delete button, which the deleted HTML app had (see `.claude/rules/account-deletion.md`); export is only on the Transactions page.
-- No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
+- Unit and component tests cover `lib/api/client.ts` (envelope, shared refresh on 401), `useLongPress`, the CSV import flow, `ErrorBoundary`, `VerifyEmailBanner` and the Settings export; every other page and hook is untested. `fetch` is stubbed per test with `vi.stubGlobal` (never a real network). No automated visual/accessibility regression testing — verification so far has been manual real-browser smoke testing (Playwright scripts run ad hoc, not checked into CI) plus `tsc`/`oxlint`/`vite build`.
 - Bundle is route-split but not further optimized; `react-chartjs-2`/`chart.js` (~170KB) is the only chunk worth watching if it grows.
-
-## Change Log
-
-- `2026-10-07`: the theme reveal no longer flashes the whole new theme for a frame before spreading: the new snapshot now starts clipped in CSS rather than waiting for the script's animation to attach (`.claude/rules/theming.md`).
-- `2026-10-07`: switching theme from the user menu now spreads the new theme out from the clicked button (View Transitions, `lib/theme/revealTheme.ts`) instead of every colour flipping at once. The dashboard charts no longer replay their draw-in animation when switching back to the theme the page opened in (`useThemeColors` gained `switched`). The bar chart's screen-reader table moved inside an `sr-only` wrapper, because `sr-only` on the `<table>` itself left its `<caption>` visible under the chart.
-- `2026-10-07`: full UI redesign to the "Pocket Mono" handoff from Claude Design. `index.css` has a new semantic token set (light and dark), motion tokens and keyframes, and two Google Fonts (Be Vietnam Pro, Bricolage Grotesque); `lucide-react` added for icons. New `components/ui/` primitives (`Field`, `ConfirmDialog`, `Banner`, `EmptyState`, `PageSkeleton`, …), a toast context, and `buttonClass()` replacing `primaryButtonClass`; `FieldError` deleted. Dashboard and Categories became folders like the other pages, and `AuthPage` split into `AuthTabs`/`LoginForm`/`RegisterForm`. Behavior changes: the dashboard charts now follow the theme (they stayed light before); `confirm()`/`alert()` replaced by `ConfirmDialog`; deleting an income category that has transactions explains why it can't (the server refuses it) instead of offering a delete that fails; the month picker is a keyboard listbox; Transactions gained min/max amount filters, removable filter chips and "Clear filters"; the add form's default date is the local date (it was UTC, so yesterday before 7am in Vietnam); renaming a category now refreshes transactions and the dashboard too. Checked in Chromium at 1280px and 390px, light and dark, keyboard and long-press included.
-- `2026-10-06`: every page now shows an error when its query fails, instead of "Loading…" forever (it checked `isLoading || !data` before `error`, which TanStack Query v5 never reaches); the `react-component` skill's Loading section describes the new shape. Transactions got an accessibility pass: labels on the add form, `aria-label`s on the filter bar and the inline edit form, `aria-pressed` on the expense/income toggle, row-specific names on Edit/Delete, focus moved into the edit form and back to Edit on save/cancel/Escape, and a failed delete shown inline instead of in `alert()`. Checked in Chromium (desktop, and mobile in dark mode).
-- `2026-10-06`: `TransactionsPage`, `ImportPage` and `SettingsPage` (430, 339 and 274 lines) each split into a folder under `pages/`, one file per sub-component, with no behavior change. The extracted components take `Category[]`/`Session[]` instead of restating those shapes inline. `App.tsx`'s lazy imports and the `paths:` of `req-value-objects.md`, `csv-import.md` and `mobile-nav.md` follow the new paths.
-- `2026-10-06`: `AuthLayout.tsx` slimmed to the shell itself. `FieldError` moved to `components/FieldError.tsx` and `inputClass`/`primaryButtonClass` to `lib/formStyles.ts`, since Settings and Import (pages behind auth) were importing form styles from the pre-auth layout. Frontend Layout now says `components/layout/` holds both app shells, which `AuthLayout` already did.
-- `2026-10-06`: comments across `client/` cut to the ones the code can't speak for. History and pointers to the deleted HTML app are gone, and anything longer than one line is now a single `/* */` block. The Safe Edit Rules and the `react-component` skill now state that convention.
-- `2026-10-06`: `.claude/skills/react-component/` added, covering where a component/page/hook file goes, how props/state/async states are written, and an accessibility pass, with patterns in its `references/accessibility.md`. Read This First no longer lists individual rule files (see `.claude/context/README.md`'s Maintenance Rule).
-- `2026-10-05`: pnpm workspace removed. `pnpm-workspace.yaml` deleted and `pnpm-lock.yaml` moved from the repo root into `client/` (regenerated as a standalone lockfile, same resolved versions); `packageManager` added to `client/package.json`; CI points at `client/pnpm-lock.yaml`. `client/` is now a plain standalone package. Added Setup and Run and Deploy Notes sections to this file.
-- `2026-10-05`: this file renamed from `frontend.md` to `client.md` to match the `client/` directory it describes.
-- `2026-10-05`: the Gin/React migration completed. The old `html/template` + htmx frontend (`server/internal/web`, the `view_*.go` render pipeline, `server/internal/csrf`) was deleted in full. This file rewritten from scratch to describe `client/`'s React SPA as the frontend, replacing the previous version which described the now-deleted templates/static-asset system.
-- `2026-10-05`: `client/` built out across several commits to full feature parity with the deleted HTML app (auth, all four main pages, CSV import UI, mobile gestures, code-splitting) — see git log on this date for the detailed, phase-by-phase history; this file no longer tracks that transition day by day now that it's finished.
-- `2026-10-05`: `client/` scaffolded (Vite + React + TypeScript + Tailwind v4 + pnpm), as part of converting the repo into a monorepo (`server/` + `client/`).
