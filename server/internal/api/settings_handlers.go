@@ -27,6 +27,8 @@ import (
 // stays server-resolved: format.DeviceLabel's User-Agent parsing has no
 // client-side equivalent to push this one down to.
 type sessionDTO struct {
+	// ID is the session's public_id, never sessions.id: that one is the
+	// refresh token itself and must not reach a client script.
 	ID        string    `json:"id"`
 	Device    string    `json:"device"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -66,7 +68,7 @@ func settingsHandler(deps Deps) gin.HandlerFunc {
 		dtos := make([]sessionDTO, 0, len(sessions))
 		for _, s := range sessions {
 			dtos = append(dtos, sessionDTO{
-				ID:        s.ID,
+				ID:        s.PublicID.String(),
 				Device:    format.DeviceLabel(s.UserAgent.String),
 				CreatedAt: s.CreatedAt.Time,
 				IsCurrent: s.ID == currentToken,
@@ -265,9 +267,13 @@ func updatePasswordHandler(deps Deps) gin.HandlerFunc {
 func revokeSessionHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := UserID(c)
-		sessionID := c.Param("id")
+		var publicID pgtype.UUID
+		if err := publicID.Scan(c.Param("id")); err != nil || !publicID.Valid {
+			respondError(c, http.StatusBadRequest, "invalid session id")
+			return
+		}
 		if err := deps.Queries.DeleteSessionForUser(c.Request.Context(), sqlcgen.DeleteSessionForUserParams{
-			ID: sessionID, UserID: userID,
+			PublicID: publicID, UserID: userID,
 		}); err != nil {
 			log.Printf("revoke session: %v", err)
 			respondError(c, http.StatusInternalServerError, "could not revoke session")

@@ -14,7 +14,7 @@ import (
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id, user_id, expires_at, user_agent)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, expires_at, created_at, user_agent
+RETURNING id, user_id, expires_at, created_at, user_agent, public_id, previous_id, rotated_at
 `
 
 type CreateSessionParams struct {
@@ -38,12 +38,15 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UserAgent,
+		&i.PublicID,
+		&i.PreviousID,
+		&i.RotatedAt,
 	)
 	return i, err
 }
 
 const deleteOtherSessionsForUser = `-- name: DeleteOtherSessionsForUser :exec
-DELETE FROM sessions WHERE user_id = $1 AND id <> $2
+DELETE FROM sessions WHERE user_id = $1 AND id <> $2 AND previous_id IS DISTINCT FROM $2
 `
 
 type DeleteOtherSessionsForUserParams struct {
@@ -60,28 +63,31 @@ func (q *Queries) DeleteOtherSessionsForUser(ctx context.Context, arg DeleteOthe
 }
 
 const deleteSession = `-- name: DeleteSession :exec
-DELETE FROM sessions WHERE id = $1
+DELETE FROM sessions WHERE id = $1 OR previous_id = $1
 `
 
+// DeleteSession matches the token just replaced as well as the current one,
+// so a logout that races a refresh still ends the session.
 func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteSession, id)
 	return err
 }
 
 const deleteSessionForUser = `-- name: DeleteSessionForUser :exec
-DELETE FROM sessions WHERE id = $1 AND user_id = $2
+DELETE FROM sessions WHERE public_id = $1 AND user_id = $2
 `
 
 type DeleteSessionForUserParams struct {
-	ID     string `json:"id"`
-	UserID int64  `json:"user_id"`
+	PublicID pgtype.UUID `json:"public_id"`
+	UserID   int64       `json:"user_id"`
 }
 
 // DeleteSessionForUser is the scoped counterpart to DeleteSession: it takes
-// a user_id as well as an id so that a session id typed into a form field
+// a user_id as well as the session's public_id (never its id, which is the
+// refresh token and is not sent to clients) so that an id a client sends
 // can only ever delete a session owned by the caller.
 func (q *Queries) DeleteSessionForUser(ctx context.Context, arg DeleteSessionForUserParams) error {
-	_, err := q.db.Exec(ctx, deleteSessionForUser, arg.ID, arg.UserID)
+	_, err := q.db.Exec(ctx, deleteSessionForUser, arg.PublicID, arg.UserID)
 	return err
 }
 
@@ -99,7 +105,7 @@ func (q *Queries) DeleteSessionsForUser(ctx context.Context, userID int64) error
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, user_id, expires_at, created_at, user_agent FROM sessions WHERE id = $1
+SELECT id, user_id, expires_at, created_at, user_agent, public_id, previous_id, rotated_at FROM sessions WHERE id = $1
 `
 
 func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
@@ -111,12 +117,35 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UserAgent,
+		&i.PublicID,
+		&i.PreviousID,
+		&i.RotatedAt,
+	)
+	return i, err
+}
+
+const getSessionByPreviousID = `-- name: GetSessionByPreviousID :one
+SELECT id, user_id, expires_at, created_at, user_agent, public_id, previous_id, rotated_at FROM sessions WHERE previous_id = $1
+`
+
+func (q *Queries) GetSessionByPreviousID(ctx context.Context, previousID pgtype.Text) (Session, error) {
+	row := q.db.QueryRow(ctx, getSessionByPreviousID, previousID)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UserAgent,
+		&i.PublicID,
+		&i.PreviousID,
+		&i.RotatedAt,
 	)
 	return i, err
 }
 
 const listSessionsForUser = `-- name: ListSessionsForUser :many
-SELECT id, user_id, expires_at, created_at, user_agent FROM sessions WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, user_id, expires_at, created_at, user_agent, public_id, previous_id, rotated_at FROM sessions WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListSessionsForUser(ctx context.Context, userID int64) ([]Session, error) {
@@ -134,6 +163,9 @@ func (q *Queries) ListSessionsForUser(ctx context.Context, userID int64) ([]Sess
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UserAgent,
+			&i.PublicID,
+			&i.PreviousID,
+			&i.RotatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -143,4 +175,37 @@ func (q *Queries) ListSessionsForUser(ctx context.Context, userID int64) ([]Sess
 		return nil, err
 	}
 	return items, nil
+}
+
+const rotateSession = `-- name: RotateSession :one
+UPDATE sessions SET previous_id = id, id = $2, rotated_at = now()
+WHERE id = $1 AND expires_at > now()
+RETURNING id, user_id, expires_at, created_at, user_agent, public_id, previous_id, rotated_at
+`
+
+type RotateSessionParams struct {
+	ID   string `json:"id"`
+	ID_2 string `json:"id_2"`
+}
+
+// RotateSession swaps an unexpired session's token for a new one in place, so
+// the row (public_id, created_at, user_agent, expires_at) is the same session
+// throughout. It matches nothing if the token is unknown, expired or already
+// replaced, which is how two refreshes racing on one token are told apart:
+// exactly one wins. The right-hand sides read the row as it was before the
+// update, so previous_id gets the old token.
+func (q *Queries) RotateSession(ctx context.Context, arg RotateSessionParams) (Session, error) {
+	row := q.db.QueryRow(ctx, rotateSession, arg.ID, arg.ID_2)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UserAgent,
+		&i.PublicID,
+		&i.PreviousID,
+		&i.RotatedAt,
+	)
+	return i, err
 }

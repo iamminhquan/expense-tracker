@@ -87,6 +87,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 - Every response except `/healthz` and the CSV export is a JSON envelope, `{"success": bool, "message": string, "data": T | null}`, written through `respondSuccess`/`respondError` in `response.go`; no endpoint answers `204`. See `.claude/rules/json-api-conventions.md` for the full set of conventions this package follows, several of them written up *because* a real bug violated them (never ship `null` for an array field a client expects `[]` from, never embed another package's untagged struct directly in a response).
 - Ship raw numbers, not pre-formatted display strings. A money amount is a plain `int64` (VND, whole đồng), a percentage a plain `int`, a date `"2006-01-02"` — never a formatted `"50.000₫"` or a pre-composed sentence. The client owns formatting and i18n of its own UI text; this backend only resolves what it alone has the data for (a default category's display name via `i18n`, a User-Agent string via `format.DeviceLabel`).
 - Authentication is a header, not a cookie, for every authenticated endpoint: `Authorization: Bearer <access token>`. The one exception is `POST /api/v1/refresh` and `POST /api/v1/logout`, which read the refresh-token httpOnly cookie instead — see Authentication Model.
+- Every request body is capped at 1 MiB (`limitBody`, `maxRequestBytes` in `middleware.go`), the same as the CSV upload's own limit; a read past it fails and surfaces as the handler's usual 400.
 - Localization: none — every message this API writes is English. Only default-category *names* are resolved through `server/internal/i18n`, keyed by a stable slug rather than the displayed string.
 
 ## Authentication Model
@@ -94,8 +95,9 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 - Plain email+password login, no OAuth/SSO. Two tokens, not one:
   - **Access token** (`internal/auth/jwt.go`): a stateless, HS256-signed JWT naming a user ID, 15-minute TTL. Never checked against the database — it self-expires, and that's the entire point: it can't be revoked before it does, which is why it's kept short-lived.
   - **Refresh token**: the pre-existing opaque session-row token (`sessions` table, `internal/auth/session.go`), reused as-is rather than built as a second mechanism — see `jwt.go`'s doc comment for the full reasoning. Sent as an httpOnly, `Path=/api` cookie; 7-day TTL (`sessions.expires_at`).
-- `POST /api/v1/refresh` exchanges a valid refresh-token cookie for a fresh access token without re-checking the password. It does not rotate the refresh token itself.
+- `POST /api/v1/refresh` exchanges a valid refresh-token cookie for a fresh access token without re-checking the password, and **rotates the refresh token**: the session row's `id` is replaced in place (`auth.RefreshSession`; the row's `public_id`, `created_at` and `expires_at` do not change, so rotating never extends a login) and the new token comes back as the cookie. The replaced token is kept in `previous_id`. Presented again within `auth.RotationGrace` (30s: a second tab, a retry) it is answered with the current token; after that it is a replayed copy, so the session is deleted and the cookie cleared. Only the latest replaced token is remembered, and an unknown token is a plain 401 that leaves the cookie alone, since it may be an in-flight request carrying a token the browser has already replaced.
 - A password change deletes every *other* session (refresh token) for the user but keeps the current one; "Log out everywhere else" in Settings calls the same deletion deliberately, as a user action rather than a side effect.
+- Per-IP rate limits (`ratelimit.go`, in-memory token buckets, single instance): `login`, `reset-password` (GET and POST) and `verify-email` get a burst of 10 then 10 a minute; `register` and `forgot-password` share a burst of 5 then 5 an hour. Over budget answers `429` with `Retry-After`. `refresh` is not limited (its token is unguessable). The client IP is `c.ClientIP()`, trustworthy only because the router trusts no proxy unless `TRUSTED_PROXIES` names it. A second server instance would double every budget and need a shared store.
 - Login lockout: 5 consecutive wrong passwords lock the account for 15 minutes (`users.failed_login_attempts`, `users.locked_until`), checked *before* password comparison so a locked account can't be used to extend its own lock. A completed password reset clears it.
 - Password reset: `password_reset_tokens`, 1-hour TTL, single-use, emailed via Brevo. Resetting signs the visitor in (a fresh access token + refresh cookie), matching register/login.
 - Email verification: `email_verification_tokens`, 24-hour TTL, shared by both signup confirmation and a settings email change (via `pending_email`, promoted onto `users.email` only once its own link is visited). Verification gates nothing — see Important Reality Checks.
@@ -111,7 +113,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 ## Core Data Model
 
 - `users` — email (unique, login identity), password_hash (bcrypt), name, username (unique, `^[a-z][a-z0-9_]{2,19}$`), theme (`auto`/`light`/`dark`), email_verified + pending_email, failed_login_attempts + locked_until.
-- `sessions` — id (opaque token, primary key, **this is the refresh token**), user_id, expires_at, created_at, user_agent (nullable — predates migration 000012).
+- `sessions` — id (opaque token, primary key, **this is the refresh token** — never send it to a client), public_id (UUID, the identifier clients see and send back to revoke a session), previous_id + rotated_at (the token a refresh just replaced, and when; see Authentication Model), user_id, expires_at, created_at, user_agent (nullable — predates migration 000012).
 - `categories` — user_id (NULL = shared default, else a personal category), name, type (`expense`|`income`), color (fixed 9-value palette via CHECK), slug (NULL for personal; a stable, unique, language-independent key for the 9 shared defaults — **match on this, never on `name`**). Unique index on `(user_id, type, name)`.
 - `transactions` — user_id, category_id (FK to `categories`, **no `ON DELETE` clause**, deliberate — see below), amount (BIGINT, `CHECK (amount > 0)`, VND as a whole-number integer), type (`expense`|`income`), description, occurred_on (DATE).
 - `password_reset_tokens`, `email_verification_tokens` — single-use token tables, FK to `users` with `ON DELETE CASCADE`.
@@ -158,7 +160,10 @@ cd server
 go build ./...
 gofmt -l .        # must print nothing
 go vet ./...
+golangci-lint run ./...   # config in server/.golangci.yml
 ```
+
+- CI runs the same checks, plus `sqlc generate` leaving no diff, and runs the DB-backed tests against a Postgres 16 service container. The tests need the schema to exist before they start, and only `TestRunMigrations` (`cmd/server`) creates it, so CI runs that one test first (`go test -run '^TestRunMigrations$' ./cmd/server`). Do the same on a fresh scratch database, or packages race it and fail on a missing table.
 
 - Regenerate `server/internal/sqlcgen` after changing SQL in `server/internal/database/queries` or the migrations:
 
@@ -173,7 +178,9 @@ sqlc generate
 - `APP_BASE_URL` — scheme+host of **`client/`, not this server** — password-reset/verification emails link to its `/reset-password`/`/verify-email` React Router routes, which this API doesn't answer itself. Defaults to `http://localhost:5173` (Vite's default port); set to the Vercel domain in production.
 - `BREVO_API_KEY`, `MAIL_FROM` — password-reset/verification email, sent over Brevo's HTTP API rather than SMTP, because Render's free tier blocks outbound SMTP ports but never 443. Optional — blank leaves forgot-password working end to end except the actual send, which is logged instead.
 - `JWT_SECRET` — signs/verifies access tokens (`internal/auth/jwt.go`). Required, no fallback, same reasoning as `DATABASE_URL`: `config.Load()` refuses to start without it rather than sign tokens with a key baked into the source tree.
+- `GIN_MODE` — set to `release` in `render.yaml`; Gin's default debug mode logs every route at startup. Leave unset locally.
 - `CORS_ALLOWED_ORIGINS` — comma-separated origins the API's CORS middleware accepts credentialed cross-origin requests from (the `client/` deployment's domain). Optional; blank means none, correct until `client/` has a real deployment to allow.
+- `TRUSTED_PROXIES` — comma-separated IPs/CIDRs of the reverse proxies whose `X-Forwarded-For` is believed when finding a client's IP for the rate limits. Blank trusts none (client = TCP peer), right locally. On Render it must name Render's proxy ranges or every visitor shares one budget; an invalid entry stops the server starting. See `render.yaml`.
 
 ## Deploy Notes
 

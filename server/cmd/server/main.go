@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"expensetracker/internal/api"
 	"expensetracker/internal/config"
@@ -73,7 +74,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("configuration: %v", err)
 	}
-	ctx := context.Background()
+	// Cancelled on SIGINT/SIGTERM; Render sends the latter on every redeploy.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	if err := runMigrations(cfg.DatabaseURL, migrationsSourceURL); err != nil {
 		log.Fatalf("apply migrations: %v", err)
@@ -100,10 +103,12 @@ func main() {
 		BaseURL:            cfg.BaseURL,
 		JWTSecret:          cfg.JWTSecret,
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+		TrustedProxies:     cfg.TrustedProxies,
 	}
 
 	log.Printf("listening on :%s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, api.NewRouter(deps)); err != nil {
+	if err := serve(ctx, newServer(":"+cfg.Port, api.NewRouter(deps))); err != nil {
 		log.Fatal(err)
 	}
+	log.Print("shut down cleanly")
 }

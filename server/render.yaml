@@ -45,6 +45,10 @@ services:
       # so the build doesn't fail on an older compiler.
       - key: GO_VERSION
         value: "1.26.5"
+      # Gin defaults to debug mode, which logs every route at startup and
+      # warns about it; release mode is what a deployed service should run.
+      - key: GIN_MODE
+        value: release
       # Set by hand in the Render dashboard: it carries the Neon password and
       # must not be committed. Use Neon's *direct* connection string -- the
       # one without `-pooler` in the host -- because golang-migrate takes a
@@ -79,6 +83,14 @@ services:
       # Render service's own URL, which has no such route. Set by hand
       # once that domain is known, since it isn't a secret either way.
       - key: APP_BASE_URL
+        sync: false
+      # Set by hand in the Render dashboard: the ranges Render's proxy
+      # connects from, so the per-IP rate limits (login, register, ...) see
+      # the real client. Left blank, every visitor shares the proxy's address
+      # and one budget, so the first ten logins in a minute from anyone lock
+      # everyone else out. After setting it, check a request's logged client
+      # IP in the Render logs is the visitor's, not a private 10.x address.
+      - key: TRUSTED_PROXIES
         sync: false
       # Set by hand in the Render dashboard: a Brevo API key (Settings ->
       # SMTP & API -> API Keys), plus the sender address it was verified

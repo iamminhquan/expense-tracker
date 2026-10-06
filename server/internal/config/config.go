@@ -2,6 +2,8 @@ package config
 
 import (
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -53,6 +55,15 @@ type Config struct {
 	// for a deployment that hasn't set it rather than an error, since a
 	// backend-only deployment legitimately has none.
 	CORSAllowedOrigins []string
+	// TrustedProxies lists the IPs or CIDR ranges of the reverse proxies in
+	// front of this server, whose X-Forwarded-For header may be believed
+	// when working out a client's address. Empty trusts none, so the client
+	// is whoever opened the connection -- right when nothing sits in front,
+	// and the safe default otherwise: with it wrong the other way, any
+	// client can name itself any address and walk past the per-IP rate
+	// limits. Behind a proxy it must be set, or every client shares the
+	// proxy's address and one budget.
+	TrustedProxies []string
 }
 
 // Load reads the configuration from the environment. Everything but the
@@ -71,6 +82,13 @@ func Load() (Config, error) {
 
 	port := getEnv("PORT", "8080")
 
+	trustedProxies := getEnvList("TRUSTED_PROXIES")
+	for _, p := range trustedProxies {
+		if !isIPOrCIDR(p) {
+			return Config{}, fmt.Errorf("TRUSTED_PROXIES: %q is not an IP address or CIDR range", p)
+		}
+	}
+
 	return Config{
 		DatabaseURL:       databaseURL,
 		Port:              port,
@@ -83,7 +101,16 @@ func Load() (Config, error) {
 		MailFrom:           getEnv("MAIL_FROM", ""),
 		JWTSecret:          []byte(jwtSecret),
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS"),
+		TrustedProxies:     trustedProxies,
 	}, nil
+}
+
+func isIPOrCIDR(s string) bool {
+	if net.ParseIP(s) != nil {
+		return true
+	}
+	_, _, err := net.ParseCIDR(s)
+	return err == nil
 }
 
 func getEnv(key, fallback string) string {

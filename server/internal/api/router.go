@@ -1,11 +1,13 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 )
 
 // NewRouter constructs the JSON API's Gin engine: every endpoint under
@@ -13,10 +15,16 @@ import (
 // keep-alive cron (see render.yaml), which probe it by that exact path.
 func NewRouter(deps Deps) *gin.Engine {
 	r := gin.New()
+	// Gin's default trusts every proxy, so any client could set its own
+	// X-Forwarded-For and pick the address the rate limits see. The list is
+	// validated by config.Load; an error here is a programming mistake.
+	if err := r.SetTrustedProxies(deps.TrustedProxies); err != nil {
+		panic(fmt.Sprintf("api: trusted proxies: %v", err))
+	}
 	r.Use(gin.Logger(), gin.CustomRecovery(func(c *gin.Context, _ any) {
 		respondError(c, http.StatusInternalServerError, "internal server error")
 	}))
-	r.Use(corsMiddleware(deps.CORSAllowedOrigins))
+	r.Use(corsMiddleware(deps.CORSAllowedOrigins), limitBody(maxRequestBytes))
 
 	r.HandleMethodNotAllowed = true
 	r.NoRoute(func(c *gin.Context) { respondError(c, http.StatusNotFound, "not found") })
@@ -24,16 +32,22 @@ func NewRouter(deps Deps) *gin.Engine {
 
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 
+	// Per client IP. guess covers the endpoints a password or a token can be
+	// tried against, at 10 a minute; signup covers the ones that create an
+	// account or send an email, at a burst of 5 and then 5 an hour.
+	guess := rateLimit(newIPLimiter(rate.Every(6*time.Second), 10))
+	signup := rateLimit(newIPLimiter(rate.Every(12*time.Minute), 5))
+
 	api := r.Group("/api/v1")
 	{
-		api.POST("/register", registerHandler(deps))
-		api.POST("/login", loginHandler(deps))
+		api.POST("/register", signup, registerHandler(deps))
+		api.POST("/login", guess, loginHandler(deps))
 		api.POST("/refresh", refreshHandler(deps))
 		api.POST("/logout", logoutHandler(deps))
-		api.POST("/forgot-password", forgotPasswordHandler(deps))
-		api.GET("/reset-password", checkResetTokenHandler(deps))
-		api.POST("/reset-password", resetPasswordHandler(deps))
-		api.POST("/verify-email", verifyEmailHandler(deps))
+		api.POST("/forgot-password", signup, forgotPasswordHandler(deps))
+		api.GET("/reset-password", guess, checkResetTokenHandler(deps))
+		api.POST("/reset-password", guess, resetPasswordHandler(deps))
+		api.POST("/verify-email", guess, verifyEmailHandler(deps))
 
 		authed := api.Group("")
 		authed.Use(RequireAuth(deps.JWTSecret))
