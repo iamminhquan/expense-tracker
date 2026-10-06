@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Doughnut } from 'react-chartjs-2'
 import { Receipt } from 'lucide-react'
 import '../../lib/charts'
@@ -19,8 +18,7 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
   const colors = useThemeColors()
   const isDesktop = useIsDesktop()
   // A theme switch remounts the chart (see useThemeColors); only the first draw animates.
-  const [firstKey] = useState(colors.key)
-  const animate = colors.key === firstKey && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const animate = !colors.switched && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const size = isDesktop ? 200 : 224
 
   return (

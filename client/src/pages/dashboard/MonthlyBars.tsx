@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Bar } from 'react-chartjs-2'
 import '../../lib/charts'
 import { useIsDesktop } from '../../hooks/useMediaQuery'
@@ -13,8 +12,7 @@ export function MonthlyBars({ bar }: { bar: BarData }) {
   const colors = useThemeColors()
   const isDesktop = useIsDesktop()
   // A theme switch remounts the chart (see useThemeColors); only the first draw animates.
-  const [firstKey] = useState(colors.key)
-  const animate = colors.key === firstKey && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const animate = !colors.switched && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const peak = Math.max(0, ...bar.expense, ...bar.income)
   const suggestedMax = Math.max(STEP, Math.ceil(peak / STEP) * STEP)
   const lastIndex = bar.labels.length - 1
@@ -97,25 +95,27 @@ export function MonthlyBars({ bar }: { bar: BarData }) {
           }}
         />
       </div>
-      <table className="sr-only">
-        <caption>Expense and income by month</caption>
-        <thead>
-          <tr>
-            <th scope="col">Month</th>
-            <th scope="col">Expense</th>
-            <th scope="col">Income</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bar.labels.map((m, i) => (
-            <tr key={m}>
-              <th scope="row">{m}</th>
-              <td>{formatVND(bar.expense[i])}</td>
-              <td>{formatVND(bar.income[i])}</td>
+      <div className="sr-only">
+        <table>
+          <caption>Expense and income by month</caption>
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Expense</th>
+              <th scope="col">Income</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {bar.labels.map((m, i) => (
+              <tr key={m}>
+                <th scope="row">{m}</th>
+                <td>{formatVND(bar.expense[i])}</td>
+                <td>{formatVND(bar.income[i])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }
