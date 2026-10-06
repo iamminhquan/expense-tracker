@@ -4,7 +4,6 @@
 
 @.claude/context/README.md
 
-- Start with `.claude/context/README.md`.
 - `.claude/context/<package>.md` — background for the package you're working in, named after its directory (`server/` → `server.md`). Read it before non-trivial work there.
 - `.claude/rules/` — coding rules, each scoped to files by its `paths:` frontmatter and loaded on its own when you touch a matching file.
 - `.claude/skills/` — repeatable workflows, each offered by its own `description:`.
