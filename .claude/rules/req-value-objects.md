@@ -19,7 +19,7 @@ paths:
 ## `txnFilters`
 
 - Holds search, type, category and min/max amount. The 0 sentinel means "not filtering". It also holds the nullable sqlc params the list, count, and export queries all take.
-- `Sort` rides in the same object but is not a filter: it narrows nothing. `Any` and `ActiveCount` leave it out.
+- `Sort` rides in the same object but is not a filter: it narrows nothing.
 - Orders live in `sortOrders`, and the ORDER BY switches on the bound value through a pair of `CASE`s in the SQL itself. Never interpolate a column name. An unknown order matches neither and falls back to `occurred_on DESC, id DESC`.
 
 ## `pagerDTO`

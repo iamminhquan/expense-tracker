@@ -19,12 +19,6 @@ func Int64(v int64) pgtype.Int8 {
 	return pgtype.Int8{Int64: v, Valid: true}
 }
 
-// Text wraps a string as the nullable text sqlc generates for a nullable
-// column. An empty string is still a valid, non-NULL value here.
-func Text(v string) pgtype.Text {
-	return pgtype.Text{String: v, Valid: true}
-}
-
 // Date converts a parsed calendar date into the pgtype.Date that sqlc
 // generates for a DATE column.
 func Date(t time.Time) pgtype.Date {
