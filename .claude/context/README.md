@@ -42,6 +42,7 @@
 - Prefer code and the files in `.claude/context/` and `.claude/rules/` when documentation conflicts.
 
 ## Change Log
+- `2026-10-06`: `server/` CI now runs its DB-backed tests against a Postgres service, plus `gofmt`, `golangci-lint` and a `sqlc generate` no-diff check. See `server.md`'s Setup and Run.
 - `2026-10-06`: every `/api/v1` JSON response, errors included, now comes in one envelope, `{success, message, data}`. No endpoint answers `204` any more. `client/` unwraps the envelope in one place. See `server.md`'s Change Log and `.claude/rules/json-api-conventions.md`.
 - `2026-10-06`: `CLAUDE.md` and this README made generic. Neither lists individual context files, rules, or skills any more (the old "Committing or opening a pull request -> `.claude/skills/`" style of routing line is gone), so adding one needs no edit to either. Context files are now described by convention (`<package>.md` per top-level package), the Repository Map was cut down to package level (per-package layout already lives in each context file), and the Maintenance Rule now says not to enumerate rules or skills in prose. `client.md` and the `react-component` skill dropped their hardcoded lists of rule files for the same reason. `.claude/rules/req-value-objects.md` gained the two client pages it talks about in its `paths:`, so it now loads for them too, and its stale pointer to `CLAUDE.md`'s changelog now points at this file's.
 - `2026-10-05`: API routes versioned — `/api/*` became `/api/v1/*` on the server and in `client/`; see `server.md`'s Change Log.
