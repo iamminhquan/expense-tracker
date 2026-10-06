@@ -156,7 +156,7 @@ func dashboardHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 
-		respondOK(c, http.StatusOK, "dashboard retrieved", dashboardResponse{
+		respondSuccess(c, http.StatusOK, "dashboard retrieved", dashboardResponse{
 			MonthValue:           from.Time.Format("2006-01"),
 			MonthLabel:           monthLabel(from.Time),
 			CurrentMonthValue:    currentFrom.Time.Format("2006-01"),

@@ -42,7 +42,7 @@ func forgotPasswordHandler(deps Deps) gin.HandlerFunc {
 		if user, err := deps.Queries.GetUserByEmail(c.Request.Context(), email); err == nil {
 			queueResetEmail(c.Request.Context(), deps, user)
 		}
-		respondOK[any](c, http.StatusOK, "if that email is registered, a reset link is on its way", nil)
+		respondSuccess[any](c, http.StatusOK, "if that email is registered, a reset link is on its way", nil)
 	}
 }
 
@@ -87,7 +87,7 @@ func checkResetTokenHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusNotFound, "that reset link is invalid or has expired")
 			return
 		}
-		respondOK[any](c, http.StatusOK, "reset link is valid", nil)
+		respondSuccess[any](c, http.StatusOK, "reset link is valid", nil)
 	}
 }
 
@@ -187,7 +187,7 @@ func verifyEmailHandler(deps Deps) gin.HandlerFunc {
 
 		userID, email, err := auth.ValidateVerificationToken(c.Request.Context(), deps.Queries, req.Token)
 		if err != nil {
-			respondOK(c, http.StatusOK, "that verification link is invalid or has expired", verifyEmailResponse{})
+			respondSuccess(c, http.StatusOK, "that verification link is invalid or has expired", verifyEmailResponse{})
 			return
 		}
 
@@ -196,7 +196,7 @@ func verifyEmailHandler(deps Deps) gin.HandlerFunc {
 		}); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				respondOK(c, http.StatusOK, "that email is already used by another account", verifyEmailResponse{Conflict: true})
+				respondSuccess(c, http.StatusOK, "that email is already used by another account", verifyEmailResponse{Conflict: true})
 				return
 			}
 			log.Printf("verify email: apply: %v", err)
@@ -206,6 +206,6 @@ func verifyEmailHandler(deps Deps) gin.HandlerFunc {
 		if err := auth.ConsumeVerificationToken(c.Request.Context(), deps.Queries, req.Token); err != nil {
 			log.Printf("verify email: consume token: %v", err)
 		}
-		respondOK(c, http.StatusOK, "email verified", verifyEmailResponse{Verified: true})
+		respondSuccess(c, http.StatusOK, "email verified", verifyEmailResponse{Verified: true})
 	}
 }

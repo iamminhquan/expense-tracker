@@ -99,7 +99,7 @@ func listCategoriesHandler(deps Deps) gin.HandlerFunc {
 				resp.HasCustomCategories = true
 			}
 		}
-		respondOK(c, http.StatusOK, "categories retrieved", resp)
+		respondSuccess(c, http.StatusOK, "categories retrieved", resp)
 	}
 }
 
@@ -149,7 +149,7 @@ func createCategoryHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 
-		respondOK(c, http.StatusCreated, "category created", newCategoryDTO(created, 0))
+		respondSuccess(c, http.StatusCreated, "category created", newCategoryDTO(created, 0))
 	}
 }
 
@@ -241,7 +241,7 @@ func updateCategoryHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusNotFound, "category not found")
 			return
 		}
-		respondOK(c, http.StatusOK, "category updated", categoryDTO{
+		respondSuccess(c, http.StatusOK, "category updated", categoryDTO{
 			ID: row.ID, Name: i18n.CategoryName(row.Slug, row.Name), Type: row.Type,
 			Color: row.Color, TransactionCount: row.TransactionCount, IsDefault: !row.UserID.Valid,
 		})
@@ -315,7 +315,7 @@ func deleteCategoryHandler(deps Deps) gin.HandlerFunc {
 				respondError(c, http.StatusInternalServerError, "could not delete category")
 				return
 			}
-			respondOK[any](c, http.StatusOK, "category deleted", nil)
+			respondSuccess[any](c, http.StatusOK, "category deleted", nil)
 			return
 		}
 
@@ -324,6 +324,6 @@ func deleteCategoryHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not delete category")
 			return
 		}
-		respondOK[any](c, http.StatusOK, "category deleted", nil)
+		respondSuccess[any](c, http.StatusOK, "category deleted", nil)
 	}
 }

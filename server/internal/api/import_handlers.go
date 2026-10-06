@@ -201,7 +201,7 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 				respondError(c, http.StatusInternalServerError, "could not load categories")
 				return
 			}
-			respondOK(c, http.StatusOK, "column mapping needed", mappingNeededResponse{
+			respondSuccess(c, http.StatusOK, "column mapping needed", mappingNeededResponse{
 				NeedsMapping: true, Columns: sheet.Columns, Sample: sheet.Sample, Rows: sheet.Rows,
 				Guess: newMappingDTO(sheet.Guess), DateFormats: newDateFormatDTOs(csvimport.DateFormats),
 				AmbiguousDate: sheet.AmbiguousDate, CategoryNames: names, Fingerprint: sheet.Fingerprint,
@@ -242,7 +242,7 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 			// unlike csvimport.Plan's own Errors/NewCategories fields,
 			// which go nil (not just empty) for a clean file or one that
 			// names no new category. See .claude/rules/json-api-conventions.md.
-			respondOK(c, http.StatusOK, "import preview ready", importPreviewResponse{
+			respondSuccess(c, http.StatusOK, "import preview ready", importPreviewResponse{
 				Preview: true, RowCount: len(plan.Rows), NewCategories: newImportNewCategoryDTOs(plan.NewCategories),
 				Errors: newRowErrorDTOs(shown), MoreErrors: more, Rounded: plan.Rounded, Duplicates: duplicates,
 				Fingerprint: plan.Fingerprint, Importable: importable(plan), DateSuspect: mostlyDateErrors(plan.Errors),
@@ -265,7 +265,7 @@ func importTransactionsHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 
-		respondOK(c, http.StatusOK, "transactions imported", importResultResponse{Imported: len(plan.Rows), Month: latestMonth(plan)})
+		respondSuccess(c, http.StatusOK, "transactions imported", importResultResponse{Imported: len(plan.Rows), Month: latestMonth(plan)})
 	}
 }
 

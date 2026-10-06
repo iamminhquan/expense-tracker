@@ -73,7 +73,7 @@ func settingsHandler(deps Deps) gin.HandlerFunc {
 			})
 		}
 
-		respondOK(c, http.StatusOK, "settings retrieved", settingsResponse{
+		respondSuccess(c, http.StatusOK, "settings retrieved", settingsResponse{
 			Name: user.Name, Username: user.Username, Email: user.Email,
 			PendingEmail: user.PendingEmail.String, Sessions: dtos,
 		})
@@ -118,7 +118,7 @@ func updateProfileHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not update profile")
 			return
 		}
-		respondOK[any](c, http.StatusOK, "profile updated", nil)
+		respondSuccess[any](c, http.StatusOK, "profile updated", nil)
 	}
 }
 
@@ -169,7 +169,7 @@ func updateEmailHandler(deps Deps) gin.HandlerFunc {
 		}
 
 		queueVerificationEmail(c.Request.Context(), deps, userID, email)
-		respondOK[any](c, http.StatusOK, "check your new inbox to confirm the change", nil)
+		respondSuccess[any](c, http.StatusOK, "check your new inbox to confirm the change", nil)
 	}
 }
 
@@ -192,7 +192,7 @@ func resendVerificationHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 		queueVerificationEmail(c.Request.Context(), deps, userID, target)
-		respondOK[any](c, http.StatusOK, "verification email sent", nil)
+		respondSuccess[any](c, http.StatusOK, "verification email sent", nil)
 	}
 }
 
@@ -258,7 +258,7 @@ func updatePasswordHandler(deps Deps) gin.HandlerFunc {
 				log.Printf("update password: delete other sessions: %v", err)
 			}
 		}
-		respondOK[any](c, http.StatusOK, "password updated", nil)
+		respondSuccess[any](c, http.StatusOK, "password updated", nil)
 	}
 }
 
@@ -273,7 +273,7 @@ func revokeSessionHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not revoke session")
 			return
 		}
-		respondOK[any](c, http.StatusOK, "session revoked", nil)
+		respondSuccess[any](c, http.StatusOK, "session revoked", nil)
 	}
 }
 
@@ -292,7 +292,7 @@ func revokeOtherSessionsHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not revoke other sessions")
 			return
 		}
-		respondOK[any](c, http.StatusOK, "other sessions revoked", nil)
+		respondSuccess[any](c, http.StatusOK, "other sessions revoked", nil)
 	}
 }
 
@@ -333,7 +333,7 @@ func deleteAccountHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 		clearRefreshCookie(c, deps)
-		respondOK[any](c, http.StatusOK, "account deleted", nil)
+		respondSuccess[any](c, http.StatusOK, "account deleted", nil)
 	}
 }
 
@@ -397,6 +397,6 @@ func updateThemeHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not update theme")
 			return
 		}
-		respondOK[any](c, http.StatusOK, "theme updated", nil)
+		respondSuccess[any](c, http.StatusOK, "theme updated", nil)
 	}
 }

@@ -217,7 +217,7 @@ func refreshHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not refresh your session")
 			return
 		}
-		respondOK(c, http.StatusOK, "session refreshed", authResponse{AccessToken: accessToken, ExpiresAt: expiresAt, User: newUserDTO(user)})
+		respondSuccess(c, http.StatusOK, "session refreshed", authResponse{AccessToken: accessToken, ExpiresAt: expiresAt, User: newUserDTO(user)})
 	}
 }
 
@@ -232,7 +232,7 @@ func logoutHandler(deps Deps) gin.HandlerFunc {
 			}
 		}
 		clearRefreshCookie(c, deps)
-		respondOK[any](c, http.StatusOK, "logged out", nil)
+		respondSuccess[any](c, http.StatusOK, "logged out", nil)
 	}
 }
 
@@ -252,7 +252,7 @@ func meHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusNotFound, "user not found")
 			return
 		}
-		respondOK(c, http.StatusOK, "user retrieved", newUserDTO(user))
+		respondSuccess(c, http.StatusOK, "user retrieved", newUserDTO(user))
 	}
 }
 
@@ -274,7 +274,7 @@ func issueAuthResponse(c *gin.Context, deps Deps, user sqlcgen.User, message str
 		respondError(c, http.StatusInternalServerError, "could not create your session")
 		return
 	}
-	respondOK(c, http.StatusOK, message, authResponse{AccessToken: accessToken, ExpiresAt: accessExpiresAt, User: newUserDTO(user)})
+	respondSuccess(c, http.StatusOK, message, authResponse{AccessToken: accessToken, ExpiresAt: accessExpiresAt, User: newUserDTO(user)})
 }
 
 // refreshCookieSameSite picks SameSite to match SecureCookies rather than

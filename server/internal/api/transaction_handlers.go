@@ -119,7 +119,7 @@ func listTransactionsHandler(deps Deps) gin.HandlerFunc {
 		}
 		currentFrom, _ := currentMonthRange()
 
-		respondOK(c, http.StatusOK, "transactions retrieved", listTransactionsResponse{
+		respondSuccess(c, http.StatusOK, "transactions retrieved", listTransactionsResponse{
 			Transactions:      dtos,
 			TotalCount:        count,
 			Page:              pgr.Page,
@@ -235,7 +235,7 @@ func createTransactionHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 
-		respondOK(c, http.StatusCreated, "transaction created", transactionDTO{
+		respondSuccess(c, http.StatusCreated, "transaction created", transactionDTO{
 			ID: created.ID, CategoryID: created.CategoryID,
 			CategoryName: i18n.CategoryName(category.Slug, category.Name), CategoryColor: category.Color,
 			Description: created.Description, Amount: created.Amount, Type: created.Type,
@@ -302,7 +302,7 @@ func updateTransactionHandler(deps Deps) gin.HandlerFunc {
 			return
 		}
 
-		respondOK(c, http.StatusOK, "transaction updated", transactionDTO{
+		respondSuccess(c, http.StatusOK, "transaction updated", transactionDTO{
 			ID: updated.ID, CategoryID: updated.CategoryID,
 			CategoryName: i18n.CategoryName(category.Slug, category.Name), CategoryColor: category.Color,
 			Description: updated.Description, Amount: updated.Amount, Type: updated.Type,
@@ -322,6 +322,6 @@ func deleteTransactionHandler(deps Deps) gin.HandlerFunc {
 			respondError(c, http.StatusInternalServerError, "could not delete transaction")
 			return
 		}
-		respondOK[any](c, http.StatusOK, "transaction deleted", nil)
+		respondSuccess[any](c, http.StatusOK, "transaction deleted", nil)
 	}
 }

@@ -11,7 +11,7 @@ type JSONResponse[T any] struct {
 	Data    T      `json:"data"`
 }
 
-func respondOK[T any](c *gin.Context, status int, message string, data T) {
+func respondSuccess[T any](c *gin.Context, status int, message string, data T) {
 	c.JSON(status, JSONResponse[T]{Success: true, Message: message, Data: data})
 }
 
