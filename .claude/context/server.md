@@ -111,7 +111,7 @@ Authenticated (behind `internal/api.RequireAuth`, an `Authorization: Bearer <acc
 ## Core Data Model
 
 - `users` — email (unique, login identity), password_hash (bcrypt), name, username (unique, `^[a-z][a-z0-9_]{2,19}$`), theme (`auto`/`light`/`dark`), email_verified + pending_email, failed_login_attempts + locked_until.
-- `sessions` — id (opaque token, primary key, **this is the refresh token**), user_id, expires_at, created_at, user_agent (nullable — predates migration 000012).
+- `sessions` — id (opaque token, primary key, **this is the refresh token** — never send it to a client), public_id (UUID, the identifier clients see and send back to revoke a session), user_id, expires_at, created_at, user_agent (nullable — predates migration 000012).
 - `categories` — user_id (NULL = shared default, else a personal category), name, type (`expense`|`income`), color (fixed 9-value palette via CHECK), slug (NULL for personal; a stable, unique, language-independent key for the 9 shared defaults — **match on this, never on `name`**). Unique index on `(user_id, type, name)`.
 - `transactions` — user_id, category_id (FK to `categories`, **no `ON DELETE` clause**, deliberate — see below), amount (BIGINT, `CHECK (amount > 0)`, VND as a whole-number integer), type (`expense`|`income`), description, occurred_on (DATE).
 - `password_reset_tokens`, `email_verification_tokens` — single-use token tables, FK to `users` with `ON DELETE CASCADE`.
@@ -215,6 +215,7 @@ sqlc generate
 
 ## Change Log
 
+- `2026-10-06`: `GET /settings` listed each session by `sessions.id`, which is the refresh token, handing every active refresh token (the caller's own included) to page scripts. Sessions now carry a separate `public_id` (migration 000019) and the list and `DELETE /settings/sessions/{id}` use it. Refresh tokens already listed before this deploy stay valid until they expire or are revoked.
 - `2026-10-06`: every `/api/v1` JSON response now uses one envelope, `JSONResponse` (`{success, message, data}`, in `response.go`), success and error alike. `errorResponse` was replaced by `respondError`, and every `c.JSON` by `respondSuccess` with a message per endpoint. The thirteen endpoints that answered `204` now answer `200` with `data: null`. Unknown routes (404), wrong methods (405, `HandleMethodNotAllowed` now on), recovered panics (500, `CustomRecovery`) and `RequireAuth`'s 401s now answer in the envelope too, where before they gave plain text, an empty body or a bare `gin.H`. The design spec lived in `docs/superpowers/specs/` until it was implemented; see commit `31347a5`.
 - `2026-10-06`: dead code removed (found with `deadcode`): `internal/auth/middleware.go` (`RequireAuth`/`UserIDFromContext`, the cookie-session + htmx `HX-Redirect` middleware from the Chi era, with its test; `internal/api/middleware.go` is the only auth middleware), `pgval.Text`, and `monthScope.LabelLower` / `txnFilters.Any` / `txnFilters.ActiveCount` in `transaction_query.go`.
 - `2026-10-05`: every API route moved from `/api/*` to `/api/v1/*` (`router.go`'s group, `client/src/lib/api/*`, tests, docs); `/healthz` stays at the root. No unversioned alias is kept. The refresh-token cookie keeps `Path=/api` on purpose — it still matches `/api/v1/refresh` and `/logout`, and survives a future `/api/v2`.
