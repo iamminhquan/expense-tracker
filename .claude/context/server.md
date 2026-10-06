@@ -158,7 +158,10 @@ cd server
 go build ./...
 gofmt -l .        # must print nothing
 go vet ./...
+golangci-lint run ./...   # config in server/.golangci.yml
 ```
+
+- CI runs the same checks, plus `sqlc generate` leaving no diff, and runs the DB-backed tests against a Postgres 16 service container. The tests need the schema to exist before they start, and only `TestRunMigrations` (`cmd/server`) creates it, so CI runs that one test first (`go test -run '^TestRunMigrations$' ./cmd/server`). Do the same on a fresh scratch database, or packages race it and fail on a missing table.
 
 - Regenerate `server/internal/sqlcgen` after changing SQL in `server/internal/database/queries` or the migrations:
 
@@ -215,6 +218,7 @@ sqlc generate
 
 ## Change Log
 
+- `2026-10-06`: CI now runs the DB-backed tests (they skipped themselves without `TEST_DATABASE_URL`, so every `internal/api` test was skipped on CI), plus `gofmt`, `golangci-lint` (`server/.golangci.yml`) and a `sqlc generate` no-diff check.
 - `2026-10-06`: every `/api/v1` JSON response now uses one envelope, `JSONResponse` (`{success, message, data}`, in `response.go`), success and error alike. `errorResponse` was replaced by `respondError`, and every `c.JSON` by `respondSuccess` with a message per endpoint. The thirteen endpoints that answered `204` now answer `200` with `data: null`. Unknown routes (404), wrong methods (405, `HandleMethodNotAllowed` now on), recovered panics (500, `CustomRecovery`) and `RequireAuth`'s 401s now answer in the envelope too, where before they gave plain text, an empty body or a bare `gin.H`. The design spec lived in `docs/superpowers/specs/` until it was implemented; see commit `31347a5`.
 - `2026-10-06`: dead code removed (found with `deadcode`): `internal/auth/middleware.go` (`RequireAuth`/`UserIDFromContext`, the cookie-session + htmx `HX-Redirect` middleware from the Chi era, with its test; `internal/api/middleware.go` is the only auth middleware), `pgval.Text`, and `monthScope.LabelLower` / `txnFilters.Any` / `txnFilters.ActiveCount` in `transaction_query.go`.
 - `2026-10-05`: every API route moved from `/api/*` to `/api/v1/*` (`router.go`'s group, `client/src/lib/api/*`, tests, docs); `/healthz` stays at the root. No unversioned alias is kept. The refresh-token cookie keeps `Path=/api` on purpose — it still matches `/api/v1/refresh` and `/logout`, and survives a future `/api/v2`.

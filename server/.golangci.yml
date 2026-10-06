@@ -1,0 +1,14 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # Cleanup calls whose error nothing can act on: a failed Close after the
+      # work is done, a Rollback after a Commit (or on an already-failed
+      # transaction), a write to a response that has started.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.DB).Close
+        - (*github.com/golang-migrate/migrate/v4.Migrate).Close
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (net/http.ResponseWriter).Write
