@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import '../lib/charts'
+import { useChartTheme } from '../hooks/useChartTheme'
 import { useDashboard } from '../hooks/useDashboard'
 import { MonthPicker } from '../components/MonthPicker'
 import { formatVND, formatVNDSigned } from '../lib/format'
@@ -19,6 +20,7 @@ export function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const month = searchParams.get('month') ?? undefined
   const { data, error } = useDashboard(month)
+  const chart = useChartTheme()
 
   function setMonth(value: string) {
     const next = new URLSearchParams(searchParams)
@@ -96,11 +98,18 @@ export function DashboardPage() {
             data={{
               labels: data.bar.labels,
               datasets: [
-                { label: 'Expense', data: data.bar.expense, backgroundColor: 'rgb(180 35 24)' },
-                { label: 'Income', data: data.bar.income, backgroundColor: 'rgb(47 125 91)' },
+                { label: 'Expense', data: data.bar.expense, backgroundColor: chart.expense },
+                { label: 'Income', data: data.bar.income, backgroundColor: chart.income },
               ],
             }}
-            options={{ responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }}
+            options={{
+              responsive: true,
+              plugins: { legend: { position: 'bottom', labels: { color: chart.text } } },
+              scales: {
+                x: { ticks: { color: chart.textFaint }, grid: { color: chart.grid } },
+                y: { beginAtZero: true, ticks: { color: chart.textFaint }, grid: { color: chart.grid } },
+              },
+            }}
           />
         </div>
       </div>
