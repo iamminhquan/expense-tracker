@@ -6,8 +6,11 @@ import { ProfileCard } from './ProfileCard'
 import { SessionsCard } from './SessionsCard'
 
 export function SettingsPage() {
-  const { data, isLoading } = useSettings()
-  if (isLoading || !data) return <p className="text-ink-faint">Loading…</p>
+  const { data, error } = useSettings()
+  if (!data) {
+    if (error) return <p role="alert" className="text-expense">Could not load your settings.</p>
+    return <p role="status" className="text-ink-faint">Loading…</p>
+  }
 
   return (
     <div className="max-w-[560px] space-y-6">

@@ -60,15 +60,17 @@ A page component is the orchestrator. It reads the URL and the queries, handles 
 - **`useEffect`** is for syncing with something outside React: `dialog.showModal()`, a class on `<html>`. It is not for reacting to your own state changes. Do that work in the event handler that changed the state.
 
 ### Loading, error, empty
-Check them in this order: error, then loading, then empty, then data.
+Branch on `data` first, then tell an error apart from a load in progress:
 
 ```tsx
 const { data, error } = useTransactions(filters)
-if (error) return <p role="alert" className="text-expense">Could not load transactions.</p>
-if (!data) return <p role="status" className="text-ink-faint">Loading…</p>
+if (!data) {
+  if (error) return <p role="alert" className="text-expense">Could not load transactions.</p>
+  return <p role="status" className="text-ink-faint">Loading…</p>
+}
 ```
 
-Order matters. In TanStack Query v5 a failed query has `isLoading === false` and `data === undefined`. So the existing `if (isLoading || !data) return <Loading/>; if (error) ...` never reaches the error branch: a failed request shows "Loading…" forever. Don't copy that order. Fix it when you touch a page that has it.
+In TanStack Query v5 a failed query has `isLoading === false` and `data === undefined`, so the old `if (isLoading || !data) return <Loading/>; if (error) ...` never reached the error branch: a failed request showed "Loading…" forever. Checking `error` before `data` is wrong the other way: a background refetch that fails keeps the cached `data` but sets `error`, and the page would throw away what it was showing. Every page follows the shape above; keep it.
 
 Empty is its own state, and it should say *why* it's empty. `TransactionsPage` tells "No transactions in October" apart from "Nothing matches your filters". Those two need different responses from the user.
 

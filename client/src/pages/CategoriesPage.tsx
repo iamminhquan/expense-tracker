@@ -6,14 +6,17 @@ import type { Category } from '../lib/api/types'
 const SWATCHES = ['#D97757', '#5B8DEF', '#8B7BD8', '#6BA292', '#E0A82E', '#D97AA0', '#4FA871', '#7CA65C']
 
 export function CategoriesPage() {
-  const { data, isLoading } = useCategories()
+  const { data, error: loadError } = useCategories()
   const createCategory = useCreateCategory()
   const [type, setType] = useState<'expense' | 'income'>('expense')
   const [name, setName] = useState('')
   const [color, setColor] = useState(SWATCHES[0])
   const [error, setError] = useState<string | null>(null)
 
-  if (isLoading || !data) return <p className="text-ink-faint">Loading…</p>
+  if (!data) {
+    if (loadError) return <p role="alert" className="text-expense">Could not load categories.</p>
+    return <p role="status" className="text-ink-faint">Loading…</p>
+  }
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault()

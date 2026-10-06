@@ -40,7 +40,7 @@ function exportQueryString(filters: TransactionFilters): string {
 export function TransactionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = filtersFromSearchParams(searchParams)
-  const { data, isLoading, error } = useTransactions(filters)
+  const { data, error } = useTransactions(filters)
   const { data: categories } = useCategories()
   const allCategories = categories ? categories.expenseCategories.concat(categories.incomeCategories) : []
 
@@ -55,8 +55,10 @@ export function TransactionsPage() {
     setSearchParams(next, { replace: true })
   }
 
-  if (isLoading || !data) return <p className="text-ink-faint">Loading…</p>
-  if (error) return <p className="text-expense">Could not load transactions.</p>
+  if (!data) {
+    if (error) return <p role="alert" className="text-expense">Could not load transactions.</p>
+    return <p role="status" className="text-ink-faint">Loading…</p>
+  }
 
   return (
     <div className="space-y-6">
