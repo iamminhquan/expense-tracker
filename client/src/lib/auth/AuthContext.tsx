@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as authApi from '../api/auth'
 import { readApiResponse } from '../api/client'
-import { setAccessToken, setUnauthorizedHandler } from '../api/tokenStore'
+import { getAccessToken, setAccessToken, setUnauthorizedHandler } from '../api/tokenStore'
 import type { AuthResponse, User } from '../api/types'
 
 type Status = 'loading' | 'authenticated' | 'unauthenticated'
@@ -14,6 +14,8 @@ interface AuthContextValue {
   logout: () => Promise<void>
   /** Adopts a sign-in response from another endpoint, e.g. reset-password. */
   setSession: (res: AuthResponse) => void
+  /** Re-reads the signed-in user, e.g. after confirming their email. A no-op when signed out. */
+  reloadUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -87,9 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('authenticated')
   }, [])
 
+  const reloadUser = useCallback(async () => {
+    if (!getAccessToken()) return
+    try {
+      setUser(await authApi.me())
+    } catch {
+      // Still signed in as before; the next refresh or reload brings the change in.
+    }
+  }, [])
+
   const value = useMemo(
-    () => ({ user, status, login, register, logout, setSession }),
-    [user, status, login, register, logout, setSession],
+    () => ({ user, status, login, register, logout, setSession, reloadUser }),
+    [user, status, login, register, logout, setSession, reloadUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

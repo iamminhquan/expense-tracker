@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '../../components/layout/AuthLayout'
 import { verifyEmail } from '../../lib/api/auth'
+import { useAuth } from '../../lib/auth/AuthContext'
 
 type Outcome = 'checking' | 'verified' | 'conflict' | 'invalid'
 
@@ -10,6 +11,7 @@ export function VerifyEmailPage() {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const [outcome, setOutcome] = useState<Outcome>('checking')
+  const { reloadUser } = useAuth()
 
   useEffect(() => {
     if (!token) {
@@ -17,9 +19,12 @@ export function VerifyEmailPage() {
       return
     }
     verifyEmail(token)
-      .then((res) => setOutcome(res.verified ? 'verified' : res.conflict ? 'conflict' : 'invalid'))
+      .then((res) => {
+        setOutcome(res.verified ? 'verified' : res.conflict ? 'conflict' : 'invalid')
+        if (res.verified) void reloadUser()
+      })
       .catch(() => setOutcome('invalid'))
-  }, [token])
+  }, [token, reloadUser])
 
   return (
     <AuthLayout>
