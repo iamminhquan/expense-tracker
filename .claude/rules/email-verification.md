@@ -4,6 +4,7 @@ paths:
   - "server/internal/api/password_reset_handlers.go"
   - "server/internal/api/settings_handlers.go"
   - "server/internal/mailer/**"
+  - "client/src/components/layout/VerifyEmailBanner.tsx"
 ---
 
 # Email verification
@@ -19,7 +20,7 @@ Code: `server/internal/auth/email_verification.go` and `server/internal/api/pass
 - `verifyEmailHandler` takes its token in a `POST` body, not a `GET` query string: the link an email points at opens the client's own `/verify-email` route, which reads `?token=` itself and POSTs it here. It's unauthenticated on purpose, same reasoning as forgot/reset-password -- the browser opening the link is often not the one the visitor is signed in on, and the token itself is what proves the request is legitimate.
 - `resendVerificationHandler` reissues whichever address is unconfirmed: `pending_email` if a change is in flight, otherwise `email`.
 - Migration 000013 grandfathers in every account that existed before the check as verified.
-- **Known gap:** nothing in `client/` currently shows a reminder for an unverified account, or calls `resendVerification`. `userDTO` doesn't even carry `EmailVerified` yet. The HTML app's layout-level reminder banner (gated on `EmailVerified`, with a resend link) has no React equivalent -- add `EmailVerified` to `userDTO`/`User` and a small banner in `Layout.tsx` if you pick this up. Never block an unverified account from anything in the meantime; the gap is a missing reminder, not a missing restriction to add.
+- `userDTO.emailVerified` feeds `client/`'s `VerifyEmailBanner`, a reminder strip with a resend button. It is only a reminder: never block an unverified account from anything. A pending email *change* does not show it, since `users.email` is still the verified old address; the Settings email card shows that instead.
 
 ## Why
 

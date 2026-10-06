@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useDashboard } from '../../hooks/useDashboard'
 import { BalanceWidget } from './BalanceWidget'
+import { VerifyEmailBanner } from './VerifyEmailBanner'
 import { UserMenu } from './UserMenu'
 
 const NAV_LINKS = [
@@ -47,6 +48,8 @@ export function Layout() {
           <UserMenu />
         </div>
       </header>
+
+      <VerifyEmailBanner />
 
       <main className="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-9">
         <Outlet />
