@@ -37,6 +37,7 @@ type Session struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UserAgent pgtype.Text        `json:"user_agent"`
+	PublicID  pgtype.UUID        `json:"public_id"`
 }
 
 type Transaction struct {

@@ -13,10 +13,11 @@ DELETE FROM sessions WHERE id = $1;
 SELECT * FROM sessions WHERE user_id = $1 ORDER BY created_at DESC;
 
 -- DeleteSessionForUser is the scoped counterpart to DeleteSession: it takes
--- a user_id as well as an id so that a session id typed into a form field
+-- a user_id as well as the session's public_id (never its id, which is the
+-- refresh token and is not sent to clients) so that an id a client sends
 -- can only ever delete a session owned by the caller.
 -- name: DeleteSessionForUser :exec
-DELETE FROM sessions WHERE id = $1 AND user_id = $2;
+DELETE FROM sessions WHERE public_id = $1 AND user_id = $2;
 
 -- DeleteOtherSessionsForUser drops every session of a user except the one
 -- making the request, so changing a password signs out the other devices

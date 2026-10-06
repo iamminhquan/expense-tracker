@@ -29,6 +29,7 @@ paths:
 
 - `created_at` and `user_agent` (migration 000012) exist only for this list. `user_agent` is nullable because sessions older than the migration have none.
 - `format.DeviceLabel` (`server/internal/format/device.go`) turns the raw UA into "Chrome on Windows" by matching a few common substrings. Fall back to the raw string rather than guess wrong.
-- Signing out one device goes through `DeleteSessionForUser`, scoped to `user_id` as well as `id`, so a typed `session_id` can never reach a row it doesn't own.
+- The list's `id` is `sessions.public_id` (migration 000019), never `sessions.id`: that one is the refresh token, and sending it to the page would put every active refresh token, the viewer's own included, within reach of page scripts and make the cookie's httpOnly flag moot. Never put `sessions.id` in a response body.
+- Signing out one device goes through `DeleteSessionForUser`, keyed on `public_id` and scoped to `user_id`, so an id a client sends can never reach a row it doesn't own. A malformed id is a 400.
 - "Log out everywhere else" calls `DeleteOtherSessionsForUser`, the same call a password change uses, here as a deliberate action.
-- The client identifies "the current session" by comparing a row's `id` against the refresh-token cookie the request itself carried, and never offers that one a revoke button -- a click can't sign the viewer out of the device they're using it from.
+- The server marks "the current session" (`isCurrent`) by comparing a row's `id` against the refresh-token cookie the request itself carried, and the client never offers that one a revoke button -- a click can't sign the viewer out of the device they're using it from.
