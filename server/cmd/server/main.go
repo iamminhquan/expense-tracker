@@ -100,6 +100,7 @@ func main() {
 		BaseURL:            cfg.BaseURL,
 		JWTSecret:          cfg.JWTSecret,
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+		TrustedProxies:     cfg.TrustedProxies,
 	}
 
 	log.Printf("listening on :%s", cfg.Port)
