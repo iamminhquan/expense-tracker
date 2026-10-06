@@ -9,7 +9,7 @@
 ## Read This First
 
 - Treat this file as the frontend source-of-truth for agent work, alongside `.claude/context/server.md` (the API half) and `.claude/context/README.md` (the directory's own index).
-- The detailed rules live in `.claude/rules/*.md`, auto-loaded for the file being touched: `theming.md` (CSS variables, the three theme preferences, the category palette), `balance-widget.md`, `dashboard.md`, `mobile-nav.md` (the long-press/bottom-sheet gesture layer), `req-value-objects.md` (URL-as-source-of-truth for filters), `csv-import.md`.
+- The detailed rules live in `.claude/rules/*.md`, each loaded automatically for the files its `paths:` frontmatter covers, so there is no list of them to keep here. Repeatable workflows (writing components, committing, and so on) live in `.claude/skills/`, each offered by its own `description:`.
 - Prefer reading the actual components over this prose — including this file — when they disagree. `App.tsx`'s route table and `lib/api/types.ts` are the two files least likely to drift without something breaking at compile or runtime, so they're the most reliable sources.
 
 ## Maintenance Rule
@@ -144,6 +144,7 @@ Run `pnpm lint` and `pnpm build` from inside `client/` before committing a chang
 
 ## Change Log
 
+- `2026-10-06`: `.claude/skills/react-component/` added, covering where a component/page/hook file goes, how props/state/async states are written, and an accessibility pass, with patterns in its `references/accessibility.md`. Read This First no longer lists individual rule files (see `.claude/context/README.md`'s Maintenance Rule).
 - `2026-10-05`: pnpm workspace removed. `pnpm-workspace.yaml` deleted and `pnpm-lock.yaml` moved from the repo root into `client/` (regenerated as a standalone lockfile, same resolved versions); `packageManager` added to `client/package.json`; CI points at `client/pnpm-lock.yaml`. `client/` is now a plain standalone package. Added Setup and Run and Deploy Notes sections to this file.
 - `2026-10-05`: this file renamed from `frontend.md` to `client.md` to match the `client/` directory it describes.
 - `2026-10-05`: the Gin/React migration completed. The old `html/template` + htmx frontend (`server/internal/web`, the `view_*.go` render pipeline, `server/internal/csrf`) was deleted in full. This file rewritten from scratch to describe `client/`'s React SPA as the frontend, replacing the previous version which described the now-deleted templates/static-asset system.

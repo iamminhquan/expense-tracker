@@ -9,7 +9,7 @@
 ## Read This First
 
 - Treat this file as the backend source-of-truth for agent work, alongside `.claude/context/client.md` (the `client/` React app) and `.claude/context/README.md` (the directory's own index).
-- Do not trust the root `README.md` blindly for anything beyond its own stated setup steps — it is accurate but deliberately brief. The real behavior and edge cases live in `.claude/rules/*.md` (one file per area, loaded automatically for the file being touched) and in this file.
+- Do not trust the root `README.md` blindly for anything beyond its own stated setup steps — it is accurate but deliberately brief. The real behavior and edge cases live in `.claude/rules/*.md` (one file per area, loaded automatically for the file being touched) and in this file. Repeatable workflows live in `.claude/skills/`, each offered by its own `description:`.
 - Prefer reading actual code in `server/internal/api/`, `server/internal/database/migrations/`, `server/internal/database/queries/`, and `server/cmd/server/main.go` over any prose description — including this one — when they disagree.
 
 ## Maintenance Rule
