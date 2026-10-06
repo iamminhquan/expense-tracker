@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { AuthLayout, FieldError, inputClass, primaryButtonClass } from '../../components/layout/AuthLayout'
+import { AuthLayout } from '../../components/layout/AuthLayout'
+import { FieldError } from '../../components/FieldError'
+import { inputClass, primaryButtonClass } from '../../lib/formStyles'
 import { checkResetToken, resetPassword } from '../../lib/api/auth'
 import { useAuth } from '../../lib/auth/AuthContext'
 import { ApiError } from '../../lib/api/client'
@@ -38,8 +40,7 @@ export function ResetPasswordPage() {
     setError(null)
     try {
       const res = await resetPassword(token, password, passwordConfirm)
-      // resetPassword signs the visitor in on success, same as
-      // register/login -- see auth_handlers.go's issueAuthResponse.
+      // A successful reset signs the visitor in, like login.
       setSession(res)
       navigate('/dashboard', { replace: true })
     } catch (err) {

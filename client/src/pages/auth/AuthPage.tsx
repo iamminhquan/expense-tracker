@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { AuthLayout, FieldError, inputClass, primaryButtonClass } from '../../components/layout/AuthLayout'
+import { AuthLayout } from '../../components/layout/AuthLayout'
+import { FieldError } from '../../components/FieldError'
+import { inputClass, primaryButtonClass } from '../../lib/formStyles'
 import { useAuth } from '../../lib/auth/AuthContext'
 import { ApiError } from '../../lib/api/client'
 
-/** Shared by the /login and /register routes, mirroring auth.html's two-tab card. */
 export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
   return <AuthLayout>{tab === 'login' ? <LoginForm /> : <RegisterForm />}</AuthLayout>
 }

@@ -9,7 +9,6 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'dark', label: 'Dark' },
 ]
 
-/** Mirrors user_menu.html: theme switch, a link to Settings, and logout. */
 export function UserMenu() {
   const { user, logout } = useAuth()
   const { theme, setTheme } = useTheme()

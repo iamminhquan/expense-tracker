@@ -9,7 +9,7 @@
 ## Read This First
 
 - Treat this file as the backend source-of-truth for agent work, alongside `.claude/context/client.md` (the `client/` React app) and `.claude/context/README.md` (the directory's own index).
-- Do not trust the root `README.md` blindly for anything beyond its own stated setup steps — it is accurate but deliberately brief. The real behavior and edge cases live in `.claude/rules/*.md` (one file per area, loaded automatically for the file being touched) and in this file.
+- Do not trust the root `README.md` blindly for anything beyond its own stated setup steps — it is accurate but deliberately brief. The real behavior and edge cases live in `.claude/rules/*.md` (one file per area, loaded automatically for the file being touched) and in this file. Repeatable workflows live in `.claude/skills/`, each offered by its own `description:`.
 - Prefer reading actual code in `server/internal/api/`, `server/internal/database/migrations/`, `server/internal/database/queries/`, and `server/cmd/server/main.go` over any prose description — including this one — when they disagree.
 
 ## Maintenance Rule
@@ -215,6 +215,7 @@ sqlc generate
 
 ## Change Log
 
+- `2026-10-06`: dead code removed (found with `deadcode`): `internal/auth/middleware.go` (`RequireAuth`/`UserIDFromContext`, the cookie-session + htmx `HX-Redirect` middleware from the Chi era, with its test; `internal/api/middleware.go` is the only auth middleware), `pgval.Text`, and `monthScope.LabelLower` / `txnFilters.Any` / `txnFilters.ActiveCount` in `transaction_query.go`.
 - `2026-10-05`: every API route moved from `/api/*` to `/api/v1/*` (`router.go`'s group, `client/src/lib/api/*`, tests, docs); `/healthz` stays at the root. No unversioned alias is kept. The refresh-token cookie keeps `Path=/api` on purpose — it still matches `/api/v1/refresh` and `/logout`, and survives a future `/api/v2`.
 - `2026-10-05`: `/healthz` moved from `/api/healthz` to the root. `render.yaml`'s `healthCheckPath` and the keep-alive cron both probe `/healthz`, which the deleted Chi app used to serve; after the cutover cleanup nothing answered it and Render would have marked every deploy unhealthy. `TestHealthzAtRoot` pins it.
 - `2026-10-05`: `APP_BASE_URL` now documented (and defaulted, to `http://localhost:5173`) as `client/`'s URL, not this server's — email links point at client routes.

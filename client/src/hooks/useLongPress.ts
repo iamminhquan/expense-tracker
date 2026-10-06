@@ -1,12 +1,6 @@
 import { useRef } from 'react'
 import type { PointerEvent } from 'react'
 
-// Mirrors server/internal/web/static/app.js's long-press IIFE: a ~500ms
-// hold opens an action sheet without a persistent "⋯" button on a mobile
-// row. Pointer events (not a touch/mouse pair) unify both input kinds into
-// one set of handlers; a move past the tolerance cancels the press the
-// same way a scroll does there (a scroll that steals the gesture arrives
-// as pointercancel, same as the original).
 export function useLongPress(onLongPress: () => void, options: { threshold?: number; moveTolerance?: number } = {}) {
   const { threshold = 500, moveTolerance = 10 } = options
   const timerRef = useRef<number | null>(null)

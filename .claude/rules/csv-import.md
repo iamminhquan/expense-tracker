@@ -3,7 +3,7 @@ paths:
   - "server/internal/csvimport/**"
   - "server/internal/api/import_handlers.go"
   - "server/internal/api/export_handlers.go"
-  - "client/src/pages/ImportPage.tsx"
+  - "client/src/pages/import/**"
   - "client/src/lib/api/import.ts"
 ---
 
@@ -21,7 +21,7 @@ paths:
 ## Guessing
 
 - Guess by header name first (`headerAliases`, which spells out toned and untoned Vietnamese rather than carrying a Unicode normaliser), then by content. A column is a date or an amount if `contentShare` of it parses as one; of the columns left, the one that repeats most is the category and the one that repeats least is the note.
-- Every guess is rendered into a control the user can change (`ImportPage.tsx`'s mapping screen), which is what licenses rules this rough.
+- Every guess is rendered into a control the user can change (`pages/import/MappingForm.tsx`), which is what licenses rules this rough.
 - Date order is the exception. A column whose days never pass the 12th fits both DD/MM and MM/DD, and it is the only wrong guess that still produces rows that look right. `Sheet.AmbiguousDate` makes the screen say so, and a preview whose failures are mostly date failures (`mostlyDateErrors`) says the format is probably wrong instead of listing hundreds of complaints.
 
 ## Amounts

@@ -2,6 +2,8 @@
 paths:
   - "server/internal/api/transaction_query.go"
   - "server/internal/api/transaction_handlers.go"
+  - "client/src/pages/transactions/TransactionsPage.tsx"
+  - "client/src/pages/DashboardPage.tsx"
 ---
 
 # Month, filters, paging
@@ -19,7 +21,7 @@ paths:
 ## `txnFilters`
 
 - Holds search, type, category and min/max amount. The 0 sentinel means "not filtering". It also holds the nullable sqlc params the list, count, and export queries all take.
-- `Sort` rides in the same object but is not a filter: it narrows nothing. `Any` and `ActiveCount` leave it out.
+- `Sort` rides in the same object but is not a filter: it narrows nothing.
 - Orders live in `sortOrders`, and the ORDER BY switches on the bound value through a pair of `CASE`s in the SQL itself. Never interpolate a column name. An unknown order matches neither and falls back to `occurred_on DESC, id DESC`.
 
 ## `pagerDTO`
@@ -28,5 +30,5 @@ paths:
 
 ## Client: the URL is the source of truth, not `useState`
 
-- `TransactionsPage.tsx` and `DashboardPage.tsx` both keep their filters in the URL's own query string (`useSearchParams`), not local component state. This isn't just style -- a real browser test caught the bug that happens otherwise: a link to a specific month (the CSV import flow's "view results" link, a bookmark, a reload) silently reset to whatever the component's initial state happened to be, because nothing ever read the URL it landed on. See `.claude/rules/json-api-conventions.md`'s browser-testing note and `CLAUDE.md`'s changelog for the exact bug.
+- `TransactionsPage.tsx` and `DashboardPage.tsx` both keep their filters in the URL's own query string (`useSearchParams`), not local component state. This isn't just style -- a real browser test caught the bug that happens otherwise: a link to a specific month (the CSV import flow's "view results" link, a bookmark, a reload) silently reset to whatever the component's initial state happened to be, because nothing ever read the URL it landed on. See `.claude/rules/json-api-conventions.md`'s browser-testing note and `.claude/context/README.md`'s Change Log for the exact bug.
 - Any new page with its own filters (CSV import's result links, say) should follow the same pattern from the start rather than needing the same fix applied after the fact.

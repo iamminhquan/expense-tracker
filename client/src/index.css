@@ -1,11 +1,6 @@
 @import "tailwindcss";
 
-/* Design tokens, ported from the old server/internal/web/static/app.css.
-   Stored as space-separated RGB channels (not hex) for consistency with the
-   original; Tailwind v4 no longer needs the <alpha-value> placeholder trick
-   that v3's Play CDN config required -- utilities like bg-accent/10 now work
-   automatically via color-mix() for any --color-* theme variable, whatever
-   format its value is in. */
+/* Space-separated RGB channels, so rgb(var(--c-x) / alpha) works. */
 :root {
   color-scheme: light;
   --c-app: 250 249 247;
@@ -33,11 +28,11 @@
   --c-dot: 27 26 24;
 }
 
-/* The dark palette, applied in two places so all three preferences work:
-   once behind prefers-color-scheme for the "auto" theme (the media query
-   resolves "auto" purely client-side), and once on class="dark" for an
-   explicit override. The :not(.light) guard lets an explicit light choice
-   win on a dark-set OS. */
+/*
+ * The dark palette is declared twice, for "auto" (the media query) and for an
+ * explicit .dark. :not(.light) lets an explicit light choice win on a dark OS.
+ * Keep both blocks in sync.
+ */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
@@ -93,9 +88,6 @@
   --c-dot: 242 240 236;
 }
 
-/* Maps each --c-* token into Tailwind's color namespace so bg-accent,
-   text-ink, border-border-card, etc. are generated utilities, with opacity
-   modifiers (bg-accent/10) working automatically. */
 @theme {
   --color-app: rgb(var(--c-app));
   --color-surface: rgb(var(--c-surface));
@@ -124,26 +116,18 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Form controls and dialogs carry no background of their own and would
-   otherwise keep the browser default. */
 input, select, textarea, dialog {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink));
 }
 ::placeholder { color: rgb(var(--c-placeholder)); }
 
-/* Faint dot-grid texture on the page background. --c-dot pairs light and
-   dark values close to --c-ink so the pattern reads as texture, not a
-   competing visual element. */
 body {
   background-image: radial-gradient(rgb(var(--c-dot) / 0.05) 1px, transparent 1px);
   background-size: 8px 8px;
 }
 
-/* Theme toggle fades rather than snaps: the palette blocks above swap
-   instantly when the theme-switching code changes the <html> class, but
-   transitioning the properties that *consume* the --c-* variables makes
-   that swap read as a fade. */
+/* Makes a theme switch fade instead of snap. */
 *, *::before, *::after {
   transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, fill 200ms ease, stroke 200ms ease;
 }
@@ -153,8 +137,6 @@ body {
 
 .font-mono { font-variant-numeric: tabular-nums; }
 
-/* The "$pend" wordmark -- everything but the size, which each call site
-   sets. */
 .wordmark {
   font-family: 'Playfair Display', Georgia, serif;
   font-weight: 800;

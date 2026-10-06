@@ -1,11 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../lib/auth/AuthContext'
 
-// Gates every /dashboard, /transactions, /categories, /settings route.
-// "loading" (the bootstrap silent-refresh in AuthProvider hasn't settled
-// yet) renders nothing rather than redirecting -- redirecting first and
-// then finding out the refresh succeeded would flash the login page on
-// every reload.
+// Render nothing until the silent refresh settles, or each reload flashes the login page.
 export function ProtectedRoute() {
   const { status } = useAuth()
   const location = useLocation()

@@ -5,7 +5,7 @@ import { verifyEmail } from '../../lib/api/auth'
 
 type Outcome = 'checking' | 'verified' | 'conflict' | 'invalid'
 
-/** Mirrors verify_email.html's three outcomes. Public: the browser that opens this link is often not the one the visitor is signed in on. */
+// Public route: the emailed link is often opened in a browser that isn't signed in.
 export function VerifyEmailPage() {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''

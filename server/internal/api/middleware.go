@@ -11,9 +11,8 @@ import (
 
 // userIDContextKey is the gin.Context key RequireAuth stores the
 // authenticated user's ID under; UserID reads it back. A package-private
-// type (mirroring internal/auth/middleware.go's contextKey) rather than a
-// bare string, so another package's identical-looking key can never
-// collide with this one.
+// type rather than a bare string, so another package's identical-looking
+// key can never collide with this one.
 type contextKey string
 
 const userIDContextKey contextKey = "userID"

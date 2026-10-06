@@ -1,7 +1,4 @@
-// Mirrors the JSON shapes server/internal/api's handlers return. Kept as
-// one hand-written file rather than generated from the Go structs (the
-// migration plan's locked type-sync decision) -- revisit if the two drift
-// often enough to be worth the tooling.
+// Hand-written to match server/internal/api's DTOs; update both together.
 
 export interface User {
   id: number

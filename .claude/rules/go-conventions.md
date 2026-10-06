@@ -21,7 +21,7 @@ Follow Google's official Go guidance, in its own stated order of priority: **cla
 - Error strings are lowercase and unpunctuated: `"session expired"`, not `"Session expired."`.
 - Wrap with `%w` when the caller might reasonably inspect the cause, `%v` when it is just context; always add what was being attempted: `fmt.Errorf("read header: %w", err)`.
 - Compare with `errors.Is` and `errors.As`, never `==` or a bare type assertion. The Postgres unique-violation check is the pattern here: `errors.As(err, &pgErr) && pgErr.Code == "23505"`.
-- Handle every error. A deliberate discard needs `_ =` and, unless the reason is obvious, a comment. `userID, _ := auth.UserIDFromContext(...)` inside a `RequireAuth` group is the one routine exception — the middleware guarantees the value.
+- Handle every error. A deliberate discard needs `_ =` and, unless the reason is obvious, a comment. `userID, _ := UserID(c)` inside a `RequireAuth` group is the one routine exception — the middleware guarantees the value.
 - Sentinel errors are `Err`-prefixed package-level `var`s (`config.ErrMissingDatabaseURL`).
 - Don't `panic` in normal flow outside a build-time invariant that can't be worked around any other way.
 

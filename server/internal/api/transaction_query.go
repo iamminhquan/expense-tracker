@@ -53,7 +53,6 @@ func newMonthScope(param string) monthScope {
 }
 
 func (s monthScope) Bounds() (from, to pgtype.Date) { return s.from, s.to }
-func (s monthScope) LabelLower() string             { return s.from.Time.Format("January") }
 
 func monthRangeFor(param string) (from, to pgtype.Date) {
 	t, err := time.ParseInLocation("2006-01", param, vietnamLocation)
@@ -131,20 +130,6 @@ func positiveInt(raw string) int64 {
 	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
 	if err != nil || n <= 0 {
 		return 0
-	}
-	return n
-}
-
-func (f txnFilters) Any() bool {
-	return f.Search != "" || f.Type != "" || f.Category != 0 || f.MinAmount != 0 || f.MaxAmount != 0
-}
-
-func (f txnFilters) ActiveCount() int {
-	n := 0
-	for _, on := range []bool{f.Search != "", f.Type != "", f.Category != 0, f.MinAmount != 0 || f.MaxAmount != 0} {
-		if on {
-			n++
-		}
 	}
 	return n
 }

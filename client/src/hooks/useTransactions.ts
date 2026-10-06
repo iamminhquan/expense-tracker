@@ -13,14 +13,7 @@ export function useTransactions(filters: TransactionFilters) {
   })
 }
 
-// Every mutation below invalidates the whole ['transactions', ...] family
-// (every filter combination cached, not just the one the mutating page
-// happened to be showing) plus ['dashboard'] and ['categories'] --
-// TanStack Query's replacement for htmx's hand-wired OOB swaps
-// (header_balance_oob, totals_oob): a create/edit/delete changes totals
-// the dashboard and the category list's transactionCount both depend on,
-// and there is no cheaper way to know which of those actually moved than
-// to just refetch them.
+// A transaction write also changes dashboard totals and category counts.
 function invalidateEverythingATransactionTouches(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ['transactions'] })
   void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
