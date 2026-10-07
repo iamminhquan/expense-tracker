@@ -7,6 +7,7 @@ paths:
   - "client/src/lib/categorySwatches.ts"
   - "client/src/pages/categories/SwatchPicker.tsx"
   - "client/src/hooks/useThemeColors.ts"
+  - "client/src/lib/formStyles.ts"
 ---
 
 # Theming
@@ -15,7 +16,13 @@ paths:
 
 - All colour flows through CSS custom properties declared in `client/src/index.css`'s `:root` and mapped into Tailwind's color namespace via its `@theme` block -- `index.css`'s own comments explain the port from the old `app.css`/`tailwind-config.js` pair, including why Tailwind v4 no longer needs the `<alpha-value>` placeholder trick v3's Play CDN config required (opacity modifiers like `bg-accent/10` work automatically via `color-mix()` now, whatever format the underlying value is in).
 - The variables hold space-separated RGB channels, never hex, the same convention the deleted `app.css` used.
-- Never hardcode a colour in a component (`text-[#6B6862]`, `style={{backgroundColor: '#FEF7F5'}}`). Add or reuse a token in `index.css`'s `@theme` block instead. The tokens are semantic (`app`, `surface`, `surface-2`, `border`, `border-strong`, `ink`, `ink-muted`, `accent`/`on-accent`, `expense`, `income`, `chart-income`, `danger`/`on-danger`, `warning`, each `*-tint`, `scrim`), so pick by role, not by how a colour looks. Status colours (`danger`, `warning`, `income`) always come with an icon or text, never colour alone.
+- Never hardcode a colour in a component (`text-[#6B6862]`, `style={{backgroundColor: '#FEF7F5'}}`). Add or reuse a token in `index.css`'s `@theme` block instead. The tokens are semantic (`app`, `surface`, `surface-2`, `border`, `border-strong`, `ink`, `ink-muted`, `accent`/`accent-hover`/`on-accent`, `expense`, `income`/`on-income`, `chart-expense`, `chart-income`, `danger`/`on-danger`, `warning`, each `*-tint`, `brand`/`on-brand`, `scrim`), so pick by role, not by how a colour looks. Status colours (`danger`, `warning`, `income`) always come with an icon or text, never colour alone.
+- The palette is "Thanh Long" (dragon fruit): magenta is both the accent and the colour of spending (`expense` is a deeper step of it, for text on `expense-tint`), the fruit's green is income, a red-orange `danger` sits about 40° of hue away from the magenta so a delete never reads as a brand action, and the neutrals are a faintly lilac white (an aubergine graphite in dark). `brand` is the pre-auth panel only: the accent in light, a deep wine in dark so half the screen doesn't glare.
+- `chart-expense`/`chart-income` are separate from the text tokens: they were run through the dataviz palette validator against each theme's surface (lightness band, CVD separation, 3:1 contrast), which the text steps don't pass as bar fills. Re-run it if you change either.
+- Expense and income are never told apart by colour alone: amounts carry `+`/`−` (`formatVNDSigned` uses a real minus, U+2212), and type toggles carry an arrow icon.
+- Radius has three steps by hierarchy (`rounded-tile` 24px for page tiles, `rounded-panel` 16px for panels inside them, `rounded-control` 14px for fields); buttons, chips and the dock are pills (`rounded-full`). Floating things (dock, sheets, popovers) get a shadow; tiles never do.
+- Type is Archivo alone, varied by its width axis: `.figure`/`.figure-sm` (condensed, for money, so long VND amounts stay large), `.heading` (slightly wide), `.wordmark` (widest). These classes live in `index.css`, outside any layer.
+- `index.css`'s element rules (`body`, `input`, the colour transition on `*`, `:focus-visible`) sit in `@layer base`, so a utility on the element (`bg-transparent`, `focus-visible:outline-none`) still wins. Two utilities that set the same property on one element are resolved by Tailwind's stylesheet order, not the class string, so make state classes exclusive (see `chipClass` in `lib/formStyles.ts`) instead of appending an override.
 - `on-swatch` is the one theme-independent token: the check drawn on a category swatch, which is the same hex in both themes.
 - There is no automated layout-invariant test here the way `view_layout_test.go` was for the old templates (it was deleted with `internal/handlers`). Nothing currently catches a stray hardcoded color or a Tailwind utility class used outside a component's className -- a gap, not a deliberate choice, if you're looking for something to add.
 
