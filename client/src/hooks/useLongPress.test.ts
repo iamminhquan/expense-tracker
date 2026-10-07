@@ -1,9 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
-import type { PointerEvent } from 'react'
+import type { MouseEvent, PointerEvent } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLongPress } from './useLongPress'
 
 const pointer = (x: number, y: number) => ({ clientX: x, clientY: y }) as PointerEvent
+const click = () => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() }) as unknown as MouseEvent & { stopPropagation: ReturnType<typeof vi.fn> }
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -68,5 +69,33 @@ describe('useLongPress', () => {
     act(() => result.current.onPointerDown(pointer(0, 0)))
     act(() => void vi.advanceTimersByTime(200))
     expect(onLongPress).toHaveBeenCalledTimes(1)
+  })
+
+  /* On a real touch the finger lifting fires a click, which lands on whatever the press just opened:
+     a modal sheet's own <dialog>, read as a backdrop tap that closed it again. */
+  it('swallows the click that follows a long-press', () => {
+    const { result } = renderHook(() => useLongPress(vi.fn()))
+
+    act(() => result.current.onPointerDown(pointer(0, 0)))
+    act(() => void vi.advanceTimersByTime(500))
+    act(() => result.current.onPointerUp())
+    const after = click()
+    act(() => result.current.onClickCapture(after))
+    expect(after.stopPropagation).toHaveBeenCalled()
+
+    const next = click()
+    act(() => result.current.onClickCapture(next))
+    expect(next.stopPropagation).not.toHaveBeenCalled()
+  })
+
+  it('lets an ordinary tap through', () => {
+    const { result } = renderHook(() => useLongPress(vi.fn()))
+
+    act(() => result.current.onPointerDown(pointer(0, 0)))
+    act(() => void vi.advanceTimersByTime(200))
+    act(() => result.current.onPointerUp())
+    const tap = click()
+    act(() => result.current.onClickCapture(tap))
+    expect(tap.stopPropagation).not.toHaveBeenCalled()
   })
 })
