@@ -78,7 +78,7 @@ export function EmailCard({ email, pendingEmail }: EmailCardProps) {
             <FieldErrorText>{error}</FieldErrorText>
           </div>
         )}
-        <button type="submit" disabled={updateEmail.isPending} aria-busy={updateEmail.isPending} className={`${buttonClass('primary')} max-sm:w-full`}>
+        <button type="submit" disabled={updateEmail.isPending} aria-busy={updateEmail.isPending} className={`${buttonClass('primary')} max-sm:h-[52px] max-sm:w-full`}>
           Change email
         </button>
       </form>

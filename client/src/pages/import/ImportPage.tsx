@@ -92,7 +92,7 @@ export function ImportPage() {
   return (
     <div className="mx-auto max-w-[800px] space-y-4 md:space-y-6">
       <div>
-        <Link to="/transactions" className="mb-2 inline-flex items-center gap-1 text-[14px] font-semibold text-ink-muted hover:text-ink">
+        <Link to="/transactions" className="-ml-2 mb-1 inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[14px] font-semibold text-ink-muted hover:text-ink">
           <ChevronLeft aria-hidden="true" className="size-4" />
           Transactions
         </Link>
@@ -130,10 +130,10 @@ export function ImportPage() {
 
         {step.kind === 'done' && (
           <div className="flex flex-col items-center py-6 text-center">
-            <span aria-hidden="true" className="mb-4 flex size-[72px] items-center justify-center rounded-full bg-income-tint text-income">
+            <span aria-hidden="true" className="mb-5 flex size-[76px] animate-pop-in items-center justify-center rounded-[26px] bg-income-tint text-income">
               <CircleCheck className="size-9" />
             </span>
-            <p role="status" className="font-display text-[22px] leading-7 font-bold text-ink">
+            <p role="status" className="heading text-[24px] leading-8 text-ink">
               Imported {step.data.imported} transaction{step.data.imported === 1 ? '' : 's'}
             </p>
             <p className="mt-1.5 text-[14px] leading-[22px] text-ink-muted">Rows that matched earlier transactions are marked "Possible duplicate".</p>

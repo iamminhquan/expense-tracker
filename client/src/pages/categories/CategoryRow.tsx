@@ -7,6 +7,7 @@ import { buttonClass, iconButtonClass, inputClass } from '../../lib/formStyles'
 import { useToast } from '../../lib/toast/ToastContext'
 import { Badge } from '../../components/ui/Badge'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { CategoryAvatar } from '../../components/ui/CategoryAvatar'
 import { FieldErrorText } from '../../components/ui/FieldErrorText'
 import type { Category } from '../../lib/api/types'
 
@@ -68,11 +69,11 @@ export function CategoryRow({ category }: { category: Category }) {
     }
   }
 
-  const dot = <span aria-hidden="true" className="size-3.5 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
+  const avatar = <CategoryAvatar name={category.name} color={category.color} />
 
   if (editing) {
     return (
-      <li className="border-t border-border bg-surface-2 px-4 py-3 first:border-t-0 md:px-5">
+      <li className="animate-fade-in bg-surface-2 px-4 py-3 md:px-5">
         <form
           onSubmit={onSave}
           onKeyDown={(e) => {
@@ -80,7 +81,7 @@ export function CategoryRow({ category }: { category: Category }) {
           }}
           className="flex flex-wrap items-center gap-3"
         >
-          {dot}
+          {avatar}
           <input
             autoFocus
             required
@@ -111,14 +112,16 @@ export function CategoryRow({ category }: { category: Category }) {
   }
 
   return (
-    <li className="flex min-h-14 items-center gap-3 border-t border-border px-4 py-1.5 first:border-t-0 md:px-5">
-      {dot}
+    <li className="flex min-h-[68px] items-center gap-3 py-2 pr-1.5 pl-4 md:pr-3 md:pl-5">
+      {avatar}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] leading-[22px] font-semibold text-ink">{category.name}</p>
         <p className="tabular text-[13px] leading-[18px] text-ink-muted">{countLabel(category.transactionCount)}</p>
       </div>
       {category.isDefault ? (
-        <Badge icon={<Lock aria-hidden="true" />}>Default</Badge>
+        <span className="pr-2.5">
+          <Badge icon={<Lock aria-hidden="true" />}>Default</Badge>
+        </span>
       ) : isDesktop ? (
         <div className="flex gap-1">
           <button

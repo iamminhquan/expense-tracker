@@ -50,7 +50,7 @@ export function RegisterForm() {
       <Field label="Confirm password">
         {(control) => <PasswordInput {...control} required autoComplete="new-password" value={form.passwordConfirm} onChange={update('passwordConfirm')} />}
       </Field>
-      <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary')} w-full`}>
+      <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary', 'lg')} w-full`}>
         {submitting ? 'Creating account…' : 'Create account'}
       </button>
     </form>

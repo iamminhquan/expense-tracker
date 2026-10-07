@@ -19,9 +19,9 @@ function plural(n: number, word: string): string {
 
 function StatTile({ label, value, danger }: { label: string; value: number; danger?: boolean }) {
   return (
-    <div className={`rounded-[16px] border px-4 py-3.5 ${danger ? 'border-danger' : 'border-border'}`}>
+    <div className={`rounded-panel px-4 py-3.5 ${danger ? 'bg-danger-tint' : 'bg-surface-2'}`}>
       <p className="text-[13px] leading-[18px] text-ink-muted">{label}</p>
-      <p className={`tabular font-display text-[28px] leading-[34px] font-extrabold ${danger ? 'text-danger' : 'text-ink'}`}>{value}</p>
+      <p className={`figure mt-1 text-[34px] leading-none ${danger ? 'text-danger' : 'text-ink'}`}>{value}</p>
     </div>
   )
 }
@@ -32,7 +32,7 @@ export function PreviewPanel({ data, submitting, error, onBack, onConfirm }: Pre
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-[20px] leading-[26px] font-bold text-ink">Check before importing</h2>
+        <h2 className="heading text-[20px] leading-[26px] text-ink">Check before importing</h2>
         <p className="mt-1 text-[14px] leading-[22px] text-ink-muted">
           Nothing is saved until you confirm. An import is all or nothing: a single bad line stops the whole file.
         </p>
@@ -67,7 +67,7 @@ export function PreviewPanel({ data, submitting, error, onBack, onConfirm }: Pre
       {data.rounded > 0 && <Banner kind="info">{plural(data.rounded, 'amount')} will be rounded to the nearest đồng.</Banner>}
 
       {data.errors.length > 0 && (
-        <div className="overflow-hidden rounded-[16px] border border-danger">
+        <div className="overflow-hidden rounded-panel border border-danger/50">
           <p className="flex items-center gap-2 bg-danger-tint px-4 py-2.5 text-[14px] leading-5 font-bold text-ink">
             <CircleAlert aria-hidden="true" className="size-[18px] text-danger" />
             {data.dateSuspect ? 'Most failures look like the wrong date order.' : `${plural(errorCount, 'line')} can't be imported`}
@@ -100,7 +100,7 @@ export function PreviewPanel({ data, submitting, error, onBack, onConfirm }: Pre
         <button type="button" onClick={onBack} className={buttonClass('ghost')}>
           Start over
         </button>
-        <button type="button" onClick={onConfirm} disabled={submitting || !data.importable} aria-busy={submitting} className={buttonClass('primary')}>
+        <button type="button" onClick={onConfirm} disabled={submitting || !data.importable} aria-busy={submitting} className={`${buttonClass('primary')} max-sm:h-[52px]`}>
           {submitting ? 'Importing…' : `Import ${plural(data.rowCount, 'row')}`}
         </button>
       </div>

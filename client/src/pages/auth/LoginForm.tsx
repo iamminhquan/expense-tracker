@@ -40,12 +40,12 @@ export function LoginForm() {
       <Field label="Password">
         {(control) => <PasswordInput {...control} required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
       </Field>
-      <div className="flex justify-end">
-        <Link to="/forgot-password" className="text-[14px] font-semibold text-ink underline underline-offset-2">
+      <div className="-mt-1 flex justify-end">
+        <Link to="/forgot-password" className="-my-2 inline-flex min-h-11 items-center text-[14px] font-semibold text-expense underline-offset-4 hover:underline">
           Forgot password?
         </Link>
       </div>
-      <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary')} w-full`}>
+      <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary', 'lg')} w-full`}>
         {submitting ? 'Logging in…' : 'Log in'}
       </button>
     </form>

@@ -12,12 +12,12 @@ interface CardProps {
 export function Card({ title, description, danger, className = '', children }: CardProps) {
   const titleId = useId()
   return (
-    <section aria-labelledby={titleId} className={`${cardClass} space-y-[18px] ${danger ? 'border-danger' : ''} ${className}`}>
+    <section aria-labelledby={titleId} className={`${cardClass} space-y-5 ${danger ? 'border-danger/45' : ''} ${className}`}>
       <div>
-        <h2 id={titleId} className={`font-display text-[20px] leading-[26px] font-bold ${danger ? 'text-danger' : 'text-ink'}`}>
+        <h2 id={titleId} className={`heading text-[19px] leading-[26px] ${danger ? 'text-danger' : 'text-ink'}`}>
           {title}
         </h2>
-        {description && <p className="mt-1 text-[14px] leading-5 text-ink-muted">{description}</p>}
+        {description && <p className="mt-1 text-[14px] leading-[21px] text-ink-muted">{description}</p>}
       </div>
       {children}
     </section>

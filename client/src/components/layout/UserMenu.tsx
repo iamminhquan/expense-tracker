@@ -5,17 +5,11 @@ import { useAuth } from '../../lib/auth/AuthContext'
 import { useTheme } from '../../lib/theme/ThemeContext'
 import { useDismiss } from '../../hooks/useDismiss'
 import { SegmentedControl } from '../ui/SegmentedControl'
-import type { Balance, Theme } from '../../lib/api/types'
-import { BalanceWidget } from './BalanceWidget'
+import type { Theme } from '../../lib/api/types'
 
-const rowClass = 'flex min-h-12 w-full items-center gap-3 rounded-[12px] px-3 text-[15px] leading-5 font-semibold [&_svg]:size-5'
+const rowClass = 'press flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px] leading-5 font-semibold [&_svg]:size-5'
 
-interface UserMenuProps {
-  /** Mobile only: the header has no room for the balance, so the menu carries it. */
-  balance?: Balance
-}
-
-export function UserMenu({ balance }: UserMenuProps) {
+export function UserMenu() {
   const { user, logout } = useAuth()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState(false)
@@ -36,8 +30,8 @@ export function UserMenu({ balance }: UserMenuProps) {
         aria-controls={panelId}
         aria-label={`Account menu for ${user?.name ?? 'you'}`}
         onClick={() => setOpen((o) => !o)}
-        className={`flex size-11 items-center justify-center rounded-full border border-border-strong bg-surface font-display text-[17px] font-bold text-ink hover:bg-surface-2 md:rounded-[12px] ${
-          open ? 'bg-surface-2' : ''
+        className={`press heading flex size-11 items-center justify-center rounded-full text-[17px] ${
+          open ? 'bg-ink text-app' : 'bg-accent-tint text-expense hover:bg-[color-mix(in_srgb,var(--color-accent-tint),var(--color-accent)_14%)]'
         }`}
       >
         {initial}
@@ -49,23 +43,23 @@ export function UserMenu({ balance }: UserMenuProps) {
           <div
             ref={panelRef}
             id={panelId}
-            className="fixed inset-x-4 top-[68px] z-50 animate-pop-in rounded-[20px] border border-border bg-surface p-2 shadow-popover md:absolute md:inset-x-auto md:top-[calc(100%+12px)] md:right-0 md:w-80"
+            className="fixed inset-x-3 top-[68px] z-50 origin-top-right animate-pop-in rounded-[22px] border border-border bg-surface p-2 shadow-popover md:absolute md:inset-x-auto md:top-[calc(100%+10px)] md:right-0 md:w-80"
           >
-            <div className="px-3 pt-2 pb-3">
-              <p className="truncate text-[15px] leading-5 font-bold text-ink">{user?.name}</p>
-              <p className="truncate text-[13px] leading-[18px] text-ink-muted">{user?.email}</p>
-            </div>
-            {balance && (
-              <div className="mx-1 mb-2 rounded-[16px] border border-border p-3 md:hidden">
-                <BalanceWidget balance={balance} />
+            <div className="flex items-center gap-3 px-2.5 pt-2 pb-3">
+              <span aria-hidden="true" className="heading flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-[18px] text-on-accent">
+                {initial}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[15px] leading-5 font-semibold text-ink">{user?.name}</p>
+                <p className="truncate text-[13px] leading-[18px] text-ink-muted">{user?.email}</p>
               </div>
-            )}
+            </div>
             <Link to="/settings" onClick={close} className={`${rowClass} text-ink hover:bg-surface-2`}>
               <Settings aria-hidden="true" />
               Settings
             </Link>
-            <div className="px-1 py-2">
-              <p className="mb-2 px-2 text-[13px] leading-[18px] font-semibold text-ink-muted">Appearance</p>
+            <div className="px-1 pt-2 pb-2">
+              <p className="mb-2 px-2 text-[13px] leading-[18px] font-medium text-ink-muted">Appearance</p>
               <SegmentedControl<Theme>
                 label="Theme"
                 value={theme}

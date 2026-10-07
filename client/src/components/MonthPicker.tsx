@@ -71,13 +71,13 @@ export function MonthPicker({ value, label, currentMonthValue, availableMonths, 
             openList()
           }
         }}
-        className={`inline-flex items-center gap-2 rounded-[12px] border border-border-strong pr-3.5 pl-4 text-[14px] leading-5 font-semibold text-ink hover:bg-surface-2 ${
+        className={`press inline-flex items-center gap-2 rounded-full border pr-3.5 pl-4 text-[14px] leading-5 font-semibold text-ink ${
           size === 'lg' ? 'h-12' : 'h-11'
-        } ${open ? 'bg-surface-2' : 'bg-surface'}`}
+        } ${open ? 'border-ink bg-surface-2' : 'border-border-strong/45 bg-surface hover:border-border-strong hover:bg-surface-2'}`}
       >
-        <Calendar aria-hidden="true" className="size-[18px] text-ink-muted" />
+        <Calendar aria-hidden="true" className="size-[18px] text-expense" />
         <span className="tabular whitespace-nowrap">{label}</span>
-        <ChevronDown aria-hidden="true" className={`size-4 text-ink-muted ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown aria-hidden="true" className={`size-4 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <ul
@@ -88,7 +88,7 @@ export function MonthPicker({ value, label, currentMonthValue, availableMonths, 
           aria-label="Month"
           aria-activedescendant={`${listId}-${active}`}
           onKeyDown={onListKeyDown}
-          className="absolute top-[calc(100%+6px)] right-0 z-30 max-h-[320px] w-60 animate-pop-in overflow-y-auto rounded-[16px] border border-border bg-surface p-1.5 shadow-popover focus-visible:outline-none"
+          className="fixed inset-x-3 bottom-[var(--dock-clearance)] z-50 max-h-[50dvh] animate-pop-in overflow-y-auto rounded-[22px] border border-border bg-surface p-1.5 shadow-popover focus-visible:outline-none sm:absolute sm:inset-x-auto sm:top-[calc(100%+8px)] sm:right-0 sm:bottom-auto sm:max-h-[340px] sm:w-60"
         >
           {options.map((option, i) => {
             const selected = option.value === value
@@ -100,8 +100,8 @@ export function MonthPicker({ value, label, currentMonthValue, availableMonths, 
                 aria-selected={selected}
                 onClick={() => choose(option)}
                 onPointerMove={() => setActive(i)}
-                className={`flex min-h-11 cursor-pointer items-center justify-between rounded-[10px] px-3 text-[15px] leading-5 text-ink ${
-                  selected ? 'font-bold' : ''
+                className={`flex min-h-11 cursor-pointer items-center justify-between rounded-[14px] px-3 text-[15px] leading-5 ${
+                  selected ? 'font-semibold text-expense' : 'text-ink'
                 } ${i === active ? 'bg-surface-2 outline-2 outline-accent -outline-offset-2' : ''}`}
               >
                 {option.label}

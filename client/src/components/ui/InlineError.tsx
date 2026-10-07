@@ -1,13 +1,16 @@
-import { CircleAlert, RotateCw } from 'lucide-react'
+import { CloudOff, RotateCw } from 'lucide-react'
 import { buttonClass } from '../../lib/formStyles'
 
 export function InlineError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="flex items-center gap-3 rounded-[16px] border border-danger bg-danger-tint px-4 py-3">
-      <CircleAlert aria-hidden="true" className="size-5 shrink-0 text-danger" />
-      <p className="flex-1 text-[14px] leading-5 font-semibold text-ink">{message}</p>
+    <div role="alert" className="flex animate-fade-in flex-col items-center rounded-tile border border-border bg-surface px-6 py-10 text-center">
+      <span aria-hidden="true" className="mb-4 flex size-14 items-center justify-center rounded-full bg-danger-tint text-danger">
+        <CloudOff className="size-6" />
+      </span>
+      <p className="heading text-[19px] leading-[26px] text-ink">{message}</p>
+      <p className="mt-1.5 max-w-[340px] text-[14px] leading-[21px] text-ink-muted">Check your connection, then try again. Nothing you saved is lost.</p>
       {onRetry && (
-        <button type="button" onClick={onRetry} className={buttonClass('secondary', 'sm')}>
+        <button type="button" onClick={onRetry} className={`${buttonClass('primary')} mt-6`}>
           <RotateCw aria-hidden="true" />
           Retry
         </button>

@@ -12,7 +12,7 @@ const kinds: Record<BadgeKind, string> = {
 export function Badge({ kind = 'neutral', icon, children }: { kind?: BadgeKind; icon?: ReactNode; children: ReactNode }) {
   return (
     <span
-      className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-full pr-2.5 pl-2 text-[12px] leading-4 font-semibold whitespace-nowrap [&_svg]:size-3.5 ${kinds[kind]}`}
+      className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] leading-4 font-semibold whitespace-nowrap [&_svg]:size-3.5 ${icon ? 'pl-2' : ''} ${kinds[kind]}`}
     >
       {icon}
       {children}

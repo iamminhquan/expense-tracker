@@ -38,12 +38,12 @@ export function SessionsCard({ sessions }: { sessions: Session[] }) {
 
   return (
     <Card title="Active sessions" description="Devices signed in to your account.">
-      <ul className="divide-y divide-border">
+      <ul className="-my-1 divide-y divide-border">
         {sessions.map((s) => {
           const Icon = MOBILE_DEVICE.test(s.device) ? Smartphone : Monitor
           return (
             <li key={s.id} className="flex items-center gap-3 py-3">
-              <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-surface-2 text-ink">
+              <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-surface-2 text-ink">
                 <Icon className="size-5" />
               </span>
               <div className="min-w-0 flex-1">

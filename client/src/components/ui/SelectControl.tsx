@@ -8,7 +8,7 @@ export function SelectControl({ className = '', children, ...props }: SelectHTML
       <select {...props} className={`${selectClass} ${className}`}>
         {children}
       </select>
-      <ChevronDown aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 size-[18px] -translate-y-1/2 text-ink-muted" />
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3.5 size-[18px] -translate-y-1/2 text-ink-muted" />
     </div>
   )
 }

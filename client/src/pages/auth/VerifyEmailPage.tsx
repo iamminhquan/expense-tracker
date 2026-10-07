@@ -6,7 +6,7 @@ import { buttonClass } from '../../lib/formStyles'
 import { verifyEmail } from '../../lib/api/auth'
 import { useAuth } from '../../lib/auth/AuthContext'
 
-const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
+const titleClass = 'heading text-[26px] leading-8 text-ink'
 
 type Outcome = 'checking' | 'verified' | 'conflict' | 'invalid'
 
@@ -32,7 +32,7 @@ export function VerifyEmailPage() {
 
   return (
     <AuthLayout>
-      <div aria-live="polite" className="space-y-3 text-center">
+      <div aria-live="polite" className="space-y-3 pt-2 text-center">
         {outcome === 'checking' && (
           <>
             <StatusIcon kind="loading" />
@@ -64,7 +64,7 @@ export function VerifyEmailPage() {
         )}
       </div>
       {outcome !== 'checking' && (
-        <Link to={outcome === 'invalid' ? '/login' : '/dashboard'} className={`${buttonClass('primary')} w-full`}>
+        <Link to={outcome === 'invalid' ? '/login' : '/dashboard'} className={`${buttonClass('primary', 'lg')} w-full`}>
           {outcome === 'invalid' ? 'Log in' : 'Go to Overview'}
         </Link>
       )}

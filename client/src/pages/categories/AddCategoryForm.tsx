@@ -37,7 +37,7 @@ export function AddCategoryForm() {
       </h2>
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <span aria-hidden="true" className="mb-1.5 block text-[13px] leading-[18px] font-semibold text-ink">
+          <span aria-hidden="true" className="mb-2 block text-[13px] leading-[18px] font-semibold text-ink">
             Type
           </span>
           <SegmentedControl
@@ -47,8 +47,8 @@ export function AddCategoryForm() {
             size="tall"
             fullWidth
             options={[
-              { value: 'expense', label: 'Expense', icon: <ArrowUpRight aria-hidden="true" /> },
-              { value: 'income', label: 'Income', icon: <ArrowDownLeft aria-hidden="true" /> },
+              { value: 'expense', label: 'Expense', icon: <ArrowUpRight aria-hidden="true" />, selectedClass: 'bg-accent text-on-accent' },
+              { value: 'income', label: 'Income', icon: <ArrowDownLeft aria-hidden="true" />, selectedClass: 'bg-income text-on-income' },
             ]}
           />
         </div>
@@ -58,12 +58,12 @@ export function AddCategoryForm() {
           )}
         </Field>
         <div>
-          <span aria-hidden="true" className="mb-1.5 block text-[13px] leading-[18px] font-semibold text-ink">
+          <span aria-hidden="true" className="mb-2 block text-[13px] leading-[18px] font-semibold text-ink">
             Color
           </span>
           <SwatchPicker value={color} onChange={setColor} />
         </div>
-        <button type="submit" disabled={createCategory.isPending} aria-busy={createCategory.isPending} className={`${buttonClass('primary')} w-full`}>
+        <button type="submit" disabled={createCategory.isPending} aria-busy={createCategory.isPending} className={`${buttonClass('primary', 'lg')} w-full`}>
           <Plus aria-hidden="true" />
           Add category
         </button>

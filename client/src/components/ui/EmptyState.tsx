@@ -1,21 +1,22 @@
 import type { ReactNode } from 'react'
+import { Illustration, type IllustrationName } from './Illustration'
 
 interface EmptyStateProps {
-  icon: ReactNode
+  art: IllustrationName
   title: string
   children?: ReactNode
   actions?: ReactNode
+  /** Tighter spacing for an empty state inside a dashboard tile. */
+  compact?: boolean
 }
 
-export function EmptyState({ icon, title, children, actions }: EmptyStateProps) {
+export function EmptyState({ art, title, children, actions, compact }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center px-6 py-12 text-center">
-      <span className="mb-4 flex size-16 items-center justify-center rounded-full bg-surface-2 text-ink [&_svg]:size-7" aria-hidden="true">
-        {icon}
-      </span>
-      <p className="font-display text-[20px] leading-[26px] font-bold text-ink">{title}</p>
-      {children && <div className="mt-1.5 max-w-[360px] text-[14px] leading-[22px] text-ink-muted">{children}</div>}
-      {actions && <div className="mt-5 flex flex-wrap justify-center gap-3">{actions}</div>}
+    <div className={`flex animate-fade-in flex-col items-center text-center ${compact ? 'px-2 py-6' : 'px-6 py-12'}`}>
+      <Illustration name={art} className={compact ? 'mb-3 h-[84px]' : 'mb-5 h-[112px]'} />
+      <p className="heading text-[19px] leading-[26px] text-ink">{title}</p>
+      {children && <div className="mt-1.5 max-w-[340px] text-[14px] leading-[21px] text-ink-muted">{children}</div>}
+      {actions && <div className="mt-6 flex flex-wrap justify-center gap-3">{actions}</div>}
     </div>
   )
 }

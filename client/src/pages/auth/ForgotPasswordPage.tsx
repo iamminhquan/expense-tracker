@@ -7,7 +7,7 @@ import { StatusIcon } from '../../components/ui/StatusIcon'
 import { buttonClass, inputClass } from '../../lib/formStyles'
 import { forgotPassword } from '../../lib/api/auth'
 
-const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
+const titleClass = 'heading text-[26px] leading-8 text-ink'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -29,7 +29,7 @@ export function ForgotPasswordPage() {
   return (
     <AuthLayout>
       {sent ? (
-        <div className="space-y-3 text-center" role="status">
+        <div className="space-y-3 pt-2 text-center" role="status">
           <StatusIcon kind="mail" />
           <h1 className={titleClass}>Check your inbox</h1>
           <p className="text-[15px] leading-[22px] text-ink-muted">
@@ -45,7 +45,7 @@ export function ForgotPasswordPage() {
           <Field label="Email">
             {(control) => <input {...control} type="email" required autoComplete="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} />}
           </Field>
-          <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary')} w-full`}>
+          <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary', 'lg')} w-full`}>
             {submitting ? 'Sending…' : 'Send reset link'}
           </button>
         </form>

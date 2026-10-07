@@ -10,7 +10,7 @@ import { checkResetToken, resetPassword } from '../../lib/api/auth'
 import { useAuth } from '../../lib/auth/AuthContext'
 import { ApiError } from '../../lib/api/client'
 
-const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
+const titleClass = 'heading text-[26px] leading-8 text-ink'
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams()
@@ -58,7 +58,7 @@ export function ResetPasswordPage() {
   if (checking) {
     return (
       <AuthLayout>
-        <div role="status" className="space-y-3 text-center">
+        <div role="status" className="space-y-3 pt-2 text-center">
           <StatusIcon kind="loading" />
           <p className="text-[15px] text-ink-muted">Checking your link…</p>
         </div>
@@ -69,12 +69,12 @@ export function ResetPasswordPage() {
   if (invalid) {
     return (
       <AuthLayout>
-        <div className="space-y-3 text-center">
+        <div className="space-y-3 pt-2 text-center">
           <StatusIcon kind="warning" />
           <h1 className={titleClass}>This link has expired</h1>
           <p className="text-[15px] leading-[22px] text-ink-muted">Reset links work once, for one hour. Ask for a new one and use it straight away.</p>
         </div>
-        <Link to="/forgot-password" className={`${buttonClass('primary')} w-full`}>
+        <Link to="/forgot-password" className={`${buttonClass('primary', 'lg')} w-full`}>
           Request a new link
         </Link>
       </AuthLayout>
@@ -97,7 +97,7 @@ export function ResetPasswordPage() {
             <PasswordInput {...control} required autoComplete="new-password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} />
           )}
         </Field>
-        <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary')} w-full`}>
+        <button type="submit" disabled={submitting} aria-busy={submitting} className={`${buttonClass('primary', 'lg')} w-full`}>
           {submitting ? 'Saving…' : 'Save and sign in'}
         </button>
       </form>

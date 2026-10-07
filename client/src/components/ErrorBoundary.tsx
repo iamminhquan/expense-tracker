@@ -44,7 +44,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           this.props.fullPage ? 'min-h-screen bg-app text-ink' : 'min-h-[300px]'
         }`}
       >
-        <h1 className="font-display text-[22px] leading-7 font-bold text-ink">{stale ? '$pend has been updated' : 'Something went wrong'}</h1>
+        <h1 className="heading text-[24px] leading-8 text-ink">{stale ? '$pend has been updated' : 'Something went wrong'}</h1>
         <p className="max-w-[420px] text-[15px] leading-[22px] text-ink-muted">
           {stale
             ? 'Reload to get the latest version.'

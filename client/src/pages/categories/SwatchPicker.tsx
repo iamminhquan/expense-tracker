@@ -14,7 +14,7 @@ const NAMES: Record<string, string> = {
 
 export function SwatchPicker({ value, onChange }: { value: string; onChange: (color: string) => void }) {
   return (
-    <div role="radiogroup" aria-label="Color" className="flex flex-wrap gap-0.5">
+    <div role="radiogroup" aria-label="Color" className="grid grid-cols-[repeat(auto-fill,44px)] gap-1.5">
       {SWATCHES.map((color) => {
         const selected = color === value
         return (
@@ -30,7 +30,7 @@ export function SwatchPicker({ value, onChange }: { value: string; onChange: (co
             />
             <span
               aria-hidden="true"
-              className="flex size-8 items-center justify-center rounded-full ring-offset-2 ring-offset-surface peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-3 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-accent"
+              className="press flex size-9 items-center justify-center rounded-full ring-offset-[3px] ring-offset-surface peer-checked:scale-110 peer-checked:ring-2 peer-checked:ring-ink peer-focus-visible:outline-3 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-accent"
               style={{ backgroundColor: color }}
             >
               {selected && <Check strokeWidth={3} className="size-[18px] text-on-swatch" />}

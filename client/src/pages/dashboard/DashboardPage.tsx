@@ -22,12 +22,12 @@ export function DashboardPage() {
 
   if (!data) {
     if (error) return <InlineError message="Could not load the overview." onRetry={() => void refetch()} />
-    return <PageSkeleton label="Loading the overview…" />
+    return <PageSkeleton label="Loading the overview…" shape="dashboard" />
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-3 md:space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-1 md:pb-2">
         <h1 className={pageTitleClass}>Overview</h1>
         <MonthPicker
           value={data.monthValue}
@@ -41,7 +41,7 @@ export function DashboardPage() {
 
       <KpiCards data={data} />
 
-      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:gap-5">
         <SpendingDoughnut pie={data.pie} total={data.totalExpense} monthLabel={data.monthLabel} />
         <MonthlyBars bar={data.bar} />
       </div>

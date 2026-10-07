@@ -52,7 +52,7 @@ export function ProfileCard({ name, username }: ProfileCardProps) {
             <FieldErrorText>{error}</FieldErrorText>
           </div>
         )}
-        <button type="submit" disabled={updateProfile.isPending} aria-busy={updateProfile.isPending} className={`${buttonClass('primary')} max-sm:w-full`}>
+        <button type="submit" disabled={updateProfile.isPending} aria-busy={updateProfile.isPending} className={`${buttonClass('primary')} max-sm:h-[52px] max-sm:w-full`}>
           Save profile
         </button>
       </form>

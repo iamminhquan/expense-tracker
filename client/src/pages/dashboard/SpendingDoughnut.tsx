@@ -1,5 +1,4 @@
 import { Doughnut } from 'react-chartjs-2'
-import { Receipt } from 'lucide-react'
 import '../../lib/charts'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { useIsDesktop } from '../../hooks/useMediaQuery'
@@ -19,19 +18,19 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
   const isDesktop = useIsDesktop()
   // A theme switch remounts the chart (see useThemeColors); only the first draw animates.
   const animate = !colors.switched && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const size = isDesktop ? 200 : 224
+  const size = isDesktop ? 184 : 200
 
   return (
-    <section aria-labelledby="spending-title" className={cardClass}>
+    <section aria-labelledby="spending-title" className={`${cardClass} md:col-span-5`}>
       <h2 id="spending-title" className={cardTitleClass}>
-        Spending by category
+        Where it went
       </h2>
       {pie.legend.length === 0 ? (
-        <EmptyState icon={<Receipt />} title="No expenses this month">
+        <EmptyState art="slices" title="No expenses this month" compact>
           Nothing was spent in {monthLabel}, so there's nothing to break down yet.
         </EmptyState>
       ) : (
-        <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+        <div className="mt-5 flex flex-col items-center gap-6">
           <div className="relative shrink-0" style={{ width: size, height: size }}>
             <Doughnut
               key={colors.key}
@@ -43,17 +42,18 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
                   {
                     data: pie.values,
                     backgroundColor: pie.colors,
-                    borderWidth: 4,
+                    borderWidth: 3,
                     borderColor: colors.surface,
                     hoverBorderColor: colors.surface,
+                    borderRadius: 4,
                     hoverOffset: 0,
                   },
                 ],
               }}
               options={{
-                cutout: '68%',
+                cutout: '70%',
                 maintainAspectRatio: true,
-                animation: animate ? { duration: 400, easing: 'easeOutQuart' } : false,
+                animation: animate ? { duration: 500, easing: 'easeOutQuart' } : false,
                 plugins: {
                   legend: { display: false },
                   tooltip: {
@@ -71,17 +71,17 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
               }}
             />
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[12px] leading-4 text-ink-muted">Spent</span>
-              <span className="tabular font-display text-[17px] leading-6 font-extrabold text-ink md:text-[19px]">{formatVND(total)}</span>
+              <span className="text-[12px] leading-4 text-ink-muted">{pie.legend.length} categories</span>
+              <span className="figure-sm text-[20px] leading-7 text-ink">{formatVND(total)}</span>
             </div>
           </div>
-          <ul className="w-full min-w-0 space-y-2.5">
+          <ul className="w-full min-w-0 divide-y divide-border">
             {pie.legend.map((entry) => (
-              <li key={entry.name} className="flex items-center gap-3 text-[13px] leading-[18px]">
-                <span aria-hidden="true" className="size-3.5 shrink-0 rounded-[5px]" style={{ backgroundColor: entry.color }} />
+              <li key={entry.name} className="flex min-h-10 items-center gap-3 py-1.5 text-[14px] leading-5">
+                <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
                 <span className="min-w-0 flex-1 truncate font-semibold text-ink">{entry.name}</span>
-                <span className="tabular w-10 text-right text-ink-muted">{entry.percent}%</span>
-                <span className="tabular w-[104px] text-right font-semibold text-ink">{formatVND(entry.amount)}</span>
+                <span className="tabular w-11 text-right text-[13px] text-ink-muted">{entry.percent}%</span>
+                <span className="figure-sm w-[108px] text-right text-[15px] text-ink">{formatVND(entry.amount)}</span>
               </li>
             ))}
           </ul>

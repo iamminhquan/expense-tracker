@@ -7,8 +7,8 @@ function formatSize(bytes: number): string {
 
 export function FileRow({ file, rows, onRemove }: { file: File; rows?: number; onRemove: () => void }) {
   return (
-    <div className="flex items-center gap-3 rounded-[20px] bg-surface-2 p-4">
-      <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-surface text-ink">
+    <div className="flex items-center gap-3 rounded-panel bg-surface-2 p-3 pl-4">
+      <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-accent-tint text-expense">
         <FileText className="size-6" />
       </span>
       <div className="min-w-0 flex-1">

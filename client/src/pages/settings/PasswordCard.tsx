@@ -57,7 +57,7 @@ export function PasswordCard() {
             <FieldErrorText>{error}</FieldErrorText>
           </div>
         )}
-        <button type="submit" disabled={updatePassword.isPending} aria-busy={updatePassword.isPending} className={`${buttonClass('primary')} max-sm:w-full`}>
+        <button type="submit" disabled={updatePassword.isPending} aria-busy={updatePassword.isPending} className={`${buttonClass('primary')} max-sm:h-[52px] max-sm:w-full`}>
           Update password
         </button>
       </form>
