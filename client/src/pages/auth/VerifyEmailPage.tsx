@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '../../components/layout/AuthLayout'
 import { StatusIcon } from '../../components/ui/StatusIcon'
-import { buttonClass } from '../../lib/formStyles'
+import { authTitleClass, buttonClass } from '../../lib/formStyles'
 import { verifyEmail } from '../../lib/api/auth'
 import { useAuth } from '../../lib/auth/AuthContext'
 
-const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
 
 type Outcome = 'checking' | 'verified' | 'conflict' | 'invalid'
 
@@ -42,21 +41,21 @@ export function VerifyEmailPage() {
         {outcome === 'verified' && (
           <>
             <StatusIcon kind="success" />
-            <h1 className={titleClass}>Your email is verified</h1>
+            <h1 className={authTitleClass}>Your email is verified</h1>
             <p className="text-[15px] leading-[22px] text-ink-muted">You're all set.</p>
           </>
         )}
         {outcome === 'conflict' && (
           <>
             <StatusIcon kind="danger" />
-            <h1 className={titleClass}>That address is taken</h1>
+            <h1 className={authTitleClass}>That address is taken</h1>
             <p className="text-[15px] leading-[22px] text-ink-muted">It's already registered to another account, so your email wasn't changed.</p>
           </>
         )}
         {outcome === 'invalid' && (
           <>
             <StatusIcon kind="danger" />
-            <h1 className={titleClass}>This link didn't work</h1>
+            <h1 className={authTitleClass}>This link didn't work</h1>
             <p className="text-[15px] leading-[22px] text-ink-muted">
               It's invalid or has expired. Log in and request a new link from Settings.
             </p>

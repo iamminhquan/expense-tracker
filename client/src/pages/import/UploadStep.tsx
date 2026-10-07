@@ -29,17 +29,17 @@ export function UploadStep({ reading, error, onFile }: UploadStepProps) {
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`flex flex-col items-center rounded-[24px] border-2 border-dashed px-6 py-8 text-center md:p-12 ${
-          dragging ? 'border-accent bg-surface-2' : 'border-border-strong'
+        className={`flex flex-col items-center rounded-card border-2 border-dashed px-6 py-10 text-center md:p-14 ${
+          dragging ? 'border-accent-text bg-accent-tint' : 'border-border-strong/60 bg-app'
         }`}
       >
         <span
           aria-hidden="true"
-          className={`mb-4 flex size-14 items-center justify-center rounded-full ${dragging ? 'bg-accent text-on-accent' : 'bg-surface-2 text-ink'}`}
+          className={`mb-4 flex size-16 items-center justify-center rounded-[20px] ${dragging ? 'bg-accent text-on-accent' : 'bg-accent-tint text-accent-text'}`}
         >
           {reading ? <LoaderCircle className="size-6 animate-spin motion-reduce:animate-none" /> : <Upload className="size-6" />}
         </span>
-        <p className="font-display text-[20px] leading-[26px] font-bold text-ink">{reading ? 'Reading your file…' : 'Drop a CSV file here'}</p>
+        <p className="font-display text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{reading ? 'Reading your file…' : 'Drop a CSV file here'}</p>
         <p className="mt-1.5 max-w-[420px] text-[14px] leading-[22px] text-ink-muted">
           A file exported from $pend, or one from your bank or another app. If we can't tell how to read it, we'll ask.
         </p>

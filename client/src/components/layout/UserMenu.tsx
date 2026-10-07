@@ -8,7 +8,7 @@ import { SegmentedControl } from '../ui/SegmentedControl'
 import type { Balance, Theme } from '../../lib/api/types'
 import { BalanceWidget } from './BalanceWidget'
 
-const rowClass = 'flex min-h-12 w-full items-center gap-3 rounded-[12px] px-3 text-[15px] leading-5 font-semibold [&_svg]:size-5'
+const rowClass = 'flex min-h-12 w-full items-center gap-3 rounded-control px-3 text-[15px] leading-5 font-semibold [&_svg]:size-5'
 
 interface UserMenuProps {
   /** Mobile only: the header has no room for the balance, so the menu carries it. */
@@ -36,8 +36,8 @@ export function UserMenu({ balance }: UserMenuProps) {
         aria-controls={panelId}
         aria-label={`Account menu for ${user?.name ?? 'you'}`}
         onClick={() => setOpen((o) => !o)}
-        className={`flex size-11 items-center justify-center rounded-full border border-border-strong bg-surface font-display text-[17px] font-bold text-ink hover:bg-surface-2 md:rounded-[12px] ${
-          open ? 'bg-surface-2' : ''
+        className={`flex size-11 items-center justify-center rounded-full border font-display text-[18px] font-bold active:scale-95 motion-reduce:active:scale-100 ${
+          open ? 'border-accent-text bg-accent text-on-accent' : 'border-transparent bg-accent-tint text-accent-text hover:border-accent-text/40'
         }`}
       >
         {initial}
@@ -49,14 +49,19 @@ export function UserMenu({ balance }: UserMenuProps) {
           <div
             ref={panelRef}
             id={panelId}
-            className="fixed inset-x-4 top-[68px] z-50 animate-pop-in rounded-[20px] border border-border bg-surface p-2 shadow-popover md:absolute md:inset-x-auto md:top-[calc(100%+12px)] md:right-0 md:w-80"
+            className="fixed inset-x-4 top-[68px] z-50 animate-pop-in rounded-card border border-border bg-surface p-2 shadow-popover md:absolute md:inset-x-auto md:top-[calc(100%+12px)] md:right-0 md:w-80"
           >
-            <div className="px-3 pt-2 pb-3">
-              <p className="truncate text-[15px] leading-5 font-bold text-ink">{user?.name}</p>
-              <p className="truncate text-[13px] leading-[18px] text-ink-muted">{user?.email}</p>
+            <div className="flex items-center gap-3 px-3 pt-2.5 pb-3.5">
+              <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-tint font-display text-[18px] font-bold text-accent-text">
+                {initial}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[15px] leading-5 font-semibold text-ink">{user?.name}</p>
+                <p className="truncate text-[13px] leading-[18px] text-ink-muted">{user?.email}</p>
+              </div>
             </div>
             {balance && (
-              <div className="mx-1 mb-2 rounded-[16px] border border-border p-3 md:hidden">
+              <div className="mx-1 mb-2 rounded-[18px] bg-surface-2 p-3.5 md:hidden">
                 <BalanceWidget balance={balance} />
               </div>
             )}

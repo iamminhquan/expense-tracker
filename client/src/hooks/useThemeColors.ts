@@ -13,7 +13,7 @@ export interface ThemeColors {
   income: string
 }
 
-const VARS = ['--c-surface', '--c-border', '--c-ink-muted', '--c-ink', '--c-expense', '--c-chart-income'] as const
+const VARS = ['--c-surface', '--c-border', '--c-ink-muted', '--c-ink', '--c-chart-expense', '--c-chart-income'] as const
 
 function subscribe(onChange: () => void) {
   const observer = new MutationObserver(onChange)

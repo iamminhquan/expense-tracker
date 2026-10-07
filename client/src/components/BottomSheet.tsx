@@ -88,19 +88,19 @@ export function BottomSheet({ open, onClose, label, children }: BottomSheetProps
       <div
         ref={sheetRef}
         style={{ transform, transition }}
-        className="animate-sheet-in rounded-t-[28px] border border-b-0 border-border bg-surface px-4 pt-2.5 pb-7 shadow-popover"
+        className="flex max-h-[92dvh] animate-sheet-in flex-col rounded-t-sheet border border-b-0 border-border bg-surface shadow-popover"
       >
         <div
           onPointerDown={onHandlePointerDown}
           onPointerMove={onHandlePointerMove}
           onPointerUp={releaseDrag}
           onPointerCancel={releaseDrag}
-          className="-mx-4 -mt-2.5 flex h-8 touch-none items-center justify-center"
+          className="flex h-9 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
           aria-hidden="true"
         >
-          <span className="h-[5px] w-11 rounded-full bg-border-strong" />
+          <span className="h-[5px] w-11 rounded-full bg-border" />
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">{children}</div>
       </div>
     </dialog>
   )

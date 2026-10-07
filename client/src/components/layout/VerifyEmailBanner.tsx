@@ -42,7 +42,7 @@ export function VerifyEmailBanner() {
           </button>
         }
       >
-        We sent a link to <span className="font-semibold break-all">{user.email}</span>.
+        We sent a link to <span className="font-semibold [overflow-wrap:anywhere]">{user.email}</span>.
         <p role="status" className={`mt-1 empty:hidden ${typeof resend === 'object' ? 'text-danger' : 'text-income'}`}>
           {resend === 'sent' ? 'Link sent. Check your inbox.' : typeof resend === 'object' ? resend.error : ''}
         </p>

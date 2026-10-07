@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Check, Lock, Pencil, Trash2 } from 'lucide-react'
 import { useDeleteCategory, useUpdateCategory } from '../../hooks/useCategories'
-import { useIsDesktop } from '../../hooks/useMediaQuery'
 import { ApiError } from '../../lib/api/client'
 import { buttonClass, iconButtonClass, inputClass } from '../../lib/formStyles'
 import { useToast } from '../../lib/toast/ToastContext'
 import { Badge } from '../../components/ui/Badge'
+import { CategoryAvatar } from '../../components/ui/CategoryAvatar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { FieldErrorText } from '../../components/ui/FieldErrorText'
 import type { Category } from '../../lib/api/types'
@@ -18,7 +18,6 @@ export function CategoryRow({ category }: { category: Category }) {
   const updateCategory = useUpdateCategory()
   const deleteCategory = useDeleteCategory()
   const toast = useToast()
-  const isDesktop = useIsDesktop()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(category.name)
   const [error, setError] = useState<string | null>(null)
@@ -68,11 +67,11 @@ export function CategoryRow({ category }: { category: Category }) {
     }
   }
 
-  const dot = <span aria-hidden="true" className="size-3.5 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
+  const dot = <CategoryAvatar name={category.name} color={category.color} />
 
   if (editing) {
     return (
-      <li className="border-t border-border bg-surface-2 px-4 py-3 first:border-t-0 md:px-5">
+      <li className="animate-fade-in border-t border-border bg-accent-tint/50 px-4 py-3 first:border-t-0 md:px-5">
         <form
           onSubmit={onSave}
           onKeyDown={(e) => {
@@ -89,9 +88,9 @@ export function CategoryRow({ category }: { category: Category }) {
             aria-invalid={error ? true : undefined}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={`${inputClass} min-w-0 flex-1`}
+            className={`${inputClass} min-w-0 flex-1 basis-[calc(100%-3.75rem)] sm:basis-0`}
           />
-          <div className="flex gap-1">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-1">
             <button type="submit" disabled={updateCategory.isPending} aria-busy={updateCategory.isPending} className={buttonClass('primary')}>
               <Check aria-hidden="true" />
               Save
@@ -111,7 +110,7 @@ export function CategoryRow({ category }: { category: Category }) {
   }
 
   return (
-    <li className="flex min-h-14 items-center gap-3 border-t border-border px-4 py-1.5 first:border-t-0 md:px-5">
+    <li className="flex min-h-[68px] items-center gap-3 border-t border-border py-2 pr-2 pl-4 first:border-t-0 md:pr-4 md:pl-5">
       {dot}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] leading-[22px] font-semibold text-ink">{category.name}</p>
@@ -119,23 +118,6 @@ export function CategoryRow({ category }: { category: Category }) {
       </div>
       {category.isDefault ? (
         <Badge icon={<Lock aria-hidden="true" />}>Default</Badge>
-      ) : isDesktop ? (
-        <div className="flex gap-1">
-          <button
-            ref={renameButtonRef}
-            type="button"
-            onClick={startRename}
-            aria-label={`Rename ${category.name}`}
-            className={buttonClass('ghost', 'sm')}
-          >
-            <Pencil aria-hidden="true" />
-            Rename
-          </button>
-          <button type="button" onClick={askDelete} aria-label={`Delete ${category.name}`} className={buttonClass('danger-ghost', 'sm')}>
-            <Trash2 aria-hidden="true" />
-            Delete
-          </button>
-        </div>
       ) : (
         <div className="flex">
           <button

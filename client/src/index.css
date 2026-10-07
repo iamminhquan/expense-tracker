@@ -3,29 +3,34 @@
 /* Space-separated RGB channels, so rgb(var(--c-x) / alpha) works. */
 :root {
   color-scheme: light;
-  --c-app: 250 250 247;
+  --c-app: 241 243 247;
   --c-surface: 255 255 255;
-  --c-surface-2: 240 240 234;
-  --c-border: 217 217 210;
-  --c-border-strong: 122 122 114;
-  --c-ink: 17 17 17;
-  --c-ink-muted: 85 85 79;
-  --c-accent: 17 17 17;
-  --c-on-accent: 250 250 247;
-  --c-expense: 67 56 202;
-  --c-expense-tint: 224 231 255;
-  --c-income: 4 120 87;
-  --c-income-tint: 209 250 229;
-  --c-chart-income: 5 150 105;
-  --c-danger: 179 38 30;
-  --c-danger-tint: 254 226 226;
+  --c-surface-2: 232 236 242;
+  --c-border: 221 226 234;
+  --c-border-strong: 124 133 151;
+  --c-ink: 15 20 35;
+  --c-ink-muted: 84 93 112;
+  --c-accent: 0 118 136;
+  --c-on-accent: 255 255 255;
+  --c-on-accent-muted: 224 246 249;
+  --c-accent-tint: 217 241 245;
+  --c-accent-text: 0 100 118;
+  --c-expense: 0 100 118;
+  --c-expense-tint: 217 241 245;
+  --c-income: 124 78 0;
+  --c-income-tint: 255 237 196;
+  --c-chart-expense: 0 104 122;
+  --c-chart-income: 205 124 0;
+  --c-danger: 190 30 60;
+  --c-danger-tint: 253 226 232;
   --c-on-danger: 255 255 255;
-  --c-warning: 180 83 9;
-  --c-warning-tint: 254 243 199;
-  --c-scrim: 17 17 17;
-  --scrim-alpha: 0.45;
-  --sh-popover: 0 16px 40px rgb(17 17 17 / 0.14), 0 2px 6px rgb(17 17 17 / 0.06);
-  --sh-float: 0 12px 32px rgb(17 17 17 / 0.14);
+  --c-warning: 166 66 6;
+  --c-warning-tint: 255 232 212;
+  --c-scrim: 12 18 34;
+  --scrim-alpha: 0.5;
+  --sh-card: 0 1px 2px rgb(20 30 60 / 0.05), 0 6px 20px -6px rgb(20 30 60 / 0.08);
+  --sh-popover: 0 18px 44px -10px rgb(20 30 60 / 0.28), 0 2px 8px rgb(20 30 60 / 0.08);
+  --sh-float: 0 12px 32px -8px rgb(20 30 60 / 0.34), 0 2px 8px rgb(20 30 60 / 0.1);
 }
 
 /*
@@ -36,66 +41,77 @@
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
-    --c-app: 18 18 17;
-    --c-surface: 26 26 24;
-    --c-surface-2: 35 35 33;
-    --c-border: 52 52 50;
-    --c-border-strong: 124 123 114;
-    --c-ink: 242 241 234;
-    --c-ink-muted: 176 175 166;
-    --c-accent: 242 241 234;
-    --c-on-accent: 18 18 17;
-    --c-expense: 129 140 248;
-    --c-expense-tint: 37 36 74;
-    --c-income: 52 211 153;
-    --c-income-tint: 18 52 42;
-    --c-chart-income: 52 211 153;
-    --c-danger: 255 143 133;
-    --c-danger-tint: 59 22 24;
-    --c-on-danger: 18 18 17;
-    --c-warning: 251 191 36;
-    --c-warning-tint: 59 42 11;
+    --c-app: 9 13 21;
+    --c-surface: 18 24 36;
+    --c-surface-2: 28 36 51;
+    --c-border: 38 48 66;
+    --c-border-strong: 114 126 147;
+    --c-ink: 234 240 248;
+    --c-ink-muted: 155 168 189;
+    --c-accent: 46 180 176;
+    --c-on-accent: 3 27 31;
+    --c-on-accent-muted: 4 44 50;
+    --c-accent-tint: 13 53 60;
+    --c-accent-text: 96 218 213;
+    --c-expense: 96 218 213;
+    --c-expense-tint: 13 53 60;
+    --c-income: 248 194 76;
+    --c-income-tint: 54 41 9;
+    --c-chart-expense: 28 140 150;
+    --c-chart-income: 248 188 56;
+    --c-danger: 255 134 156;
+    --c-danger-tint: 64 21 34;
+    --c-on-danger: 32 8 14;
+    --c-warning: 255 162 96;
+    --c-warning-tint: 62 34 14;
     --c-scrim: 0 0 0;
-    --scrim-alpha: 0.62;
-    --sh-popover: 0 16px 40px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.05);
-    --sh-float: 0 12px 32px rgb(0 0 0 / 0.5);
+    --scrim-alpha: 0.66;
+    --sh-card: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+    --sh-popover: 0 20px 48px -8px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
+    --sh-float: 0 14px 34px -8px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.07);
   }
 }
 :root.dark {
   color-scheme: dark;
-  --c-app: 18 18 17;
-  --c-surface: 26 26 24;
-  --c-surface-2: 35 35 33;
-  --c-border: 52 52 50;
-  --c-border-strong: 124 123 114;
-  --c-ink: 242 241 234;
-  --c-ink-muted: 176 175 166;
-  --c-accent: 242 241 234;
-  --c-on-accent: 18 18 17;
-  --c-expense: 129 140 248;
-  --c-expense-tint: 37 36 74;
-  --c-income: 52 211 153;
-  --c-income-tint: 18 52 42;
-  --c-chart-income: 52 211 153;
-  --c-danger: 255 143 133;
-  --c-danger-tint: 59 22 24;
-  --c-on-danger: 18 18 17;
-  --c-warning: 251 191 36;
-  --c-warning-tint: 59 42 11;
+  --c-app: 9 13 21;
+  --c-surface: 18 24 36;
+  --c-surface-2: 28 36 51;
+  --c-border: 38 48 66;
+  --c-border-strong: 114 126 147;
+  --c-ink: 234 240 248;
+  --c-ink-muted: 155 168 189;
+  --c-accent: 46 180 176;
+  --c-on-accent: 3 27 31;
+  --c-on-accent-muted: 4 44 50;
+  --c-accent-tint: 13 53 60;
+  --c-accent-text: 96 218 213;
+  --c-expense: 96 218 213;
+  --c-expense-tint: 13 53 60;
+  --c-income: 248 194 76;
+  --c-income-tint: 54 41 9;
+  --c-chart-expense: 28 140 150;
+  --c-chart-income: 248 188 56;
+  --c-danger: 255 134 156;
+  --c-danger-tint: 64 21 34;
+  --c-on-danger: 32 8 14;
+  --c-warning: 255 162 96;
+  --c-warning-tint: 62 34 14;
   --c-scrim: 0 0 0;
-  --scrim-alpha: 0.62;
-  --sh-popover: 0 16px 40px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.05);
-  --sh-float: 0 12px 32px rgb(0 0 0 / 0.5);
+  --scrim-alpha: 0.66;
+  --sh-card: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  --sh-popover: 0 20px 48px -8px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
+  --sh-float: 0 14px 34px -8px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.07);
 }
 
 :root {
   --dur-fast: 120ms;
   --dur-base: 180ms;
-  --dur-slow: 280ms;
+  --dur-slow: 300ms;
   --dur-fade: 100ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
@@ -114,10 +130,14 @@
   --color-ink-muted: rgb(var(--c-ink-muted));
   --color-accent: rgb(var(--c-accent));
   --color-on-accent: rgb(var(--c-on-accent));
+  --color-on-accent-muted: rgb(var(--c-on-accent-muted));
+  --color-accent-tint: rgb(var(--c-accent-tint));
+  --color-accent-text: rgb(var(--c-accent-text));
   --color-expense: rgb(var(--c-expense));
   --color-expense-tint: rgb(var(--c-expense-tint));
   --color-income: rgb(var(--c-income));
   --color-income-tint: rgb(var(--c-income-tint));
+  --color-chart-expense: rgb(var(--c-chart-expense));
   --color-chart-income: rgb(var(--c-chart-income));
   --color-danger: rgb(var(--c-danger));
   --color-danger-tint: rgb(var(--c-danger-tint));
@@ -126,34 +146,42 @@
   --color-warning-tint: rgb(var(--c-warning-tint));
   --color-scrim: rgb(var(--c-scrim) / var(--scrim-alpha));
   /* Category swatches are the same hex in both themes, so the check drawn on them is too. */
-  --color-on-swatch: rgb(17 17 17);
+  --color-on-swatch: rgb(15 20 35);
 
+  --radius-tile: 12px;
+  --radius-control: 14px;
+  --radius-card: 24px;
+  --radius-hero: 32px;
+  --radius-sheet: 32px;
+
+  --shadow-card: var(--sh-card);
   --shadow-popover: var(--sh-popover);
   --shadow-float: var(--sh-float);
 
   --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
-  --font-display: 'Bricolage Grotesque', 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-display: 'Familjen Grotesk', 'Be Vietnam Pro', system-ui, sans-serif;
 
   --animate-fade-in: fade-in var(--dur-base) var(--ease-out) backwards;
-  --animate-pop-in: pop-in 140ms var(--ease-out) backwards;
-  --animate-page-in: page-in 200ms var(--ease-out) backwards;
-  --animate-toast-in: toast-in var(--dur-base) var(--ease-out) backwards;
+  --animate-pop-in: pop-in 160ms var(--ease-out) backwards;
+  --animate-page-in: page-in 240ms var(--ease-out) backwards;
+  --animate-toast-in: toast-in var(--dur-slow) var(--ease-spring) backwards;
   --animate-dialog-in: dialog-in var(--dur-base) var(--ease-out) backwards;
   --animate-sheet-in: sheet-in var(--dur-slow) var(--ease-sheet) backwards;
-  --animate-skeleton: skeleton 1.4s linear infinite;
+  --animate-skeleton: skeleton 1.6s ease-in-out infinite;
+  --animate-rise: rise 420ms var(--ease-out) backwards;
 }
 
 @keyframes fade-in {
   from { opacity: 0; }
 }
 @keyframes pop-in {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
 }
 @keyframes page-in {
   from { opacity: 0; transform: translateY(8px); }
 }
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
 }
 @keyframes dialog-in {
   from { opacity: 0; transform: scale(0.96); }
@@ -162,7 +190,10 @@
   from { transform: translateY(100%); }
 }
 @keyframes skeleton {
-  50% { opacity: 0.6; }
+  50% { opacity: 0.55; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
 }
 
 /* Reduced motion keeps fades (state changes) but drops every transform and the pulse. */
@@ -173,10 +204,13 @@
   @keyframes dialog-in { from { opacity: 0; } }
   @keyframes sheet-in { from { opacity: 0; } }
   @keyframes skeleton { 50% { opacity: 1; } }
+  @keyframes rise { from { opacity: 0; } }
 }
 
 html {
   background-color: rgb(var(--c-app));
+  -webkit-tap-highlight-color: transparent;
+  scroll-padding-bottom: 120px;
 }
 
 body {
@@ -184,23 +218,29 @@ body {
   color: rgb(var(--c-ink));
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-input, select, textarea, dialog {
+button, a, summary, label, select, [role="button"] { touch-action: manipulation; }
+
+input, select, textarea {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink));
 }
-::placeholder { color: rgb(var(--c-ink-muted)); opacity: 1; }
+/* No background here: an unlayered one would beat the sheet's bg-transparent utility. */
+dialog { color: rgb(var(--c-ink)); }
+::placeholder { color: rgb(var(--c-ink-muted)); opacity: 0.8; }
+::selection { background-color: rgb(var(--c-accent) / 0.25); }
 
 /* Colour changes are state, not motion, so they stay on under reduced motion. */
 *, *::before, *::after {
-  transition-property: background-color, color, border-color, fill, stroke;
+  transition-property: background-color, color, border-color, fill, stroke, box-shadow, opacity;
   transition-duration: var(--dur-fast);
   transition-timing-function: var(--ease-out);
 }
 
 :focus-visible {
-  outline: 3px solid rgb(var(--c-accent));
+  outline: 3px solid rgb(var(--c-accent-text));
   outline-offset: 2px;
 }
 
@@ -228,10 +268,17 @@ dialog::backdrop {
 
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* Money and other figures: display face, lining tabular digits. */
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.02em;
+}
+
 .wordmark {
   font-family: var(--font-display);
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-weight: 700;
+  letter-spacing: -0.045em;
   line-height: 1;
   color: rgb(var(--c-ink));
 }

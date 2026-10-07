@@ -5,12 +5,11 @@ import { Banner } from '../../components/ui/Banner'
 import { Field } from '../../components/ui/Field'
 import { PasswordInput } from '../../components/ui/PasswordInput'
 import { StatusIcon } from '../../components/ui/StatusIcon'
-import { buttonClass } from '../../lib/formStyles'
+import { authTitleClass, buttonClass } from '../../lib/formStyles'
 import { checkResetToken, resetPassword } from '../../lib/api/auth'
 import { useAuth } from '../../lib/auth/AuthContext'
 import { ApiError } from '../../lib/api/client'
 
-const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams()
@@ -71,7 +70,7 @@ export function ResetPasswordPage() {
       <AuthLayout>
         <div className="space-y-3 text-center">
           <StatusIcon kind="warning" />
-          <h1 className={titleClass}>This link has expired</h1>
+          <h1 className={authTitleClass}>This link has expired</h1>
           <p className="text-[15px] leading-[22px] text-ink-muted">Reset links work once, for one hour. Ask for a new one and use it straight away.</p>
         </div>
         <Link to="/forgot-password" className={`${buttonClass('primary')} w-full`}>
@@ -85,7 +84,7 @@ export function ResetPasswordPage() {
     <AuthLayout>
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <h1 className={titleClass}>Choose a new password</h1>
+          <h1 className={authTitleClass}>Choose a new password</h1>
           <p className="mt-1.5 text-[15px] leading-[22px] text-ink-muted">You'll be signed in as soon as it's saved.</p>
         </div>
         {error && <Banner kind="danger">{error}</Banner>}

@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 
-export type BadgeKind = 'warning' | 'neutral' | 'expense' | 'income'
+export type BadgeKind = 'warning' | 'neutral' | 'expense' | 'income' | 'accent'
 
 const kinds: Record<BadgeKind, string> = {
   warning: 'bg-warning-tint text-warning',
   neutral: 'bg-surface-2 text-ink-muted',
   expense: 'bg-expense-tint text-expense',
   income: 'bg-income-tint text-income',
+  accent: 'bg-accent-tint text-accent-text',
 }
 
 export function Badge({ kind = 'neutral', icon, children }: { kind?: BadgeKind; icon?: ReactNode; children: ReactNode }) {

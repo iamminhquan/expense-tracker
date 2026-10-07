@@ -71,14 +71,14 @@ export function FilterBar({ filters, categories, onChange, onClear }: FilterBarP
           placeholder="Min"
           value={filters.min ?? ''}
           onChange={(e) => onChange('min', numberOrUndefined(e.target.value))}
-          className="h-11 text-[15px] lg:h-10"
+          className="text-[15px]"
         />
         <AmountInput
           aria-label="Maximum amount"
           placeholder="Max"
           value={filters.max ?? ''}
           onChange={(e) => onChange('max', numberOrUndefined(e.target.value))}
-          className="h-11 text-[15px] lg:h-10"
+          className="text-[15px]"
         />
       </div>
     </>
@@ -88,14 +88,14 @@ export function FilterBar({ filters, categories, onChange, onClear }: FilterBarP
     <div role="search" aria-label="Filter transactions" className="space-y-3">
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
-          <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3.5 size-[18px] -translate-y-1/2 text-ink-muted" />
+          <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2 text-ink-muted" />
           <input
             type="search"
             aria-label="Search transactions"
             placeholder="Search notes…"
             value={filters.q ?? ''}
             onChange={(e) => onChange('q', e.target.value || undefined)}
-            className={`${inputClass} pl-[42px]`}
+            className={`${inputClass} rounded-full pl-[44px] shadow-card`}
           />
         </div>
         {!isDesktop && (
@@ -104,7 +104,7 @@ export function FilterBar({ filters, categories, onChange, onClear }: FilterBarP
             aria-expanded={panelOpen}
             aria-controls={panelId}
             onClick={() => setPanelOpen((o) => !o)}
-            className={buttonClass('secondary')}
+            className={`${buttonClass(panelOpen || chips.length > 0 ? 'tonal' : 'secondary')} rounded-full`}
           >
             <SlidersHorizontal aria-hidden="true" />
             Filters
@@ -119,7 +119,7 @@ export function FilterBar({ filters, categories, onChange, onClear }: FilterBarP
         <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.3fr)] items-center gap-2">{controls}</div>
       ) : (
         panelOpen && (
-          <div id={panelId} className="grid animate-fade-in gap-2 rounded-[20px] border border-border bg-surface p-3">
+          <div id={panelId} className="grid animate-pop-in gap-2.5 rounded-card border border-border bg-surface p-3 shadow-card">
             {controls}
           </div>
         )
@@ -132,7 +132,7 @@ export function FilterBar({ filters, categories, onChange, onClear }: FilterBarP
               {chip.label}
             </Chip>
           ))}
-          <button type="button" onClick={onClear} className="h-8 rounded-full px-3 text-[13px] font-semibold text-ink underline-offset-2 hover:underline">
+          <button type="button" onClick={onClear} className="relative h-8 rounded-full px-3 text-[13px] font-semibold text-accent-text underline-offset-2 before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] hover:underline">
             Clear all
           </button>
         </div>
@@ -143,13 +143,13 @@ export function FilterBar({ filters, categories, onChange, onClear }: FilterBarP
 
 function Chip({ label, onRemove, children }: { label: string; onRemove: () => void; children: ReactNode }) {
   return (
-    <span className="inline-flex h-8 items-center gap-1 rounded-full border border-border bg-surface-2 pr-1.5 pl-3 text-[13px] leading-4 font-semibold text-ink">
+    <span className="inline-flex h-8 items-center gap-1 rounded-full bg-accent-tint pr-1.5 pl-3 text-[13px] leading-4 font-semibold text-accent-text">
       <span className="tabular">{children}</span>
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Remove filter: ${label}`}
-        className="relative flex size-6 items-center justify-center rounded-full text-ink-muted before:absolute before:-inset-2.5 before:content-[''] hover:bg-surface hover:text-ink"
+        className="relative flex size-6 items-center justify-center rounded-full before:absolute before:-inset-2.5 before:content-[''] hover:bg-surface"
       >
         <X aria-hidden="true" className="size-3.5" />
       </button>

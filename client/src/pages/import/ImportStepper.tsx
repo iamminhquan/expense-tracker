@@ -31,10 +31,10 @@ export function ImportStepper({ current }: { current: number }) {
         <p className="text-[13px] leading-[18px] text-ink-muted">
           Step {current + 1} of {STEPS.length}
         </p>
-        <p className="font-display text-[18px] leading-6 font-bold text-ink">{STEPS[current]}</p>
+        <p className="font-display text-[20px] leading-6 font-semibold tracking-[-0.015em] text-ink">{STEPS[current]}</p>
         <div aria-hidden="true" className="mt-2 grid grid-cols-4 gap-1.5">
           {STEPS.map((label, i) => (
-            <span key={label} className={`h-1.5 rounded-[3px] ${i <= current ? 'bg-accent' : 'bg-surface-2'}`} />
+            <span key={label} className={`h-1.5 rounded-full ${i <= current ? 'bg-accent' : 'bg-surface-2'}`} />
           ))}
         </div>
       </div>

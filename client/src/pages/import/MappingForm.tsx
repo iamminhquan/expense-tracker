@@ -42,7 +42,7 @@ export function MappingForm({ data, submitting, error, onCancel, onSubmit }: Map
       className="space-y-6"
     >
       <div>
-        <h2 className="font-display text-[20px] leading-[26px] font-bold text-ink">Which column holds what?</h2>
+        <h2 className="font-display text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">Which column holds what?</h2>
         <p className="mt-1 text-[14px] leading-[22px] text-ink-muted">We didn't recognize this file's layout. Here are its first rows.</p>
       </div>
 
@@ -52,7 +52,7 @@ export function MappingForm({ data, submitting, error, onCancel, onSubmit }: Map
         </Banner>
       )}
 
-      <div tabIndex={0} role="region" aria-label="First rows of the file" className="overflow-x-auto rounded-[16px] border border-border">
+      <div tabIndex={0} role="region" aria-label="First rows of the file" className="overflow-x-auto rounded-card border border-border">
         <table className="w-full text-[13px] leading-[18px]">
           <thead>
             <tr className="bg-surface-2">

@@ -13,14 +13,17 @@ export function PageSkeleton({ label = 'Loading…' }: { label?: string }) {
     <div role="status" aria-busy="true">
       <span className="sr-only">{label}</span>
       {visible && (
-        <div className="animate-fade-in space-y-6">
-          <SkeletonBar className="h-10 w-56" />
-          <div className="grid gap-4 md:grid-cols-3">
-            <SkeletonBar className="h-36 rounded-[24px]" />
-            <SkeletonBar className="h-36 rounded-[24px]" />
-            <SkeletonBar className="h-36 rounded-[24px]" />
+        <div className="animate-fade-in space-y-4 md:space-y-5">
+          <div className="flex items-center justify-between gap-3">
+            <SkeletonBar className="h-10 w-44 md:h-11 md:w-56" />
+            <SkeletonBar className="h-11 w-36 rounded-control" />
           </div>
-          <SkeletonBar className="h-72 rounded-[24px]" />
+          <SkeletonBar className="h-44 rounded-hero md:h-52" />
+          <div className="grid grid-cols-2 gap-3 md:gap-5">
+            <SkeletonBar className="h-28 rounded-card md:h-36" />
+            <SkeletonBar className="h-28 rounded-card md:h-36" />
+          </div>
+          <SkeletonBar className="h-64 rounded-card" />
         </div>
       )}
     </div>

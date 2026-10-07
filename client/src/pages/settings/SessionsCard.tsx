@@ -43,7 +43,7 @@ export function SessionsCard({ sessions }: { sessions: Session[] }) {
           const Icon = MOBILE_DEVICE.test(s.device) ? Smartphone : Monitor
           return (
             <li key={s.id} className="flex items-center gap-3 py-3">
-              <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-surface-2 text-ink">
+              <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-control bg-surface-2 text-ink">
                 <Icon className="size-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -51,7 +51,7 @@ export function SessionsCard({ sessions }: { sessions: Session[] }) {
                 <p className="tabular text-[13px] leading-[18px] text-ink-muted">Signed in {formatTimestamp(s.createdAt)}</p>
               </div>
               {s.isCurrent ? (
-                <Badge kind="income" icon={<Check aria-hidden="true" />}>
+                <Badge kind="accent" icon={<Check aria-hidden="true" />}>
                   This device
                 </Badge>
               ) : (
