@@ -7,7 +7,7 @@ paths:
 
 # The dashboard
 
-`server/internal/api/dashboard_handlers.go` builds every aggregate in Go; `client/src/pages/dashboard/` renders them: `KpiCards` (spent, earned, net), `SpendingDoughnut` and `MonthlyBars` with Chart.js (`react-chartjs-2`).
+`server/internal/api/dashboard_handlers.go` builds every aggregate in Go; `client/src/pages/dashboard/` renders them: `KpiCards` (a bento: an accent hero for spent, a gold-tinted earned tile and a quiet net tile; the last two are slim rows on phones), `SpendingDoughnut` and `MonthlyBars` with Chart.js (`react-chartjs-2`).
 
 ## Server
 
@@ -19,7 +19,7 @@ paths:
 
 ## Client
 
-- `KpiCards.tsx`'s `Comparison` builds the "Last month X · up Y%" line from `previousTotalExpense`/`previousTotalIncome` + `hasPreviousMonthData` -- the client-side half of the split described above.
+- `KpiCards.tsx`'s `Comparison` builds the "up Y% · Last month X" line from `previousTotalExpense`/`previousTotalIncome` + `hasPreviousMonthData` -- the client-side half of the split described above.
 - The month picker is URL-driven (`useSearchParams`, not local `useState`) -- see `.claude/rules/req-value-objects.md` for why this matters (a bookmark or another page's link to a specific month has to actually show that month).
 - `lib/charts.ts` registers Chart.js's elements once (and its default font), imported for its side effect wherever a chart renders. The legends are HTML next to the canvas, not Chart.js's own; each canvas has an `aria-label`, and the bar chart has a visually hidden table too.
-- Chart colors come from `hooks/useThemeColors.ts`, which reads the CSS variables and changes `key` on every theme switch. Both charts are keyed on it, so a theme switch rebuilds them, with animation off for the rebuild: `switched` turns true on the first switch in either direction and stays true. (Comparing against the key the chart mounted with missed a switch back to the starting theme, so dark → light replayed the draw-in animation.) Don't swap this for an in-place `updateMode="none"` update: Chart.js kept the bars' old resolved colors that way. Category slices use the stored hex colors, the same in both themes.
+- Chart colors come from `hooks/useThemeColors.ts`, which reads the `chart-expense`/`chart-income` CSS variables and the surface/border/ink ones and changes `key` on every theme switch. Both charts are keyed on it, so a theme switch rebuilds them, with animation off for the rebuild: `switched` turns true on the first switch in either direction and stays true. (Comparing against the key the chart mounted with missed a switch back to the starting theme, so dark → light replayed the draw-in animation.) Don't swap this for an in-place `updateMode="none"` update: Chart.js kept the bars' old resolved colors that way. Category slices use the stored hex colors, the same in both themes.
