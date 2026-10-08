@@ -92,9 +92,9 @@ export function ImportPage() {
   return (
     <div className="mx-auto max-w-[800px] space-y-4 md:space-y-5">
       <div>
-        <Link to="/transactions" className="mb-2 -ml-2 inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[14px] font-semibold text-ink-muted hover:text-ink">
+        <Link to="/settings" className="mb-2 -ml-2 inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[14px] font-semibold text-ink-muted hover:text-ink">
           <ChevronLeft aria-hidden="true" className="size-4" />
-          Transactions
+          Settings
         </Link>
         <h1 className={pageTitleClass}>Import transactions</h1>
       </div>

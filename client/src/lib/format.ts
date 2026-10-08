@@ -26,6 +26,12 @@ export function formatTimestamp(iso: string): string {
   return `${date}, ${time}`
 }
 
+/** "Oct 2026" for a "2026-10" month value; null for anything else, such as "all". */
+export function formatMonthShort(monthValue: string): string | null {
+  if (!/^\d{4}-\d{2}$/.test(monthValue)) return null
+  return new Date(monthValue + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+}
+
 function isoOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

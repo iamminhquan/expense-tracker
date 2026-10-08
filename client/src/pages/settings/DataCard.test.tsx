@@ -4,15 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { setAccessToken } from '../../lib/api/tokenStore'
-import { DangerZoneCard } from './DangerZoneCard'
-
-vi.mock('../../lib/auth/AuthContext', () => ({ useAuth: () => ({ logout: vi.fn() }) }))
+import { DataCard } from './DataCard'
 
 function renderCard() {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <DangerZoneCard />
+        <DataCard />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -25,7 +23,7 @@ beforeEach(() => {
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 })
 
-describe('DangerZoneCard export', () => {
+describe('DataCard export', () => {
   // The export defaults to the current month; leaving out "all" would hand over one month's worth.
   it('exports every month, not just the current one', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('Date,Type\n'))
@@ -47,8 +45,8 @@ describe('DangerZoneCard export', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Could not export transactions.')
   })
 
-  it('keeps the delete form beside it', () => {
+  it('links to the CSV import', () => {
     renderCard()
-    expect(screen.getByRole('button', { name: 'Delete account' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Import CSV' }).getAttribute('href')).toBe('/transactions/import')
   })
 })

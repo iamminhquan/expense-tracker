@@ -3,6 +3,7 @@ import { InlineError } from '../../components/ui/InlineError'
 import { PageSkeleton } from '../../components/ui/PageSkeleton'
 import { pageTitleClass } from '../../lib/formStyles'
 import { DangerZoneCard } from './DangerZoneCard'
+import { DataCard } from './DataCard'
 import { EmailCard } from './EmailCard'
 import { PasswordCard } from './PasswordCard'
 import { ProfileCard } from './ProfileCard'
@@ -33,6 +34,7 @@ export function SettingsPage() {
         <div className="space-y-4 md:space-y-5">
           <ProfileCard name={data.name} username={data.username} />
           <PasswordCard />
+          <DataCard />
         </div>
         <div className="space-y-4 md:space-y-5">
           <EmailCard email={data.email} pendingEmail={data.pendingEmail} />
