@@ -126,17 +126,18 @@ export function AddTransactionForm({ categories, onAdded, amountRef }: AddTransa
 
   return (
     <section aria-labelledby="add-title" className={cardClass}>
-      <h2 id="add-title" className={`${cardTitleClass} mb-5`}>
-        Add a transaction
-      </h2>
       <form onSubmit={onSubmit}>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,0.9fr)_auto_minmax(0,1.3fr)_auto] lg:items-start">
-          <div>
-            <span className="mb-1.5 block text-[13px] leading-[18px] font-semibold text-ink" aria-hidden="true">
-              Type
-            </span>
-            {typeToggle}
-          </div>
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2 id="add-title" className={cardTitleClass}>
+            Add a transaction
+          </h2>
+          {typeToggle}
+        </div>
+        {/* Firefox spells the date "10 / 09 / 2026" and clips the year below about 10.5rem. */}
+        <div className="grid grid-cols-2 items-start gap-x-3 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(10.5rem,0.8fr)_minmax(0,1.5fr)_auto]">
+          <Field label="Amount">
+            {(control) => <AmountInput {...control} ref={amountRef} required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />}
+          </Field>
           <Field label="Category" error={categoryError}>
             {(control) => (
               <SelectControl {...control} value={categoryId} onChange={(e) => pickCategory(Number(e.target.value))}>
@@ -151,19 +152,21 @@ export function AddTransactionForm({ categories, onAdded, amountRef }: AddTransa
               </SelectControl>
             )}
           </Field>
-          <Field label="Amount">
-            {(control) => <AmountInput {...control} ref={amountRef} required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />}
-          </Field>
           <Field label="Date">
             {(control) => <input {...control} type="date" required value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className={inputClass} />}
           </Field>
           <Field label="Note (optional)">
             {(control) => <input {...control} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Cà phê với Minh" className={inputClass} />}
           </Field>
-          <div className="lg:pt-[24px]">
-            <button type="submit" disabled={createTransaction.isPending} aria-busy={createTransaction.isPending} className={`${buttonClass('primary')} w-full`}>
+          <div className="col-span-2 flex justify-end lg:col-span-1 lg:pt-[24px]">
+            <button
+              type="submit"
+              disabled={createTransaction.isPending}
+              aria-busy={createTransaction.isPending}
+              className={`${buttonClass('primary')} w-40`}
+            >
               <Plus aria-hidden="true" />
-              Add
+              {type === 'expense' ? 'Add expense' : 'Add income'}
             </button>
           </div>
         </div>
