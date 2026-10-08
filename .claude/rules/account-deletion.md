@@ -17,7 +17,7 @@ Deleting an account is a hard delete: `deleteAccountHandler` / `deleteAccount` i
 - Never touch the shared defaults. They carry a NULL `user_id`, so `WHERE user_id = $1` cannot reach them.
 - Sessions and both token tables cascade; leave them to it.
 - Gate the delete on the current password, like the email and password endpoints. On success the handler clears the refresh-token cookie and answers 200 with `data: null` -- there is no account left for a redirect to land on.
-- `pages/settings/DangerZoneCard.tsx` offers a CSV export of every transaction above the delete form, since the history is the part anyone regrets losing. It must ask for `?month=all`: the export endpoint's default is the current month only.
+- Settings offers a CSV export of every transaction in `pages/settings/DataCard.tsx`, and the Danger zone's description points there before the delete form, since the history is the part anyone regrets losing. The export must ask for `?month=all`: the endpoint's default is the current month only.
 - The email is released at once and can be re-registered (`TestDeleteAccount` checks the `users` row is really gone, which is what frees the unique email). Don't reserve it or keep a tombstone: that would keep the one piece of personal data the owner asked to be rid of.
 
 ## Why

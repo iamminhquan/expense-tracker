@@ -1,6 +1,7 @@
 import { useCallback, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Calendar, Check, ChevronDown } from 'lucide-react'
 import { useDismiss } from '../hooks/useDismiss'
+import { formatMonthShort } from '../lib/format'
 import type { MonthOption } from '../lib/api/types'
 
 interface MonthPickerProps {
@@ -12,9 +13,11 @@ interface MonthPickerProps {
   /** Only the transactions page offers "All months"; the dashboard never does. */
   allowAllMonths?: boolean
   size?: 'md' | 'lg'
+  /** Shows "Oct 2026" on phones, so the picker fits on the page title's row. */
+  compact?: boolean
 }
 
-export function MonthPicker({ value, label, currentMonthValue, availableMonths, onChange, allowAllMonths, size = 'md' }: MonthPickerProps) {
+export function MonthPicker({ value, label, currentMonthValue, availableMonths, onChange, allowAllMonths, size = 'md', compact }: MonthPickerProps) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -76,7 +79,8 @@ export function MonthPicker({ value, label, currentMonthValue, availableMonths, 
         } ${open ? 'border-accent-text bg-surface-2' : 'border-border bg-surface'}`}
       >
         <Calendar aria-hidden="true" className="size-[18px] text-accent-text" />
-        <span className="tabular whitespace-nowrap">{label}</span>
+        {compact && <span className="tabular whitespace-nowrap md:hidden">{formatMonthShort(value) ?? label}</span>}
+        <span className={`tabular whitespace-nowrap ${compact ? 'max-md:hidden' : ''}`}>{label}</span>
         <ChevronDown aria-hidden="true" className={`size-4 text-ink-muted ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (

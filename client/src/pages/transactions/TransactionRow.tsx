@@ -6,7 +6,6 @@ import { useIsDesktop } from '../../hooks/useMediaQuery'
 import { BottomSheet } from '../../components/BottomSheet'
 import { AmountInput } from '../../components/ui/AmountInput'
 import { Badge } from '../../components/ui/Badge'
-import { CategoryAvatar } from '../../components/ui/CategoryAvatar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Field } from '../../components/ui/Field'
 import { FieldErrorText } from '../../components/ui/FieldErrorText'
@@ -69,7 +68,9 @@ export function TransactionRow({ transaction, showYear, categories, dateInHeadin
   const sameTypeCategories = categories.filter((c) => c.type === transaction.type)
   const date = showYear ? formatDateLong(transaction.occurredOn) : formatDateShort(transaction.occurredOn)
   const signed = formatVNDSigned(transaction.type === 'expense' ? -transaction.amount : transaction.amount)
-  const meta = dateInHeading ? transaction.categoryName : `${transaction.categoryName} · ${date}`
+  // With no note the title is already the category name, so the second line leaves it out.
+  const metaParts = [transaction.description ? transaction.categoryName : null, dateInHeading ? null : date].filter(Boolean)
+  const meta = metaParts.join(' · ')
 
   function startEditing() {
     setError(null)
@@ -107,7 +108,6 @@ export function TransactionRow({ transaction, showYear, categories, dateInHeadin
     }
   }
 
-  const avatar = <CategoryAvatar name={transaction.categoryName} color={transaction.categoryColor} />
   const duplicateBadge = transaction.isDuplicate && (
     <Badge kind="warning" icon={<TriangleAlert aria-hidden="true" />}>
       Possible duplicate
@@ -162,9 +162,9 @@ export function TransactionRow({ transaction, showYear, categories, dateInHeadin
         >
           {isDesktop ? (
             <>
-              <input autoFocus aria-label="Note" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Note" className={inputClass} />
+              <input autoFocus type="date" required aria-label="Date" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className={inputClass} />
               {categorySelect({ 'aria-label': 'Category' })}
-              <input type="date" required aria-label="Date" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className={inputClass} />
+              <input aria-label="Note" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Note" className={inputClass} />
               <AmountInput required aria-label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
               <div className="flex gap-1">
                 {save}
@@ -202,13 +202,16 @@ export function TransactionRow({ transaction, showYear, categories, dateInHeadin
   if (isDesktop) {
     return (
       <li className={`${DESKTOP_ROW_GRID} min-h-[64px] border-t border-border px-5 py-2.5 first:border-t-0 hover:bg-surface-2/60`}>
+        <span className="tabular text-[14px] leading-5 whitespace-nowrap text-ink-muted">{date}</span>
+        <span className="truncate text-[14px] leading-5 font-medium text-ink">{transaction.categoryName}</span>
         <div className="flex min-w-0 items-center gap-3">
-          {avatar}
-          <span className="truncate text-[15px] leading-[22px] font-semibold text-ink">{rowName}</span>
+          {transaction.description ? (
+            <span className="truncate text-[15px] leading-[22px] font-semibold text-ink">{transaction.description}</span>
+          ) : (
+            <span className="text-[14px] leading-5 text-ink-muted">No note</span>
+          )}
           {duplicateBadge}
         </div>
-        <span className="truncate text-[14px] leading-5 text-ink-muted">{transaction.categoryName}</span>
-        <span className="tabular text-[14px] leading-5 whitespace-nowrap text-ink-muted">{date}</span>
         <span className="text-right">
           <Amount type={transaction.type} text={signed} />
         </span>
@@ -230,21 +233,19 @@ export function TransactionRow({ transaction, showYear, categories, dateInHeadin
   return (
     <li className="border-t border-border py-2.5 pr-1.5 pl-4 select-none first:border-t-0 active:bg-surface-2" {...longPress}>
       <div className="flex items-center gap-3">
-        {avatar}
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] leading-[22px] font-semibold text-ink">{rowName}</p>
-          <p className="tabular truncate text-[13px] leading-[18px] text-ink-muted">{meta}</p>
+          {meta && <p className="tabular truncate text-[13px] leading-[18px] text-ink-muted">{meta}</p>}
         </div>
         <Amount type={transaction.type} text={signed} />
         <button ref={editButtonRef} type="button" onClick={() => setSheetOpen(true)} aria-label={`Open actions for ${rowName}`} className={iconButtonClass}>
           <Ellipsis aria-hidden="true" />
         </button>
       </div>
-      {duplicateBadge && <div className="mt-1.5 pl-14">{duplicateBadge}</div>}
+      {duplicateBadge && <div className="mt-1.5">{duplicateBadge}</div>}
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} label={`Actions for ${rowName}`}>
         <div className="flex items-center gap-3 px-1 pt-1 pb-5">
-          {avatar}
           <div className="min-w-0 flex-1">
             <p className="truncate text-[16px] leading-6 font-semibold text-ink">{rowName}</p>
             <p className="tabular text-[13px] leading-[18px] text-ink-muted">

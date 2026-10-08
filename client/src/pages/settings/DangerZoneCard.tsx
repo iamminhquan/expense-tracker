@@ -1,14 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Download, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDeleteAccount } from '../../hooks/useSettings'
 import { useAuth } from '../../lib/auth/AuthContext'
 import { ApiError } from '../../lib/api/client'
-import { downloadTransactionsExport } from '../../lib/api/import'
 import { buttonClass } from '../../lib/formStyles'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Field } from '../../components/ui/Field'
-import { FieldErrorText } from '../../components/ui/FieldErrorText'
 import { PasswordInput } from '../../components/ui/PasswordInput'
 import { Card } from './Card'
 
@@ -19,8 +17,6 @@ export function DangerZoneCard() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [exporting, setExporting] = useState(false)
-  const [exportError, setExportError] = useState<string | null>(null)
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -39,37 +35,13 @@ export function DangerZoneCard() {
     }
   }
 
-  async function onExport() {
-    setExportError(null)
-    setExporting(true)
-    try {
-      await downloadTransactionsExport('?month=all')
-    } catch (err) {
-      setExportError(err instanceof ApiError ? err.message : 'Could not export transactions.')
-    } finally {
-      setExporting(false)
-    }
-  }
-
   return (
     <Card
       title="Danger zone"
       danger
       className="lg:col-span-2"
-      description="Deleting your account removes every transaction and every category you made. It happens immediately and can't be undone. Keep a copy first."
+      description="Deleting your account removes every transaction and every category you made. It happens immediately and can't be undone. Export a copy from Your data first."
     >
-      <div>
-        <button type="button" onClick={() => void onExport()} disabled={exporting} aria-busy={exporting} className={buttonClass('secondary')}>
-          <Download aria-hidden="true" />
-          Export all transactions (CSV)
-        </button>
-        {exportError && (
-          <div role="alert">
-            <FieldErrorText>{exportError}</FieldErrorText>
-          </div>
-        )}
-      </div>
-      <hr className="border-border" />
       <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
         <Field label="Current password" error={error}>
           {(control) => <PasswordInput {...control} required autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />}

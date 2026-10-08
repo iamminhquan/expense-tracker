@@ -77,19 +77,19 @@ export function Layout() {
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
         <nav
           aria-label="Main"
-          className="pointer-events-auto flex h-16 flex-1 gap-1 rounded-full border border-border bg-surface/95 p-1.5 shadow-float backdrop-blur-md"
+          className="pointer-events-auto flex h-14 flex-1 gap-1 rounded-full border border-border bg-surface/95 p-1 shadow-float backdrop-blur-md"
         >
           {NAV_LINKS.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[12px] leading-4 font-semibold active:scale-95 motion-reduce:active:scale-100 ${
+                `flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] leading-[14px] font-semibold active:scale-95 motion-reduce:active:scale-100 ${
                   isActive ? 'bg-accent-tint text-accent-text' : 'text-ink-muted hover:text-ink'
                 }`
               }
             >
-              <Icon aria-hidden="true" className="size-[22px]" />
+              <Icon aria-hidden="true" className="size-5" />
               {label}
             </NavLink>
           ))}
@@ -101,9 +101,9 @@ export function Layout() {
             setAddOpen(true)
           }}
           aria-label="Add transaction"
-          className="pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent shadow-float transition-transform duration-150 active:scale-90 motion-reduce:active:scale-100"
+          className="pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent shadow-float transition-transform duration-150 active:scale-90 motion-reduce:active:scale-100"
         >
-          <Plus aria-hidden="true" strokeWidth={2.5} className="size-8" />
+          <Plus aria-hidden="true" strokeWidth={2.5} className="size-7" />
         </button>
       </div>
 
