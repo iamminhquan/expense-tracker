@@ -6,7 +6,7 @@ export function formatVND(amount: number): string {
 
 export function formatVNDSigned(amount: number): string {
   if (amount === 0) return formatVND(0)
-  return `${amount > 0 ? '+' : '-'}${formatVND(amount)}`
+  return `${amount > 0 ? '+' : '−'}${formatVND(amount)}`
 }
 
 export function formatDateShort(isoDate: string): string {
@@ -24,4 +24,18 @@ export function formatTimestamp(iso: string): string {
   const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
   return `${date}, ${time}`
+}
+
+function isoOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** "Today", "Yesterday", or a short weekday and date; `today` is injectable for tests. */
+export function formatDayLabel(isoDate: string, showYear: boolean, today = new Date()): string {
+  if (isoDate === isoOf(today)) return 'Today'
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  if (isoDate === isoOf(yesterday)) return 'Yesterday'
+  const weekday = new Date(isoDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short' })
+  return `${weekday}, ${showYear ? formatDateLong(isoDate) : formatDateShort(isoDate)}`
 }

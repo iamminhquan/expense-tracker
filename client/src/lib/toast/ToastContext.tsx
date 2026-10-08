@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CircleAlert, CircleCheck, X } from 'lucide-react'
+import { Check, CircleAlert, X } from 'lucide-react'
 
 type ToastKind = 'success' | 'error'
 
@@ -37,7 +37,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-4 bottom-[112px] z-[60] flex flex-col items-center gap-2 md:right-6 md:bottom-6 md:left-auto md:items-end"
+        className="pointer-events-none fixed inset-x-4 bottom-[calc(108px+env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 md:right-6 md:bottom-6 md:left-auto md:items-end"
       >
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={() => dismiss(toast.id)} />
@@ -63,21 +63,22 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       onPointerLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
-      className={`pointer-events-auto flex min-h-[52px] w-full max-w-[380px] animate-toast-in items-center gap-3 rounded-[16px] py-2 pr-2 pl-4 text-[14px] leading-5 font-semibold shadow-popover ${
-        success ? 'bg-ink text-app' : 'border border-danger bg-danger-tint text-ink'
+      className={`pointer-events-auto flex min-h-14 w-full max-w-[400px] animate-toast-in items-center gap-3 rounded-[20px] py-2 pr-1.5 pl-2.5 text-[14px] leading-5 font-semibold shadow-popover ${
+        success ? 'bg-ink text-app' : 'border border-danger/40 bg-danger-tint text-ink'
       }`}
     >
-      {success ? (
-        <CircleCheck aria-hidden="true" className="size-5 shrink-0" />
-      ) : (
-        <CircleAlert aria-hidden="true" className="size-5 shrink-0 text-danger" />
-      )}
+      <span
+        aria-hidden="true"
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${success ? 'bg-accent text-on-accent' : 'bg-danger text-on-danger'}`}
+      >
+        {success ? <Check className="size-[18px]" strokeWidth={3} /> : <CircleAlert className="size-[18px]" />}
+      </span>
       <p className="flex-1">{toast.message}</p>
       <button
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] opacity-80 hover:opacity-100"
+        className="flex size-11 shrink-0 items-center justify-center rounded-full opacity-70 hover:opacity-100"
       >
         <X aria-hidden="true" className="size-4" />
       </button>

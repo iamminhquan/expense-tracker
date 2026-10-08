@@ -4,6 +4,8 @@ interface SegmentedOption<T extends string> {
   value: T
   label: ReactNode
   icon?: ReactNode
+  /** Tints the selected segment; the label and icon still say which one it is. */
+  tone?: 'expense' | 'income'
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -16,13 +18,15 @@ interface SegmentedControlProps<T extends string> {
   fullWidth?: boolean
 }
 
+const selectedTone = {
+  expense: 'bg-expense-tint text-expense shadow-card',
+  income: 'bg-income-tint text-income shadow-card',
+  neutral: 'bg-surface text-ink shadow-card',
+}
+
 export function SegmentedControl<T extends string>({ label, value, options, onChange, size = 'md', fullWidth }: SegmentedControlProps<T>) {
   return (
-    <div
-      role="group"
-      aria-label={label}
-      className={`${fullWidth ? 'flex w-full' : 'inline-flex'} gap-1 rounded-[14px] bg-surface-2 p-1`}
-    >
+    <div role="group" aria-label={label} className={`${fullWidth ? 'flex w-full' : 'inline-flex'} gap-1 rounded-control bg-surface-2 p-1`}>
       {options.map((option) => {
         const selected = option.value === value
         return (
@@ -31,10 +35,10 @@ export function SegmentedControl<T extends string>({ label, value, options, onCh
             type="button"
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
-            className={`inline-flex items-center justify-center gap-1.5 rounded-[10px] text-[14px] leading-5 font-semibold [&_svg]:size-4 ${
+            className={`inline-flex items-center justify-center gap-1.5 rounded-[10px] text-[14px] leading-5 font-semibold transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[.97] motion-reduce:active:scale-100 [&_svg]:size-4 ${
               size === 'tall' ? 'h-11' : 'h-9'
             } ${fullWidth ? 'flex-1 px-2' : 'px-[14px]'} ${
-              selected ? 'bg-accent text-on-accent' : 'text-ink-muted hover:bg-[color-mix(in_srgb,var(--color-surface-2),var(--color-ink)_8%)] hover:text-ink'
+              selected ? selectedTone[option.tone ?? 'neutral'] : 'text-ink-muted hover:text-ink'
             }`}
           >
             {option.icon}

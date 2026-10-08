@@ -16,21 +16,21 @@ export function MonthlyBars({ bar }: { bar: BarData }) {
   const peak = Math.max(0, ...bar.expense, ...bar.income)
   const suggestedMax = Math.max(STEP, Math.ceil(peak / STEP) * STEP)
   const lastIndex = bar.labels.length - 1
-  const radius = { topLeft: 10, topRight: 10, bottomLeft: 0, bottomRight: 0 }
+  const radius = { topLeft: 8, topRight: 8, bottomLeft: 2, bottomRight: 2 }
 
   return (
-    <section aria-labelledby="bars-title" className={cardClass}>
+    <section aria-labelledby="bars-title" className={`${cardClass} h-full`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="bars-title" className={cardTitleClass}>
           Last {bar.labels.length} months
         </h2>
         <ul className="flex items-center gap-4 text-[13px] leading-[18px] text-ink-muted" aria-hidden="true">
           <li className="flex items-center gap-2">
-            <span className="size-3.5 rounded-[5px] bg-expense" />
+            <span className="size-3 rounded-[4px] bg-chart-expense" />
             Expense
           </li>
           <li className="flex items-center gap-2">
-            <span className="size-3.5 rounded-[5px] bg-chart-income" />
+            <span className="size-3 rounded-[4px] bg-chart-income" />
             Income
           </li>
         </ul>
@@ -52,7 +52,7 @@ export function MonthlyBars({ bar }: { bar: BarData }) {
           options={{
             maintainAspectRatio: false,
             animation: animate ? { duration: 400, easing: 'easeOutQuart' } : false,
-            datasets: { bar: { categoryPercentage: isDesktop ? 0.7 : 0.85, barPercentage: 0.9, maxBarThickness: 36, borderWidth: 0 } },
+            datasets: { bar: { categoryPercentage: isDesktop ? 0.7 : 0.85, barPercentage: 0.9, maxBarThickness: 34, borderWidth: 0 } },
             layout: { padding: { top: 8, right: 4 } },
             interaction: { mode: 'index', intersect: false },
             plugins: {
@@ -82,7 +82,7 @@ export function MonthlyBars({ bar }: { bar: BarData }) {
               y: {
                 beginAtZero: true,
                 suggestedMax,
-                border: { display: false },
+                border: { display: false, dash: [3, 5] },
                 grid: { color: colors.grid },
                 ticks: {
                   stepSize: STEP,

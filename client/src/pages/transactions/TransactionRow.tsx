@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Check, Pencil, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, Ellipsis, Pencil, Trash2, TriangleAlert } from 'lucide-react'
 import { useDeleteTransaction, useUpdateTransaction } from '../../hooks/useTransactions'
 import { useLongPress } from '../../hooks/useLongPress'
 import { useIsDesktop } from '../../hooks/useMediaQuery'
 import { BottomSheet } from '../../components/BottomSheet'
 import { AmountInput } from '../../components/ui/AmountInput'
 import { Badge } from '../../components/ui/Badge'
+import { CategoryAvatar } from '../../components/ui/CategoryAvatar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Field } from '../../components/ui/Field'
 import { FieldErrorText } from '../../components/ui/FieldErrorText'
@@ -21,9 +22,24 @@ interface TransactionRowProps {
   transaction: Transaction
   showYear: boolean
   categories: Category[]
+  /** The mobile list puts the date in a heading above the rows, so the row leaves it out. */
+  dateInHeading?: boolean
 }
 
-export function TransactionRow({ transaction, showYear, categories }: TransactionRowProps) {
+/* The sign is the signal; the pill and colour on income are extra. */
+function Amount({ type, text, className = '' }: { type: Transaction['type']; text: string; className?: string }) {
+  return (
+    <span
+      className={`num whitespace-nowrap ${
+        type === 'income' ? 'rounded-full bg-income-tint px-2.5 py-0.5 text-income' : 'text-ink'
+      } text-[16px] leading-[22px] font-bold ${className}`}
+    >
+      {text}
+    </span>
+  )
+}
+
+export function TransactionRow({ transaction, showYear, categories, dateInHeading }: TransactionRowProps) {
   const updateTransaction = useUpdateTransaction()
   const deleteTransaction = useDeleteTransaction()
   const toast = useToast()
@@ -40,10 +56,10 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
   const editButtonRef = useRef<HTMLButtonElement>(null)
   const wasEditing = useRef(false)
 
-  // Long-press adds to the Edit/Delete buttons below; it never replaces them.
+  // The "…" button and the long-press open the same sheet; neither is the only way in.
   const longPress = useLongPress(() => setSheetOpen(true))
 
-  // The Edit button only exists again after the re-render, so focus it from an effect.
+  // The button only exists again after the re-render, so focus it from an effect.
   useEffect(() => {
     if (wasEditing.current && !editing) editButtonRef.current?.focus()
     wasEditing.current = editing
@@ -53,7 +69,7 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
   const sameTypeCategories = categories.filter((c) => c.type === transaction.type)
   const date = showYear ? formatDateLong(transaction.occurredOn) : formatDateShort(transaction.occurredOn)
   const signed = formatVNDSigned(transaction.type === 'expense' ? -transaction.amount : transaction.amount)
-  const amountClass = transaction.type === 'income' ? 'text-income' : 'text-ink'
+  const meta = dateInHeading ? transaction.categoryName : `${transaction.categoryName} · ${date}`
 
   function startEditing() {
     setError(null)
@@ -91,7 +107,7 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
     }
   }
 
-  const dot = <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: transaction.categoryColor }} />
+  const avatar = <CategoryAvatar name={transaction.categoryName} color={transaction.categoryColor} />
   const duplicateBadge = transaction.isDuplicate && (
     <Badge kind="warning" icon={<TriangleAlert aria-hidden="true" />}>
       Possible duplicate
@@ -123,7 +139,7 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
       </SelectControl>
     )
     const cancel = (
-      <button type="button" onClick={() => setEditing(false)} className={buttonClass('ghost')}>
+      <button type="button" onClick={() => setEditing(false)} className={buttonClass(isDesktop ? 'ghost' : 'secondary')}>
         Cancel
       </button>
     )
@@ -135,7 +151,7 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
     )
 
     return (
-      <li className="animate-fade-in border-t border-border bg-surface-2 first:border-t-0">
+      <li className="animate-fade-in border-t border-border bg-accent-tint/50 first:border-t-0">
         <form
           onSubmit={onSave}
           onKeyDown={(e) => {
@@ -157,19 +173,17 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
             </>
           ) : (
             <>
+              <Field label="Amount">
+                {(control) => <AmountInput {...control} large autoFocus required value={amount} onChange={(e) => setAmount(e.target.value)} />}
+              </Field>
               <Field label="Note">
-                {(control) => <input {...control} autoFocus value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />}
+                {(control) => <input {...control} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />}
               </Field>
               <Field label="Category">{(control) => categorySelect(control)}</Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Date">
-                  {(control) => <input {...control} type="date" required value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className={inputClass} />}
-                </Field>
-                <Field label="Amount">
-                  {(control) => <AmountInput {...control} required value={amount} onChange={(e) => setAmount(e.target.value)} />}
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+              <Field label="Date">
+                {(control) => <input {...control} type="date" required value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className={inputClass} />}
+              </Field>
+              <div className="grid grid-cols-2 gap-3 pt-1">
                 {cancel}
                 {save}
               </div>
@@ -187,21 +201,23 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
 
   if (isDesktop) {
     return (
-      <li className={`${DESKTOP_ROW_GRID} min-h-[57px] border-t border-border px-5 py-2.5 first:border-t-0 hover:bg-[color-mix(in_srgb,var(--color-surface),var(--color-ink)_4%)]`}>
+      <li className={`${DESKTOP_ROW_GRID} min-h-[64px] border-t border-border px-5 py-2.5 first:border-t-0 hover:bg-surface-2/60`}>
         <div className="flex min-w-0 items-center gap-3">
-          {dot}
+          {avatar}
           <span className="truncate text-[15px] leading-[22px] font-semibold text-ink">{rowName}</span>
           {duplicateBadge}
         </div>
         <span className="truncate text-[14px] leading-5 text-ink-muted">{transaction.categoryName}</span>
         <span className="tabular text-[14px] leading-5 whitespace-nowrap text-ink-muted">{date}</span>
-        <span className={`tabular text-right font-display text-[16px] leading-[22px] font-bold whitespace-nowrap ${amountClass}`}>{signed}</span>
+        <span className="text-right">
+          <Amount type={transaction.type} text={signed} />
+        </span>
         <div className="flex justify-end gap-1">
-          <button ref={editButtonRef} type="button" onClick={startEditing} aria-label={`Edit ${rowName}`} className={buttonClass('ghost', 'sm')}>
+          <button ref={editButtonRef} type="button" onClick={startEditing} aria-label={`Edit ${rowName}`} className={`${buttonClass('ghost', 'sm')} text-ink-muted hover:text-ink`}>
             <Pencil aria-hidden="true" />
             Edit
           </button>
-          <button type="button" onClick={askDelete} aria-label={`Delete ${rowName}`} className={buttonClass('danger-ghost', 'sm')}>
+          <button type="button" onClick={askDelete} aria-label={`Delete ${rowName}`} className={`${buttonClass('ghost', 'sm')} text-ink-muted hover:bg-danger-tint hover:text-danger`}>
             <Trash2 aria-hidden="true" />
             Delete
           </button>
@@ -212,35 +228,30 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
   }
 
   return (
-    <li className="border-t border-border px-4 pt-3 pb-1 select-none first:border-t-0 active:bg-surface-2" {...longPress}>
+    <li className="border-t border-border py-2.5 pr-1.5 pl-4 select-none first:border-t-0 active:bg-surface-2" {...longPress}>
       <div className="flex items-center gap-3">
-        {dot}
-        <span className="min-w-0 flex-1 truncate text-[15px] leading-[22px] font-semibold text-ink">{rowName}</span>
-        <span className={`tabular font-display text-[16px] leading-[22px] font-bold whitespace-nowrap ${amountClass}`}>{signed}</span>
-      </div>
-      {duplicateBadge && <div className="mt-1.5 pl-6">{duplicateBadge}</div>}
-      <div className="flex items-center gap-1 pl-6">
-        <span className="tabular min-w-0 flex-1 truncate text-[13px] leading-[18px] text-ink-muted">
-          {transaction.categoryName} · {date}
-        </span>
-        <button ref={editButtonRef} type="button" onClick={startEditing} aria-label={`Edit ${rowName}`} className={iconButtonClass}>
-          <Pencil aria-hidden="true" />
-        </button>
-        <button type="button" onClick={askDelete} aria-label={`Delete ${rowName}`} className={`${iconButtonClass} hover:bg-danger-tint hover:text-danger`}>
-          <Trash2 aria-hidden="true" />
+        {avatar}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] leading-[22px] font-semibold text-ink">{rowName}</p>
+          <p className="tabular truncate text-[13px] leading-[18px] text-ink-muted">{meta}</p>
+        </div>
+        <Amount type={transaction.type} text={signed} />
+        <button ref={editButtonRef} type="button" onClick={() => setSheetOpen(true)} aria-label={`Open actions for ${rowName}`} className={iconButtonClass}>
+          <Ellipsis aria-hidden="true" />
         </button>
       </div>
+      {duplicateBadge && <div className="mt-1.5 pl-14">{duplicateBadge}</div>}
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} label={`Actions for ${rowName}`}>
         <div className="flex items-center gap-3 px-1 pt-1 pb-5">
-          {dot}
+          {avatar}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] leading-[22px] font-semibold text-ink">{rowName}</p>
+            <p className="truncate text-[16px] leading-6 font-semibold text-ink">{rowName}</p>
             <p className="tabular text-[13px] leading-[18px] text-ink-muted">
               {transaction.categoryName} · {date}
             </p>
           </div>
-          <span className={`tabular font-display text-[17px] font-bold whitespace-nowrap ${amountClass}`}>{signed}</span>
+          <Amount type={transaction.type} text={signed} className="text-[18px]" />
         </div>
         <div className="grid gap-2.5">
           <button
@@ -249,7 +260,7 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
               setSheetOpen(false)
               startEditing()
             }}
-            className={`${buttonClass('secondary')} h-[52px] rounded-[14px]`}
+            className={`${buttonClass('secondary')} h-14 rounded-card text-[16px]`}
           >
             <Pencil aria-hidden="true" />
             Edit
@@ -260,7 +271,7 @@ export function TransactionRow({ transaction, showYear, categories }: Transactio
               setSheetOpen(false)
               askDelete()
             }}
-            className={`${buttonClass('danger-tint')} h-[52px] rounded-[14px]`}
+            className={`${buttonClass('danger-tint')} h-14 rounded-card text-[16px]`}
           >
             <Trash2 aria-hidden="true" />
             Delete

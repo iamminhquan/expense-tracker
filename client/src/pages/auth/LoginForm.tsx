@@ -41,7 +41,7 @@ export function LoginForm() {
         {(control) => <PasswordInput {...control} required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
       </Field>
       <div className="flex justify-end">
-        <Link to="/forgot-password" className="text-[14px] font-semibold text-ink underline underline-offset-2">
+        <Link to="/forgot-password" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-accent-text underline underline-offset-2">
           Forgot password?
         </Link>
       </div>

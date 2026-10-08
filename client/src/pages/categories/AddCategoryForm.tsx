@@ -10,7 +10,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import type { Category } from '../../lib/api/types'
 import { SwatchPicker } from './SwatchPicker'
 
-export function AddCategoryForm() {
+export function AddCategoryForm({ onAdded }: { onAdded?: () => void }) {
   const createCategory = useCreateCategory()
   const toast = useToast()
   const [type, setType] = useState<Category['type']>('expense')
@@ -25,6 +25,7 @@ export function AddCategoryForm() {
       await createCategory.mutateAsync({ name: name.trim(), type, color })
       toast.success(`Added "${name.trim()}"`)
       setName('')
+      onAdded?.()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not add the category.')
     }
@@ -47,8 +48,8 @@ export function AddCategoryForm() {
             size="tall"
             fullWidth
             options={[
-              { value: 'expense', label: 'Expense', icon: <ArrowUpRight aria-hidden="true" /> },
-              { value: 'income', label: 'Income', icon: <ArrowDownLeft aria-hidden="true" /> },
+              { value: 'expense', label: 'Expense', tone: 'expense', icon: <ArrowUpRight aria-hidden="true" /> },
+              { value: 'income', label: 'Income', tone: 'income', icon: <ArrowDownLeft aria-hidden="true" /> },
             ]}
           />
         </div>

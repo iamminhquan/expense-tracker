@@ -71,11 +71,11 @@ export function MonthPicker({ value, label, currentMonthValue, availableMonths, 
             openList()
           }
         }}
-        className={`inline-flex items-center gap-2 rounded-[12px] border border-border-strong pr-3.5 pl-4 text-[14px] leading-5 font-semibold text-ink hover:bg-surface-2 ${
+        className={`inline-flex items-center gap-2 rounded-full border pr-3.5 pl-4 text-[14px] leading-5 font-semibold text-ink shadow-card hover:bg-surface-2 ${
           size === 'lg' ? 'h-12' : 'h-11'
-        } ${open ? 'bg-surface-2' : 'bg-surface'}`}
+        } ${open ? 'border-accent-text bg-surface-2' : 'border-border bg-surface'}`}
       >
-        <Calendar aria-hidden="true" className="size-[18px] text-ink-muted" />
+        <Calendar aria-hidden="true" className="size-[18px] text-accent-text" />
         <span className="tabular whitespace-nowrap">{label}</span>
         <ChevronDown aria-hidden="true" className={`size-4 text-ink-muted ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -88,7 +88,7 @@ export function MonthPicker({ value, label, currentMonthValue, availableMonths, 
           aria-label="Month"
           aria-activedescendant={`${listId}-${active}`}
           onKeyDown={onListKeyDown}
-          className="absolute top-[calc(100%+6px)] right-0 z-30 max-h-[320px] w-60 animate-pop-in overflow-y-auto rounded-[16px] border border-border bg-surface p-1.5 shadow-popover focus-visible:outline-none"
+          className="absolute top-[calc(100%+8px)] right-0 z-30 max-h-[340px] w-64 animate-pop-in overflow-y-auto rounded-card border border-border bg-surface p-1.5 shadow-popover focus-visible:outline-none"
         >
           {options.map((option, i) => {
             const selected = option.value === value
@@ -100,9 +100,9 @@ export function MonthPicker({ value, label, currentMonthValue, availableMonths, 
                 aria-selected={selected}
                 onClick={() => choose(option)}
                 onPointerMove={() => setActive(i)}
-                className={`flex min-h-11 cursor-pointer items-center justify-between rounded-[10px] px-3 text-[15px] leading-5 text-ink ${
-                  selected ? 'font-bold' : ''
-                } ${i === active ? 'bg-surface-2 outline-2 outline-accent -outline-offset-2' : ''}`}
+                className={`flex min-h-11 cursor-pointer items-center justify-between rounded-control px-3 text-[15px] leading-5 ${
+                  selected ? 'font-semibold text-accent-text' : 'text-ink'
+                } ${i === active ? 'bg-surface-2 outline-2 outline-accent-text -outline-offset-2' : ''}`}
               >
                 {option.label}
                 {selected && <Check aria-hidden="true" className="size-[18px]" />}

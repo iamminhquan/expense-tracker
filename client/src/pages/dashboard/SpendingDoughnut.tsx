@@ -19,10 +19,10 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
   const isDesktop = useIsDesktop()
   // A theme switch remounts the chart (see useThemeColors); only the first draw animates.
   const animate = !colors.switched && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const size = isDesktop ? 200 : 224
+  const size = isDesktop ? 208 : 232
 
   return (
-    <section aria-labelledby="spending-title" className={cardClass}>
+    <section aria-labelledby="spending-title" className={`${cardClass} h-full`}>
       <h2 id="spending-title" className={cardTitleClass}>
         Spending by category
       </h2>
@@ -31,8 +31,8 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
           Nothing was spent in {monthLabel}, so there's nothing to break down yet.
         </EmptyState>
       ) : (
-        <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row sm:items-center">
-          <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <div className="mt-6 flex flex-col items-center gap-7 sm:flex-row sm:items-center lg:flex-col lg:items-stretch">
+          <div className="relative shrink-0 self-center" style={{ width: size, height: size }}>
             <Doughnut
               key={colors.key}
               role="img"
@@ -43,15 +43,16 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
                   {
                     data: pie.values,
                     backgroundColor: pie.colors,
-                    borderWidth: 4,
-                    borderColor: colors.surface,
-                    hoverBorderColor: colors.surface,
-                    hoverOffset: 0,
+                    borderWidth: 0,
+                    spacing: 3,
+                    borderRadius: 8,
+                    hoverOffset: 6,
                   },
                 ],
               }}
               options={{
-                cutout: '68%',
+                cutout: '72%',
+                layout: { padding: 6 },
                 maintainAspectRatio: true,
                 animation: animate ? { duration: 400, easing: 'easeOutQuart' } : false,
                 plugins: {
@@ -72,16 +73,16 @@ export function SpendingDoughnut({ pie, total, monthLabel }: SpendingDoughnutPro
             />
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-[12px] leading-4 text-ink-muted">Spent</span>
-              <span className="tabular font-display text-[17px] leading-6 font-extrabold text-ink md:text-[19px]">{formatVND(total)}</span>
+              <span className="num text-[19px] leading-6 font-bold text-ink md:text-[20px]">{formatVND(total)}</span>
             </div>
           </div>
-          <ul className="w-full min-w-0 space-y-2.5">
+          <ul className="w-full min-w-0 divide-y divide-border">
             {pie.legend.map((entry) => (
-              <li key={entry.name} className="flex items-center gap-3 text-[13px] leading-[18px]">
-                <span aria-hidden="true" className="size-3.5 shrink-0 rounded-[5px]" style={{ backgroundColor: entry.color }} />
+              <li key={entry.name} className="flex items-center gap-3 py-2.5 text-[14px] leading-5">
+                <span aria-hidden="true" className="size-3 shrink-0 rounded-[4px]" style={{ backgroundColor: entry.color }} />
                 <span className="min-w-0 flex-1 truncate font-semibold text-ink">{entry.name}</span>
-                <span className="tabular w-10 text-right text-ink-muted">{entry.percent}%</span>
-                <span className="tabular w-[104px] text-right font-semibold text-ink">{formatVND(entry.amount)}</span>
+                <span className="tabular w-10 text-right text-[13px] text-ink-muted">{entry.percent}%</span>
+                <span className="num w-[104px] text-right font-bold text-ink">{formatVND(entry.amount)}</span>
               </li>
             ))}
           </ul>

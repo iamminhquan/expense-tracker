@@ -8,10 +8,11 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { InlineError } from '../../components/ui/InlineError'
 import { PageSkeleton } from '../../components/ui/PageSkeleton'
 import { downloadTransactionsExport } from '../../lib/api/import'
-import { buttonClass, pageTitleClass } from '../../lib/formStyles'
+import { buttonClass, listCardClass, pageTitleClass } from '../../lib/formStyles'
+import { formatDayLabel } from '../../lib/format'
 import { useToast } from '../../lib/toast/ToastContext'
-import type { TransactionFilters } from '../../lib/api/types'
-import { AddTransactionForm } from './AddTransactionForm'
+import type { Transaction, TransactionFilters } from '../../lib/api/types'
+import { AddTransactionForm } from '../../components/AddTransactionForm'
 import { FilterBar } from './FilterBar'
 import { DESKTOP_ROW_GRID } from './rowLayout'
 import { TransactionRow } from './TransactionRow'
@@ -45,6 +46,22 @@ function exportQueryString(filters: TransactionFilters): string {
   if (filters.sort) params.set('sort', filters.sort)
   const qs = params.toString()
   return qs ? `?${qs}` : ''
+}
+
+interface DayGroup {
+  date: string
+  transactions: Transaction[]
+}
+
+// The rows arrive newest first, so a day's rows are already next to each other.
+function groupByDay(transactions: Transaction[]): DayGroup[] {
+  const groups: DayGroup[] = []
+  for (const t of transactions) {
+    const last = groups[groups.length - 1]
+    if (last && last.date === t.occurredOn) last.transactions.push(t)
+    else groups.push({ date: t.occurredOn, transactions: [t] })
+  }
+  return groups
 }
 
 export function TransactionsPage() {
@@ -88,64 +105,75 @@ export function TransactionsPage() {
     return <PageSkeleton label="Loading transactions…" />
   }
 
+  const grouped = !isDesktop && !filters.sort
+  const rows = data.transactions
+
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className={pageTitleClass}>Transactions</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link to="/transactions/import" className={buttonClass('secondary')}>
+    <div className="space-y-4 md:space-y-5">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3">
+        <h1 className={`${pageTitleClass} mb-1 w-full md:mb-0 md:w-auto md:flex-1`}>Transactions</h1>
+        <MonthPicker
+          value={data.monthValue}
+          label={data.monthLabel}
+          currentMonthValue={data.currentMonthValue}
+          availableMonths={data.availableMonths}
+          onChange={(v) => setFilter('month', v)}
+          allowAllMonths
+        />
+        <div className="ml-auto flex gap-2 md:ml-0">
+          <Link to="/transactions/import" className={`${buttonClass('secondary')} max-md:w-11 max-md:px-0`}>
             <Upload aria-hidden="true" />
-            <span>
-              Import<span className="max-sm:sr-only"> CSV</span>
-            </span>
+            <span className="max-md:sr-only">Import CSV</span>
           </Link>
-          <button type="button" onClick={() => void onExport()} className={buttonClass('secondary')}>
+          <button type="button" onClick={() => void onExport()} className={`${buttonClass('secondary')} max-md:w-11 max-md:px-0`}>
             <Download aria-hidden="true" />
-            <span>
-              Export<span className="max-sm:sr-only"> CSV</span>
-            </span>
+            <span className="max-md:sr-only">Export CSV</span>
           </button>
-          <MonthPicker
-            value={data.monthValue}
-            label={data.monthLabel}
-            currentMonthValue={data.currentMonthValue}
-            availableMonths={data.availableMonths}
-            onChange={(v) => setFilter('month', v)}
-            allowAllMonths
-          />
         </div>
       </div>
 
-      <AddTransactionForm categories={allCategories} />
+      {isDesktop && <AddTransactionForm categories={allCategories} />}
 
       <FilterBar filters={filters} categories={allCategories} onChange={setFilter} onClear={clearFilters} />
 
-      <section aria-label="Transaction list" className="overflow-hidden rounded-[24px] border border-border bg-surface md:rounded-[28px]">
-        {data.transactions.length === 0 ? (
-          hasFilters ? (
-            <EmptyState
-              icon={<SearchX />}
-              title="Nothing matches your filters"
-              actions={
-                <button type="button" onClick={clearFilters} className={buttonClass('secondary')}>
-                  Clear filters
-                </button>
-              }
-            >
-              Try a different search or remove a filter.
-            </EmptyState>
-          ) : (
-            <EmptyState icon={<Inbox />} title={data.allMonths ? 'No transactions yet' : `No transactions in ${data.monthLabel}`}>
-              Add one with the form above, or import a CSV from your bank.
-            </EmptyState>
-          )
-        ) : (
-          <>
-            {isDesktop && (
-              <div
-                aria-hidden="true"
-                className={`${DESKTOP_ROW_GRID} bg-surface-2 px-5 py-2.5 text-[12px] leading-4 font-semibold text-ink-muted`}
+      <section aria-label="Transaction list">
+        {rows.length === 0 ? (
+          <div className={listCardClass}>
+            {hasFilters ? (
+              <EmptyState
+                icon={<SearchX />}
+                title="Nothing matches your filters"
+                actions={
+                  <button type="button" onClick={clearFilters} className={buttonClass('secondary')}>
+                    Clear filters
+                  </button>
+                }
               >
+                Try a different search or remove a filter.
+              </EmptyState>
+            ) : (
+              <EmptyState icon={<Inbox />} title={data.allMonths ? 'No transactions yet' : `No transactions in ${data.monthLabel}`}>
+                {isDesktop ? 'Add one with the form above, or import a CSV from your bank.' : 'Tap + to add one, or import a CSV from your bank.'}
+              </EmptyState>
+            )}
+          </div>
+        ) : grouped ? (
+          <div className="space-y-5">
+            {groupByDay(rows).map((group) => (
+              <div key={group.date}>
+                <h2 className="mb-2 px-1 text-[13px] leading-[18px] font-semibold text-ink-muted">{formatDayLabel(group.date, data.allMonths)}</h2>
+                <ul className={listCardClass}>
+                  {group.transactions.map((t) => (
+                    <TransactionRow key={t.id} transaction={t} showYear={data.allMonths} categories={allCategories} dateInHeading />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={listCardClass}>
+            {isDesktop && (
+              <div aria-hidden="true" className={`${DESKTOP_ROW_GRID} bg-surface-2/70 px-5 py-3 text-[12px] leading-4 font-semibold text-ink-muted`}>
                 <span>Note</span>
                 <span>Category</span>
                 <span>Date</span>
@@ -154,21 +182,21 @@ export function TransactionsPage() {
               </div>
             )}
             <ul>
-              {data.transactions.map((t) => (
+              {rows.map((t) => (
                 <TransactionRow key={t.id} transaction={t} showYear={data.allMonths} categories={allCategories} />
               ))}
             </ul>
-          </>
+          </div>
         )}
       </section>
 
       {data.totalPages > 1 && (
-        <nav aria-label="Pages" className="flex items-center justify-between gap-3">
+        <nav aria-label="Pages" className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" disabled={!data.hasPrev} onClick={() => setFilter('page', data.page - 1)} className={buttonClass('secondary', 'sm')}>
             <ChevronLeft aria-hidden="true" />
             Previous
           </button>
-          <span className="tabular text-[14px] text-ink-muted">
+          <span className="tabular order-last w-full text-center text-[13px] text-ink-muted sm:order-none sm:w-auto sm:text-[14px]">
             Page {data.page} of {data.totalPages} · {data.totalCount} transactions
           </span>
           <button type="button" disabled={!data.hasNext} onClick={() => setFilter('page', data.page + 1)} className={buttonClass('secondary', 'sm')}>

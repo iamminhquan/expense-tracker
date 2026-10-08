@@ -15,9 +15,13 @@ export function Checkbox({ checked, onChange, children }: CheckboxProps) {
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-[6px] border-[1.5px] border-border-strong bg-surface checked:border-accent checked:bg-accent"
+          className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-[7px] border-[1.5px] border-border-strong bg-surface transition-colors checked:border-accent checked:bg-accent"
         />
-        <Check aria-hidden="true" strokeWidth={3} className="pointer-events-none relative m-auto size-4 text-on-accent opacity-0 peer-checked:opacity-100" />
+        <Check
+          aria-hidden="true"
+          strokeWidth={3}
+          className="pointer-events-none relative m-auto size-4 scale-50 text-on-accent opacity-0 transition-[opacity,transform] duration-150 peer-checked:scale-100 peer-checked:opacity-100 motion-reduce:transition-none"
+        />
       </span>
       {children}
     </label>

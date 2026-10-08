@@ -4,10 +4,9 @@ import { ChevronLeft } from 'lucide-react'
 import { AuthLayout } from '../../components/layout/AuthLayout'
 import { Field } from '../../components/ui/Field'
 import { StatusIcon } from '../../components/ui/StatusIcon'
-import { buttonClass, inputClass } from '../../lib/formStyles'
+import { authTitleClass, buttonClass, inputClass } from '../../lib/formStyles'
 import { forgotPassword } from '../../lib/api/auth'
 
-const titleClass = 'font-display text-[24px] leading-[30px] font-bold text-ink'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -31,7 +30,7 @@ export function ForgotPasswordPage() {
       {sent ? (
         <div className="space-y-3 text-center" role="status">
           <StatusIcon kind="mail" />
-          <h1 className={titleClass}>Check your inbox</h1>
+          <h1 className={authTitleClass}>Check your inbox</h1>
           <p className="text-[15px] leading-[22px] text-ink-muted">
             If <span className="font-semibold break-all text-ink">{email}</span> has an account, a reset link is on its way. It works for one hour.
           </p>
@@ -39,7 +38,7 @@ export function ForgotPasswordPage() {
       ) : (
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <h1 className={titleClass}>Reset your password</h1>
+            <h1 className={authTitleClass}>Reset your password</h1>
             <p className="mt-1.5 text-[15px] leading-[22px] text-ink-muted">Enter your email and we'll send you a link to choose a new one.</p>
           </div>
           <Field label="Email">

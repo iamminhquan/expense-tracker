@@ -6,14 +6,14 @@ const kinds: Record<StatusKind, { className: string; Icon: typeof Mail }> = {
   success: { className: 'bg-income-tint text-income', Icon: CircleCheck },
   danger: { className: 'bg-danger-tint text-danger', Icon: CircleX },
   warning: { className: 'bg-warning-tint text-warning', Icon: Clock },
-  loading: { className: 'bg-surface-2 text-ink', Icon: LoaderCircle },
-  mail: { className: 'bg-surface-2 text-ink', Icon: Mail },
+  loading: { className: 'bg-accent-tint text-accent-text', Icon: LoaderCircle },
+  mail: { className: 'bg-accent-tint text-accent-text', Icon: Mail },
 }
 
 export function StatusIcon({ kind }: { kind: StatusKind }) {
   const { className, Icon } = kinds[kind]
   return (
-    <span aria-hidden="true" className={`mx-auto flex size-[72px] items-center justify-center rounded-full ${className}`}>
+    <span aria-hidden="true" className={`mx-auto flex size-[72px] items-center justify-center rounded-[24px] ${className}`}>
       <Icon className={`size-9 ${kind === 'loading' ? 'animate-spin motion-reduce:animate-none' : ''}`} />
     </span>
   )
