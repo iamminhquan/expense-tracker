@@ -100,7 +100,7 @@ export function AddTransactionForm({ categories, onAdded, amountRef }: AddTransa
           {(control) => <AmountInput {...control} ref={amountRef} large required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />}
         </Field>
         <CategoryChips categories={options} value={categoryId} onChange={pickCategory} error={categoryError} />
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-3">
+        <div className="grid gap-5">
           <Field label="Date">
             {(control) => <input {...control} type="date" required value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className={inputClass} />}
           </Field>
