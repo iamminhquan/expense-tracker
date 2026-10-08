@@ -14,7 +14,6 @@ import { useToast } from '../../lib/toast/ToastContext'
 import type { Transaction, TransactionFilters } from '../../lib/api/types'
 import { AddTransactionForm } from '../../components/AddTransactionForm'
 import { FilterBar } from './FilterBar'
-import { DESKTOP_ROW_GRID } from './rowLayout'
 import { TransactionRow } from './TransactionRow'
 
 const FILTER_KEYS = ['q', 'type', 'category', 'min', 'max', 'sort'] as const
@@ -172,15 +171,6 @@ export function TransactionsPage() {
           </div>
         ) : (
           <div className={listCardClass}>
-            {isDesktop && (
-              <div aria-hidden="true" className={`${DESKTOP_ROW_GRID} bg-surface-2/70 px-5 py-3 text-[12px] leading-4 font-semibold text-ink-muted`}>
-                <span>Note</span>
-                <span>Category</span>
-                <span>Date</span>
-                <span className="text-right">Amount</span>
-                <span />
-              </div>
-            )}
             <ul>
               {rows.map((t) => (
                 <TransactionRow key={t.id} transaction={t} showYear={data.allMonths} categories={allCategories} />
