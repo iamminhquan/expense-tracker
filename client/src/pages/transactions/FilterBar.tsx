@@ -2,7 +2,6 @@ import { useId, useState, type ReactNode } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { AmountInput } from '../../components/ui/AmountInput'
 import { SelectControl } from '../../components/ui/SelectControl'
-import { useIsDesktop } from '../../hooks/useMediaQuery'
 import { buttonClass, inputClass } from '../../lib/formStyles'
 import { formatVND } from '../../lib/format'
 import type { Category, TransactionFilters } from '../../lib/api/types'
@@ -19,7 +18,6 @@ function numberOrUndefined(value: string): number | undefined {
 }
 
 export function FilterBar({ filters, categories, onChange, onClear }: FilterBarProps) {
-  const isDesktop = useIsDesktop()
   const [panelOpen, setPanelOpen] = useState(false)
   const panelId = useId()
 
@@ -98,31 +96,28 @@ export function FilterBar({ filters, categories, onChange, onClear }: FilterBarP
             className={`${inputClass} rounded-full pl-[44px] shadow-card`}
           />
         </div>
-        {!isDesktop && (
-          <button
-            type="button"
-            aria-expanded={panelOpen}
-            aria-controls={panelId}
-            onClick={() => setPanelOpen((o) => !o)}
-            className={`${buttonClass(panelOpen || chips.length > 0 ? 'tonal' : 'secondary')} rounded-full`}
-          >
-            <SlidersHorizontal aria-hidden="true" />
-            Filters
-            {chips.length > 0 && (
-              <span className="tabular flex size-6 items-center justify-center rounded-full bg-accent text-[12px] text-on-accent">{chips.length}</span>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          aria-expanded={panelOpen}
+          aria-controls={panelId}
+          onClick={() => setPanelOpen((o) => !o)}
+          className={`${buttonClass(panelOpen || chips.length > 0 ? 'tonal' : 'secondary')} rounded-full`}
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          Filters
+          {chips.length > 0 && (
+            <span className="tabular flex size-6 items-center justify-center rounded-full bg-accent text-[12px] text-on-accent">{chips.length}</span>
+          )}
+        </button>
       </div>
 
-      {isDesktop ? (
-        <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.3fr)] items-center gap-2">{controls}</div>
-      ) : (
-        panelOpen && (
-          <div id={panelId} className="grid animate-pop-in gap-2.5 rounded-card border border-border bg-surface p-3 shadow-card">
-            {controls}
-          </div>
-        )
+      {panelOpen && (
+        <div
+          id={panelId}
+          className="grid animate-pop-in gap-2.5 rounded-card border border-border bg-surface p-3 shadow-card md:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.3fr)] md:gap-2"
+        >
+          {controls}
+        </div>
       )}
 
       {chips.length > 0 && (
