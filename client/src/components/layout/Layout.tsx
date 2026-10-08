@@ -30,27 +30,30 @@ export function Layout() {
       <header className="sticky top-0 z-40 hidden h-[72px] border-b border-border bg-surface/85 backdrop-blur-md md:block">
         <div className="mx-auto flex h-full w-full max-w-[1280px] items-center gap-8 px-10">
           <Wordmark className="shrink-0 text-[30px] leading-8" />
-          <nav aria-label="Main" className="flex items-center gap-1">
+          <nav aria-label="Main" className="flex gap-1">
             {NAV_LINKS.map(({ to, label, Icon }) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `flex h-10 items-center gap-2 rounded-full px-4 text-[14px] leading-5 font-semibold ${
-                    isActive ? 'bg-accent-tint text-accent-text' : 'text-ink-muted hover:bg-surface-2 hover:text-ink'
+                  `group flex items-center gap-2 rounded-lg px-3.5 py-2 text-[14px] leading-5 font-semibold transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 ${
+                    isActive
+                      ? 'bg-ink/10 text-ink shadow-card ring-1 ring-ink/10 ring-inset'
+                      : 'text-ink-muted hover:bg-ink/[0.06] hover:text-ink'
                   }`
                 }
               >
-                <Icon aria-hidden="true" className="size-[18px]" />
-                {label}
+                <Icon
+                  aria-hidden="true"
+                  className="size-[18px] transition-transform duration-150 ease-out group-hover:-translate-y-px motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
+                />
+                <span className="max-lg:sr-only">{label}</span>
               </NavLink>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-4">
             {dashboard && (
-              <div className="rounded-full border border-border bg-app py-1.5 pr-6 pl-2">
-                <BalanceWidget balance={dashboard.headerBalance} />
-              </div>
+              <BalanceWidget balance={dashboard.headerBalance} />
             )}
             <UserMenu />
           </div>
