@@ -3,34 +3,34 @@
 /* Space-separated RGB channels, so rgb(var(--c-x) / alpha) works. */
 :root {
   color-scheme: light;
-  --c-app: 241 243 247;
+  --c-app: 250 250 247;
   --c-surface: 255 255 255;
-  --c-surface-2: 232 236 242;
-  --c-border: 221 226 234;
-  --c-border-strong: 124 133 151;
-  --c-ink: 15 20 35;
-  --c-ink-muted: 84 93 112;
-  --c-accent: 0 118 136;
-  --c-on-accent: 255 255 255;
-  --c-on-accent-muted: 224 246 249;
-  --c-accent-tint: 217 241 245;
-  --c-accent-text: 0 100 118;
-  --c-expense: 0 100 118;
-  --c-expense-tint: 217 241 245;
-  --c-income: 124 78 0;
-  --c-income-tint: 255 237 196;
-  --c-chart-expense: 0 104 122;
-  --c-chart-income: 205 124 0;
-  --c-danger: 190 30 60;
-  --c-danger-tint: 253 226 232;
+  --c-surface-2: 240 240 234;
+  --c-border: 217 217 210;
+  --c-border-strong: 122 122 114;
+  --c-ink: 17 17 17;
+  --c-ink-muted: 85 85 79;
+  --c-accent: 17 17 17;
+  --c-on-accent: 250 250 247;
+  --c-on-accent-muted: 196 196 188;
+  --c-accent-tint: 230 230 223;
+  --c-accent-text: 17 17 17;
+  --c-expense: 67 56 202;
+  --c-expense-tint: 224 231 255;
+  --c-income: 4 120 87;
+  --c-income-tint: 209 250 229;
+  --c-chart-expense: 67 56 202;
+  --c-chart-income: 5 150 105;
+  --c-danger: 179 38 30;
+  --c-danger-tint: 254 226 226;
   --c-on-danger: 255 255 255;
-  --c-warning: 166 66 6;
-  --c-warning-tint: 255 232 212;
-  --c-scrim: 12 18 34;
-  --scrim-alpha: 0.5;
-  --sh-card: 0 1px 2px rgb(20 30 60 / 0.05), 0 6px 20px -6px rgb(20 30 60 / 0.08);
-  --sh-popover: 0 18px 44px -10px rgb(20 30 60 / 0.28), 0 2px 8px rgb(20 30 60 / 0.08);
-  --sh-float: 0 12px 32px -8px rgb(20 30 60 / 0.34), 0 2px 8px rgb(20 30 60 / 0.1);
+  --c-warning: 180 83 9;
+  --c-warning-tint: 254 243 199;
+  --c-scrim: 17 17 17;
+  --scrim-alpha: 0.45;
+  --sh-card: 0 1px 2px rgb(17 17 17 / 0.04), 0 6px 20px -6px rgb(17 17 17 / 0.08);
+  --sh-popover: 0 16px 40px rgb(17 17 17 / 0.14), 0 2px 6px rgb(17 17 17 / 0.06);
+  --sh-float: 0 12px 32px rgb(17 17 17 / 0.14);
 }
 
 /*
@@ -41,66 +41,66 @@
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
-    --c-app: 9 13 21;
-    --c-surface: 18 24 36;
-    --c-surface-2: 28 36 51;
-    --c-border: 38 48 66;
-    --c-border-strong: 114 126 147;
-    --c-ink: 234 240 248;
-    --c-ink-muted: 155 168 189;
-    --c-accent: 46 180 176;
-    --c-on-accent: 3 27 31;
-    --c-on-accent-muted: 4 44 50;
-    --c-accent-tint: 13 53 60;
-    --c-accent-text: 96 218 213;
-    --c-expense: 96 218 213;
-    --c-expense-tint: 13 53 60;
-    --c-income: 248 194 76;
-    --c-income-tint: 54 41 9;
-    --c-chart-expense: 28 140 150;
-    --c-chart-income: 248 188 56;
-    --c-danger: 255 134 156;
-    --c-danger-tint: 64 21 34;
-    --c-on-danger: 32 8 14;
-    --c-warning: 255 162 96;
-    --c-warning-tint: 62 34 14;
+    --c-app: 18 18 17;
+    --c-surface: 26 26 24;
+    --c-surface-2: 35 35 33;
+    --c-border: 52 52 50;
+    --c-border-strong: 124 123 114;
+    --c-ink: 242 241 234;
+    --c-ink-muted: 176 175 166;
+    --c-accent: 242 241 234;
+    --c-on-accent: 18 18 17;
+    --c-on-accent-muted: 82 82 76;
+    --c-accent-tint: 48 48 45;
+    --c-accent-text: 242 241 234;
+    --c-expense: 129 140 248;
+    --c-expense-tint: 37 36 74;
+    --c-income: 52 211 153;
+    --c-income-tint: 18 52 42;
+    --c-chart-expense: 129 140 248;
+    --c-chart-income: 52 211 153;
+    --c-danger: 255 143 133;
+    --c-danger-tint: 59 22 24;
+    --c-on-danger: 18 18 17;
+    --c-warning: 251 191 36;
+    --c-warning-tint: 59 42 11;
     --c-scrim: 0 0 0;
-    --scrim-alpha: 0.66;
+    --scrim-alpha: 0.62;
     --sh-card: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 24px -8px rgb(0 0 0 / 0.5);
-    --sh-popover: 0 20px 48px -8px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
-    --sh-float: 0 14px 34px -8px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.07);
+    --sh-popover: 0 16px 40px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.05);
+    --sh-float: 0 12px 32px rgb(0 0 0 / 0.5);
   }
 }
 :root.dark {
   color-scheme: dark;
-  --c-app: 9 13 21;
-  --c-surface: 18 24 36;
-  --c-surface-2: 28 36 51;
-  --c-border: 38 48 66;
-  --c-border-strong: 114 126 147;
-  --c-ink: 234 240 248;
-  --c-ink-muted: 155 168 189;
-  --c-accent: 46 180 176;
-  --c-on-accent: 3 27 31;
-  --c-on-accent-muted: 4 44 50;
-  --c-accent-tint: 13 53 60;
-  --c-accent-text: 96 218 213;
-  --c-expense: 96 218 213;
-  --c-expense-tint: 13 53 60;
-  --c-income: 248 194 76;
-  --c-income-tint: 54 41 9;
-  --c-chart-expense: 28 140 150;
-  --c-chart-income: 248 188 56;
-  --c-danger: 255 134 156;
-  --c-danger-tint: 64 21 34;
-  --c-on-danger: 32 8 14;
-  --c-warning: 255 162 96;
-  --c-warning-tint: 62 34 14;
+  --c-app: 18 18 17;
+  --c-surface: 26 26 24;
+  --c-surface-2: 35 35 33;
+  --c-border: 52 52 50;
+  --c-border-strong: 124 123 114;
+  --c-ink: 242 241 234;
+  --c-ink-muted: 176 175 166;
+  --c-accent: 242 241 234;
+  --c-on-accent: 18 18 17;
+  --c-on-accent-muted: 82 82 76;
+  --c-accent-tint: 48 48 45;
+  --c-accent-text: 242 241 234;
+  --c-expense: 129 140 248;
+  --c-expense-tint: 37 36 74;
+  --c-income: 52 211 153;
+  --c-income-tint: 18 52 42;
+  --c-chart-expense: 129 140 248;
+  --c-chart-income: 52 211 153;
+  --c-danger: 255 143 133;
+  --c-danger-tint: 59 22 24;
+  --c-on-danger: 18 18 17;
+  --c-warning: 251 191 36;
+  --c-warning-tint: 59 42 11;
   --c-scrim: 0 0 0;
-  --scrim-alpha: 0.66;
+  --scrim-alpha: 0.62;
   --sh-card: 0 0 0 1px rgb(255 255 255 / 0.03), 0 8px 24px -8px rgb(0 0 0 / 0.5);
-  --sh-popover: 0 20px 48px -8px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
-  --sh-float: 0 14px 34px -8px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.07);
+  --sh-popover: 0 16px 40px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --sh-float: 0 12px 32px rgb(0 0 0 / 0.5);
 }
 
 :root {
@@ -146,7 +146,7 @@
   --color-warning-tint: rgb(var(--c-warning-tint));
   --color-scrim: rgb(var(--c-scrim) / var(--scrim-alpha));
   /* Category swatches are the same hex in both themes, so the check drawn on them is too. */
-  --color-on-swatch: rgb(15 20 35);
+  --color-on-swatch: rgb(17 17 17);
 
   --radius-tile: 12px;
   --radius-control: 14px;
