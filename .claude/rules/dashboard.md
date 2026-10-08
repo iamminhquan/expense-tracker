@@ -7,7 +7,7 @@ paths:
 
 # The dashboard
 
-`server/internal/api/dashboard_handlers.go` builds every aggregate in Go; `client/src/pages/dashboard/` renders them: `KpiCards` (a bento: an accent hero for spent, a gold-tinted earned tile and a quiet net tile; the last two are slim rows on phones), `SpendingDoughnut` and `MonthlyBars` with Chart.js (`react-chartjs-2`).
+`server/internal/api/dashboard_handlers.go` builds every aggregate in Go; `client/src/pages/dashboard/` renders them: `KpiCards` (a bento of three tiles that all share one `tileClass` surface: a larger spent tile, then earned and net, which are slim rows on phones; only the amount colours differ), `SpendingDoughnut` and `MonthlyBars` with Chart.js (`react-chartjs-2`).
 
 ## Server
 

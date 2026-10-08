@@ -16,14 +16,12 @@ function trendOf(current: number, previous: number): Trend {
   return { Icon, text }
 }
 
-function Comparison({ current, previous, hasPrevData, onAccent }: { current: number; previous: number; hasPrevData: boolean; onAccent?: boolean }) {
+function Comparison({ current, previous, hasPrevData }: { current: number; previous: number; hasPrevData: boolean }) {
   if (!hasPrevData) return <span>No data for last month</span>
   const { Icon, text } = trendOf(current, previous)
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-      <span
-        className={`inline-flex h-6 items-center gap-1 rounded-full px-2 text-[12px] leading-4 font-semibold ${onAccent ? 'bg-on-accent text-accent' : 'bg-surface text-ink'}`}
-      >
+      <span className="inline-flex h-6 items-center gap-1 rounded-full bg-surface-2 px-2 text-[12px] leading-4 font-semibold text-ink">
         <Icon aria-hidden="true" className="size-3.5" />
         {text}
       </span>
@@ -45,38 +43,35 @@ function IconTile({ children, className }: { children: ReactNode; className: str
 const smallValueClass =
   'num text-[clamp(22px,6.2vw,30px)] leading-[1.1] font-bold tracking-[-0.03em] [overflow-wrap:anywhere] sm:mt-1 lg:text-[clamp(26px,2.4vw,36px)]'
 
+const tileClass = 'rounded-card border border-border bg-surface text-ink shadow-card'
+
 /* A slim row on phones, where two columns would wrap the amounts; a square-ish tile from sm up. */
 const smallTileClass = 'col-span-2 flex min-w-0 items-center gap-4 p-4 sm:col-span-1 sm:flex-col sm:items-stretch sm:gap-0 md:p-6 lg:col-span-3'
 
 function SpentHero({ data }: { data: DashboardResponse }) {
   const ofIncome = data.totalIncome > 0 ? Math.round((data.totalExpense / data.totalIncome) * 100) : null
   return (
-    <div className="relative col-span-2 overflow-hidden rounded-hero bg-accent p-6 text-on-accent shadow-card md:p-8 lg:col-span-6">
-      <svg viewBox="0 0 400 400" aria-hidden="true" className="pointer-events-none absolute overflow-visible -top-24 -right-20 size-[340px] text-on-accent opacity-[0.1]" fill="none" stroke="currentColor" strokeWidth="26">
-        <circle cx="200" cy="200" r="64" />
-        <circle cx="200" cy="200" r="132" />
-        <circle cx="200" cy="200" r="200" />
-      </svg>
-      <div className="relative flex items-center gap-3">
-        <IconTile className="bg-on-accent/15">
+    <div className={`col-span-2 p-6 md:p-8 lg:col-span-6 ${tileClass}`}>
+      <div className="flex items-center gap-3">
+        <IconTile className="bg-surface-2 text-ink">
           <ArrowUpRight />
         </IconTile>
         <p className="text-[15px] leading-[22px] font-semibold">Spent in {data.monthLabel}</p>
       </div>
-      <p className="num relative mt-7 text-[clamp(44px,14vw,68px)] leading-none font-bold tracking-[-0.045em] [overflow-wrap:anywhere] md:mt-9 lg:text-[clamp(48px,4.6vw,72px)]">
+      <p className="num mt-7 text-[clamp(44px,14vw,68px)] leading-none font-bold tracking-[-0.045em] [overflow-wrap:anywhere] md:mt-9 lg:text-[clamp(48px,4.6vw,72px)]">
         <span className="sr-only">Spent: </span>
         {formatVND(data.totalExpense)}
       </p>
-      <div className="relative mt-6 space-y-4 text-[14px] leading-5 text-on-accent-muted md:mt-8">
+      <div className="mt-6 space-y-4 text-[14px] leading-5 text-ink-muted md:mt-8">
         {ofIncome !== null && (
           <div>
-            <div role="img" aria-label={`Spent ${ofIncome}% of what you earned`} className="h-2 overflow-hidden rounded-full bg-on-accent/20">
-              <div className="h-full rounded-full bg-on-accent transition-[width] duration-500" style={{ width: `${Math.min(100, ofIncome)}%` }} />
+            <div role="img" aria-label={`Spent ${ofIncome}% of what you earned`} className="h-2 overflow-hidden rounded-full bg-surface-2">
+              <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${Math.min(100, ofIncome)}%` }} />
             </div>
             <p className="mt-2">{ofIncome}% of what you earned</p>
           </div>
         )}
-        <Comparison current={data.totalExpense} previous={data.previousTotalExpense} hasPrevData={data.hasPreviousMonthData} onAccent />
+        <Comparison current={data.totalExpense} previous={data.previousTotalExpense} hasPrevData={data.hasPreviousMonthData} />
       </div>
     </div>
   )
@@ -84,8 +79,8 @@ function SpentHero({ data }: { data: DashboardResponse }) {
 
 function EarnedTile({ data }: { data: DashboardResponse }) {
   return (
-    <div className={`${smallTileClass} rounded-card bg-income-tint text-ink`}>
-      <IconTile className="bg-surface text-income">
+    <div className={`${smallTileClass} ${tileClass}`}>
+      <IconTile className="bg-surface-2 text-income">
         <ArrowDownLeft />
       </IconTile>
       <div className="min-w-0 flex-1 sm:mt-4 sm:flex sm:flex-col">
@@ -106,7 +101,7 @@ function EarnedTile({ data }: { data: DashboardResponse }) {
 function NetTile({ data }: { data: DashboardResponse }) {
   const net = data.totalIncome - data.totalExpense
   return (
-    <div className={`${smallTileClass} rounded-card border border-border bg-surface shadow-card`}>
+    <div className={`${smallTileClass} ${tileClass}`}>
       <IconTile className="bg-surface-2 text-ink">
         <Wallet />
       </IconTile>
