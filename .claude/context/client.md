@@ -114,6 +114,7 @@ Run `pnpm lint`, `pnpm test` and `pnpm build` from inside `client/` before commi
 
 ## Deploy Notes
 
+- Live at `https://expenseboard.vercel.app` (Vercel project `expense-tracker`, team `iamminhquans-projects`), the origin the server's `CORS_ALLOWED_ORIGINS` and `APP_BASE_URL` name. Vercel Authentication (Deployment Protection) is off for it, otherwise the public gets Vercel's login page.
 - Production target is Vercel, with the project's Root Directory set to `client` (`client/vercel.json` holds the build command, output directory, and the SPA rewrite to `index.html`). Nothing outside `client/` is needed to build it, so there is no "include files outside the root directory" setting to enable.
 - `VITE_API_BASE_URL` (the Render API's origin) is read in `lib/api/client.ts`, `lib/api/import.ts`, and `AuthContext.tsx`. Vite inlines `VITE_*` values at **build** time, so changing it needs a redeploy, not just a saved env var. Unset (local dev) means relative URLs through the dev proxy.
 - The deployed origin must be listed in the server's `CORS_ALLOWED_ORIGINS`, and is also what the server's `APP_BASE_URL` should be — email links open `client/`'s `/reset-password` and `/verify-email` routes. See `.claude/rules/deployment.md`.

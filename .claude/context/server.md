@@ -184,8 +184,8 @@ sqlc generate
 
 ## Deploy Notes
 
-- Production target is a free Render web service on Render's native Go runtime — **no Dockerfile, by design** (see `server/render.yaml`'s own comments).
-- Database is Neon Postgres, not Render's own free tier (which is deleted after 30 days). `DATABASE_URL` in Render must be Neon's *direct* (non-`-pooler`) connection string — golang-migrate's session-level advisory lock isn't supported by the pooled endpoint.
+- Production target is a free Render web service on Render's native Go runtime — **no Dockerfile, by design** (see `server/render.yaml`'s own comments). Live at `https://expense-tracker-qorv.onrender.com` — the origin `client/`'s `VITE_API_BASE_URL` must name. It serves only the JSON API; `/` answers a 404 envelope since the monolith cutover on 2026-10-11.
+- Database is Neon Postgres (project "Expense Tracker App", `bitter-wildflower-45850102`, branch `production`, `aws-ap-southeast-1`, Postgres 18), not Render's own free tier (which is deleted after 30 days). `DATABASE_URL` in Render must be Neon's *direct* (non-`-pooler`) connection string — golang-migrate's session-level advisory lock isn't supported by the pooled endpoint.
 - `autoDeploy: true` on `main`; a schema change ships with the same push since the server migrates at startup. `rootDir: server` makes Render `cd` into `server/` before running `go build -o server ./cmd/server` / `./server` — this is a monorepo (`server/` + `client/`), the binary is built into and run from `server/`, not the repo root.
 - `GET /healthz` (root, not under `/api`) doubles as the Render deploy health check and the target of an external cron that pings it every ~10 minutes to stop the free instance spinning down after 15 minutes of inactivity.
 - `client/` deploys independently to Vercel — see `.claude/context/client.md` and `.claude/rules/deployment.md`. The two services have no shared deploy step; a push to one doesn't redeploy the other.
