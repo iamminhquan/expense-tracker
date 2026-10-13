@@ -168,7 +168,7 @@
   --animate-dialog-in: dialog-in var(--dur-base) var(--ease-out) backwards;
   --animate-sheet-in: sheet-in var(--dur-slow) var(--ease-sheet) backwards;
   --animate-skeleton: skeleton 1.6s ease-in-out infinite;
-  --animate-rise: rise 420ms var(--ease-out) backwards;
+  --animate-grow-bar: grow-bar 640ms var(--ease-out) backwards;
 }
 
 @keyframes fade-in {
@@ -192,8 +192,8 @@
 @keyframes skeleton {
   50% { opacity: 0.55; }
 }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
+@keyframes grow-bar {
+  from { transform: scaleY(0); }
 }
 
 /* Reduced motion keeps fades (state changes) but drops every transform and the pulse. */
@@ -204,7 +204,7 @@
   @keyframes dialog-in { from { opacity: 0; } }
   @keyframes sheet-in { from { opacity: 0; } }
   @keyframes skeleton { 50% { opacity: 1; } }
-  @keyframes rise { from { opacity: 0; } }
+  @keyframes grow-bar { from { opacity: 0; } }
 }
 
 html {
@@ -265,6 +265,27 @@ dialog::backdrop {
   background-color: rgb(var(--c-scrim) / var(--scrim-alpha));
   animation: fade-in var(--dur-base) var(--ease-out) backwards;
 }
+
+/*
+ * Auth form rows that open and close as /login and /register swap, so the form's height
+ * moves instead of jumping. The inline padding keeps a field's focus outline clear of the clip.
+ */
+.reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
+}
+.reveal[data-open="false"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.reveal > * {
+  min-height: 0;
+  overflow: hidden;
+  margin-inline: -6px;
+  padding-inline: 6px;
+}
+.tab-thumb { transition: translate var(--dur-slow) var(--ease-out); }
 
 .tabular { font-variant-numeric: tabular-nums; }
 

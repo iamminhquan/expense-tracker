@@ -195,9 +195,8 @@ function CategoryChips({ categories, value, onChange, error }: CategoryChipsProp
           return (
             <label
               key={c.id}
-              className={`relative flex h-11 cursor-pointer items-center gap-2 rounded-full border pr-4 pl-3 text-[14px] leading-5 font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-95 motion-reduce:active:scale-100 ${
-                selected ? 'border-accent-text bg-accent-tint text-accent-text' : 'border-border bg-surface text-ink hover:bg-surface-2'
-              }`}
+              className={`relative flex h-11 cursor-pointer items-center gap-2 rounded-full border pr-4 pl-3 text-[14px] leading-5 font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-95 motion-reduce:active:scale-100 ${selected ? 'border-accent-text bg-accent-tint text-accent-text' : 'border-border bg-surface text-ink hover:bg-surface-2'
+                }`}
             >
               <input type="radio" name="quick-category" value={c.id} checked={selected} onChange={() => onChange(c.id)} className="peer sr-only" />
               <span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full" style={{ backgroundColor: c.color }}>
