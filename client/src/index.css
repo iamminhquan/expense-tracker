@@ -266,6 +266,27 @@ dialog::backdrop {
   animation: fade-in var(--dur-base) var(--ease-out) backwards;
 }
 
+/*
+ * Auth form rows that open and close as /login and /register swap, so the form's height
+ * moves instead of jumping. The inline padding keeps a field's focus outline clear of the clip.
+ */
+.reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
+}
+.reveal[data-open="false"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.reveal > * {
+  min-height: 0;
+  overflow: hidden;
+  margin-inline: -6px;
+  padding-inline: 6px;
+}
+.tab-thumb { transition: translate var(--dur-slow) var(--ease-out); }
+
 .tabular { font-variant-numeric: tabular-nums; }
 
 /* Money and other figures: display face, lining tabular digits. */
